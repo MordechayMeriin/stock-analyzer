@@ -53,7 +53,7 @@
 - [x] 7.3 Build the company and filing browser (tracked list + search, filings by year with the selected report and cached badges, credit usage); verify in the browser that selecting Malam shows FY2024/FY2025 correctly
 - [x] 7.4 Build the report reader (structure tree, node paragraphs with printed page markers, links to `document_url#page=N`, deep-link routes `/:ticker/:fy/report/:nodeId`); verify in the browser that the risk section opens through a deep link and its page links target the right PDF pages, and that mixed Hebrew/Latin text renders correctly
 - [x] 7.5 Build the financials view (statement-grouped table, one column per year, currency-formatted decimals, currency label); verify in the browser on Malam
-- [ ] 7.6 Build the LLM playground (pick a node or pages, enter a question, stream the answer, cancel keeping the partial answer, cost and source-paragraph links when done); verify in the browser against the FakeLLM-backed server and once live
+- [x] 7.6 Build the LLM playground (pick a node or pages, enter a question, stream the answer, cancel keeping the partial answer, cost and source-paragraph links when done); verify in the browser against the FakeLLM-backed server and once live
 - [ ] 7.7 Document dev setup and configuration in `web/README.md`; verify that following it from a clean checkout runs the client against a local server
 
 ## 8. Deployment
