@@ -1,0 +1,37 @@
+name: server
+
+on:
+  push:
+    paths:
+      - "server/**"
+      - ".github/workflows/server.yml"
+  pull_request:
+    paths:
+      - "server/**"
+      - ".github/workflows/server.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.11"
+          enable-cache: true
+      - run: uv sync --frozen
+      - name: Lint
+        run: |
+          uv run ruff check .
+          uv run ruff format --check .
+      - name: Tests (offline; full-report checks skip without cached data)
+        run: uv run pytest
+      - name: openapi.json is up to date
+        run: uv run python scripts/export_openapi.py --check

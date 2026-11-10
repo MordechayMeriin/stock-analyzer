@@ -427,6 +427,12 @@ class ReportMeta(BaseModel):
     fetched_at: str
 
 
+def read_exact(path: Path) -> str:
+    """Read UTF-8 text without newline translation (Path.read_text(newline=) needs Python 3.13)."""
+    with path.open(encoding="utf-8", newline="") as fh:
+        return fh.read()
+
+
 def raw_paths(settings: Settings, ticker: str, fiscal_year: int) -> tuple[Path, Path]:
     base = settings.raw_dir / ticker.upper()
     return base / f"{fiscal_year}.md", base / f"{fiscal_year}.meta.json"
@@ -458,5 +464,5 @@ def load_report(settings: Settings, ticker: str, fiscal_year: int) -> tuple[str,
     if not (md_path.exists() and meta_path.exists()):
         return None
     meta = ReportMeta.model_validate_json(meta_path.read_text(encoding="utf-8"))
-    text = md_path.read_text(encoding="utf-8", newline="")
+    text = read_exact(md_path)
     return text, meta

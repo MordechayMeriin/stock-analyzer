@@ -1,0 +1,13 @@
+# Keep the build context small and free of data and secrets.
+.venv
+**/__pycache__
+.pytest_cache
+.ruff_cache
+data/*
+!data/companies.yaml
+tests
+docs
+scripts
+*.log
+.env
+.env.*

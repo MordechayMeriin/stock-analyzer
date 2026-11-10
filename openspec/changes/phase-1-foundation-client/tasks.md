@@ -54,13 +54,13 @@
 - [x] 7.4 Build the report reader (structure tree, node paragraphs with printed page markers, links to `document_url#page=N`, deep-link routes `/:ticker/:fy/report/:nodeId`); verify in the browser that the risk section opens through a deep link and its page links target the right PDF pages, and that mixed Hebrew/Latin text renders correctly
 - [x] 7.5 Build the financials view (statement-grouped table, one column per year, currency-formatted decimals, currency label); verify in the browser on Malam
 - [x] 7.6 Build the LLM playground (pick a node or pages, enter a question, stream the answer, cancel keeping the partial answer, cost and source-paragraph links when done); verify in the browser against the FakeLLM-backed server and once live
-- [ ] 7.7 Document dev setup and configuration in `web/README.md`; verify that following it from a clean checkout runs the client against a local server
+- [x] 7.7 Document dev setup and configuration in `web/README.md`; verify that following it from a clean checkout runs the client against a local server
 
 ## 8. Deployment
 
-- [ ] 8.1 Write `server/Dockerfile` (slim Python, uv, uvicorn, `/data` volume, non-root user, no secrets); verify `docker build` succeeds, the container serves `/health`, and inspecting the image shows no `.env` or data
-- [ ] 8.2 Write `web/Dockerfile` (Node build → nginx serving `dist/`, with an entrypoint writing `/config.js` from `API_BASE_URL`); verify one image built once works against two different API URLs
-- [ ] 8.3 Write `docker-compose.yml` (server + web, `.env`, `./server/data` mounted, `ALLOW_LIVE` defaulting to false) and a root `README.md` covering the one-command local run and separate deployment of each part; verify that `docker compose up` serves the client and it loads cached Malam data
+- [x] 8.1 Write `server/Dockerfile` (slim Python, uv, uvicorn, `/data` volume, non-root user, no secrets); verify `docker build` succeeds, the container serves `/health`, and inspecting the image shows no `.env` or data
+- [x] 8.2 Write `web/Dockerfile` (Node build → nginx serving `dist/`, with an entrypoint writing `/config.js` from `API_BASE_URL`); verify one image built once works against two different API URLs
+- [x] 8.3 Write `docker-compose.yml` (server + web, `.env`, `./server/data` mounted, `ALLOW_LIVE` defaulting to false) and a root `README.md` covering the one-command local run and separate deployment of each part; verify that `docker compose up` serves the client and it loads cached Malam data
 - [ ] 8.4 Add CI with path filters (server: lint + pytest offline; web: lint + build + OpenAPI type-staleness check); verify both jobs pass and each triggers only on its own paths
 
 ## 9. End-to-end check

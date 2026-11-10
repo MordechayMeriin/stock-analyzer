@@ -15,6 +15,8 @@ import re
 import sys
 from pathlib import Path
 
+from stock_analyzer.ingest.fr_client import read_exact
+
 SERVER = Path(__file__).resolve().parent.parent
 RAW = SERVER / "data" / "raw" / "MLTM"
 OUT = SERVER / "tests" / "fixtures"
@@ -102,8 +104,8 @@ def write(name: str, content: str) -> None:
 
 def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
-    a = (RAW / "2024.md").read_text(encoding="utf-8", newline="")
-    b = (RAW / "2025.md").read_text(encoding="utf-8", newline="")
+    a = read_exact(RAW / "2024.md")
+    b = read_exact(RAW / "2025.md")
     write("mltm_2024_style_a.md", style_a_slice(a, STYLE_A_PAGES))
     write("mltm_2025_style_b.md", style_b_slice(b, STYLE_B_PAGES))
     fin = json.loads((RAW / "financials.json").read_text(encoding="utf-8"))

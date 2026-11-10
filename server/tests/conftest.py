@@ -13,6 +13,7 @@ import pytest
 from pydantic import SecretStr
 
 from stock_analyzer.config import Settings, reset_settings_cache
+from stock_analyzer.ingest.fr_client import read_exact
 
 FIXTURES = Path(__file__).parent / "fixtures"
 SERVER_ROOT = Path(__file__).resolve().parent.parent
@@ -77,11 +78,11 @@ def live_report(fiscal_year: int) -> str:
         pytest.skip(
             f"full Malam FY{fiscal_year} report not cached (run: stock-analyzer fetch MLTM {fiscal_year})"
         )
-    return path.read_text(encoding="utf-8", newline="")
+    return read_exact(path)
 
 
 def fixture_text(name: str) -> str:
-    return (FIXTURES / name).read_text(encoding="utf-8", newline="")
+    return read_exact(FIXTURES / name)
 
 
 def seed_fr_cache(settings, path: str, params: dict, body) -> None:
