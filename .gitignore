@@ -1,0 +1,34 @@
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Server data: only the tracked-company registry is versioned
+server/data/*
+!server/data/companies.yaml
+# plan.md §7: financial overrides are versioned too (Phase 3)
+!server/data/financials/
+server/data/financials/*
+!server/data/financials/overrides/
+logs/
+runs/
+*.jsonl
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+.coverage
+
+# Node / web
+node_modules/
+dist/
+*.tsbuildinfo
+
+# OS / editors
+.DS_Store
+.idea/
+.vscode/

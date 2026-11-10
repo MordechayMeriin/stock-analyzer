@@ -1,0 +1,57 @@
+[project]
+name = "stock-analyzer"
+version = "0.1.0"
+description = "The Committee: year-over-year analysis of Israeli listed companies' periodic reports (server)"
+requires-python = ">=3.11"
+dependencies = [
+    # plan.md §0 (minus chromadb / sentence-transformers, deferred to Phase 3,
+    # and gradio, replaced by the React client per design D2)
+    "httpx>=0.27",
+    "pydantic>=2.7",
+    "openai>=1.40",
+    "rapidfuzz>=3.9",
+    "scipy>=1.13",
+    "numpy>=1.26",
+    "diskcache>=5.6",
+    "typer>=0.12",
+    "pyyaml>=6.0",
+    # analyzer API
+    "fastapi>=0.111",
+    "uvicorn[standard]>=0.30",
+    "sse-starlette>=2.1",
+]
+
+[project.scripts]
+stock-analyzer = "stock_analyzer.cli:app"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.2",
+    "respx>=0.21",
+    "ruff>=0.5",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["stock_analyzer"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+markers = [
+    "live_data: needs full cached Malam reports under DATA_DIR (skipped otherwise)",
+]
+
+[tool.ruff]
+line-length = 110
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP"]
+ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["B011"]

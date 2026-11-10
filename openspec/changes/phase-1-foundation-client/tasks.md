@@ -2,10 +2,10 @@
 
 ## 1. Repository scaffold
 
-- [ ] 1.1 Create the root layout (`server/`, `web/`, `.gitignore` excluding `server/data/*` except `companies.yaml`, logs, runs, `.env`, `node_modules`, `dist`) and verify `git status` shows no data or secret files after a fetch
-- [ ] 1.2 Create `server/pyproject.toml` (Python 3.11+, deps from plan.md §0 minus chromadb/sentence-transformers, plus fastapi, uvicorn, sse-starlette) and the `stock_analyzer` package skeleton; verify `uv sync` succeeds and an empty `pytest` run passes
-- [ ] 1.3 Add `config.py`, which reads every setting from env with defaults (`FR_API_KEY`, `OPENROUTER_API_KEY`, `DATA_DIR`, `ALLOW_LIVE`, `CORS_ORIGINS`, `MODEL_MAIN`, `MODEL_CHEAP`, `PLAYGROUND_MAX_TOKENS`, parser thresholds), plus `.env.example`; verify a unit test that defaults load with no env set and that secrets are never in `repr()`
-- [ ] 1.4 Scaffold `web/` with Vite + React + TypeScript, Tailwind, shadcn/ui, TanStack Query, React Router, `<html dir="rtl" lang="he">` and a Hebrew font; verify `npm run build` and `npm run lint` pass
+- [x] 1.1 Create the root layout (`server/`, `web/`, `.gitignore` excluding `server/data/*` except `companies.yaml`, logs, runs, `.env`, `node_modules`, `dist`) and verify `git status` shows no data or secret files after a fetch
+- [x] 1.2 Create `server/pyproject.toml` (Python 3.11+, deps from plan.md §0 minus chromadb/sentence-transformers, plus fastapi, uvicorn, sse-starlette) and the `stock_analyzer` package skeleton; verify `uv sync` succeeds and an empty `pytest` run passes
+- [x] 1.3 Add `config.py`, which reads every setting from env with defaults (`FR_API_KEY`, `OPENROUTER_API_KEY`, `DATA_DIR`, `ALLOW_LIVE`, `CORS_ORIGINS`, `MODEL_MAIN`, `MODEL_CHEAP`, `PLAYGROUND_MAX_TOKENS`, parser thresholds), plus `.env.example`; verify a unit test that defaults load with no env set and that secrets are never in `repr()`
+- [x] 1.4 Scaffold `web/` with Vite + React + TypeScript, Tailwind, shadcn/ui, TanStack Query, React Router, `<html dir="rtl" lang="he">` and a Hebrew font; verify `npm run build` and `npm run lint` pass
 
 ## 2. LLM gateway
 
