@@ -18,11 +18,15 @@ The system SHALL detect which page-marking style a report's Markdown uses: style
 - **THEN** style B is detected, and `---` lines inside tables are not treated as page breaks
 
 ### Requirement: Page assignment with printed page numbers
-Every paragraph SHALL carry its page index in the original document and, when a footer shows one, the printed page number. The offset between printed and index numbers SHALL be checked for consistency across the report, and inconsistencies SHALL be logged with their pages.
+Every paragraph SHALL carry its page index in the original document and, when a footer shows one, the printed page number. The page index SHALL equal the page number of the original PDF. Printed numbering may restart at a chapter boundary; each restart SHALL be recorded with its page. Within a numbering run, the offset between printed and index numbers SHALL be checked for consistency, and inconsistencies SHALL be logged with their pages.
 
 #### Scenario: Consistent offset
 - **WHEN** the Malam FY2024 report is parsed
-- **THEN** the printed page numbers are the page index minus 2 throughout, and no inconsistency is logged
+- **THEN** the business chapter's printed page numbers are the page index minus 1 (the footer printed 55 is on PDF page 56), later chapters restart their own numbering, and no inconsistency is logged
+
+#### Scenario: Footnote rule is not a page break
+- **WHEN** a style B report has a `---` line followed by footnotes, inside a page that has no footer before it
+- **THEN** it is not treated as a page break, so page indices keep matching the PDF (Malam FY2025: 188 pages)
 
 ### Requirement: Noise stripping
 The system SHALL remove page footers, picture-text blocks and lines repeated on more than 30% of pages (a configurable threshold) before splitting the report into paragraphs.

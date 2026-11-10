@@ -1,0 +1,39 @@
+# Local combined run: API + web client, data persisted in ./server/data.
+#
+#   cp .env.example .env      # fill in FR_API_KEY / OPENROUTER_API_KEY for live mode
+#   docker compose up --build # client: http://localhost:8080   API docs: http://localhost:8000/docs
+#
+# Live mode is off unless you set ALLOW_LIVE=true in .env (it spends provider credits).
+
+services:
+  server:
+    build: ./server
+    image: stock-analyzer-server
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DATA_DIR: /data # the container path, whatever .env says for local runs
+      ALLOW_LIVE: ${ALLOW_LIVE:-false}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8080,http://localhost:5173}
+    # Run as your host user so the container can write ./server/data (e.g. APP_UID=$(id -u)).
+    user: "${APP_UID:-10001}:${APP_GID:-10001}"
+    volumes:
+      - ./server/data:/data
+      - ./server/data/companies.yaml:/app/data/companies.yaml:ro
+    ports:
+      - "${SERVER_PORT:-8000}:8000"
+    restart: unless-stopped
+
+  web:
+    build: ./web
+    image: stock-analyzer-web
+    environment:
+      # The browser calls the API directly, so this is the API's address as seen from the browser.
+      API_BASE_URL: ${API_BASE_URL:-http://localhost:8000}
+    ports:
+      - "${WEB_PORT:-8080}:80"
+    depends_on:
+      server:
+        condition: service_healthy
+    restart: unless-stopped

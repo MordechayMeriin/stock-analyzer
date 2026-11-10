@@ -1,0 +1,231 @@
+{
+ "count": 8,
+ "next": null,
+ "previous": null,
+ "results": [
+  {
+   "id": 32935334,
+   "company": {
+    "id": 6901,
+    "name": "Malam-Team Ltd.",
+    "isins": [
+     "IL0001560189"
+    ],
+    "country_code": "IL"
+   },
+   "filing_type": {
+    "id": 1,
+    "code": "10-K",
+    "name": "Annual Report"
+   },
+   "language": {
+    "code": "he"
+   },
+   "title": "Periodic and annual report for 2025",
+   "fiscal_year": 2025,
+   "fiscal_period": "FY",
+   "release_datetime": "2026-03-12T08:37:03.667000+00:00",
+   "file_extension": "PDF",
+   "file_size": 4215135,
+   "document": "https://cdn.financialreports.eu/financialreports/media/filings/6901/2026/RNS/6901_rns_2026-03-12_1891ebe9-b40d-4cbe-aae0-ff2fa85729b1.pdf",
+   "viewer_url": "https://financialfilings.com/filings/malam-team/annual-report/2026/32935334/",
+   "processing_status": "COMPLETED"
+  },
+  {
+   "id": 32935333,
+   "company": {
+    "id": 6901,
+    "name": "Malam-Team Ltd.",
+    "isins": [
+     "IL0001560189"
+    ],
+    "country_code": "IL"
+   },
+   "filing_type": {
+    "id": 1,
+    "code": "10-K",
+    "name": "Annual Report"
+   },
+   "language": {
+    "code": "he"
+   },
+   "title": "Periodic and annual report for 2025",
+   "fiscal_year": 2025,
+   "fiscal_period": "FY",
+   "release_datetime": "2026-03-12T08:37:03.667000+00:00",
+   "file_extension": "HTM",
+   "file_size": 121025,
+   "document": "https://cdn.financialreports.eu/financialreports/media/filings/6901/2026/RNS/6901_rns_2026-03-12_0b5b4da6-22a9-4944-bed3-0d072a251cd9.htm",
+   "viewer_url": "https://financialfilings.com/filings/malam-team/annual-report/2026/32935333/",
+   "processing_status": "COMPLETED"
+  },
+  {
+   "id": 63741654,
+   "company": {
+    "id": 6901,
+    "name": "Malam-Team Ltd.",
+    "isins": [
+     "IL0001560189"
+    ],
+    "country_code": "IL"
+   },
+   "filing_type": {
+    "id": 1,
+    "code": "10-K",
+    "name": "Annual Report"
+   },
+   "language": {
+    "code": "he"
+   },
+   "title": "דוח תקופתי ושנתי לשנת - 2024 - דוח iXBRL",
+   "fiscal_year": 2024,
+   "fiscal_period": "FY",
+   "release_datetime": "2025-03-18T08:29:04.217000+00:00",
+   "file_extension": "HTM",
+   "file_size": 44801,
+   "document": "https://cdn.financialreports.eu/financialreports/media/filings/6901/2025/RNS/6901_rns_2025-03-18_fc3f50a9-7ea1-4d50-8e82-e69c5e0bf9fe.htm",
+   "viewer_url": "https://financialfilings.com/filings/malam-team/annual-report/2025/63741654/",
+   "processing_status": "COMPLETED"
+  },
+  {
+   "id": 63741657,
+   "company": {
+    "id": 6901,
+    "name": "Malam-Team Ltd.",
+    "isins": [
+     "IL0001560189"
+    ],
+    "country_code": "IL"
+   },
+   "filing_type": {
+    "id": 1,
+    "code": "10-K",
+    "name": "Annual Report"
+   },
+   "language": {
+    "code": "he"
+   },
+   "title": "דוח תקופתי ושנתי לשנת 2024",
+   "fiscal_year": 2024,
+   "fiscal_period": "FY",
+   "release_datetime": "2025-03-18T05:00:03.453000+00:00",
+   "file_extension": "PDF",
+   "file_size": 4614691,
+   "document": "https://cdn.financialreports.eu/financialreports/media/filings/6901/2025/RNS/6901_rns_2025-03-18_c670c115-be02-49cd-af8f-44eb65803414.pdf",
+   "viewer_url": "https://financialfilings.com/filings/malam-team/annual-report/2025/63741657/",
+   "processing_status": "COMPLETED"
+  },
+  {
+   "id": 63728804,
+   "company": {
+    "id": 6901,
+    "name": "Malam-Team Ltd.",
+    "isins": [
+     "IL0001560189"
+    ],
+    "country_code": "IL"
+   },
+   "filing_type": {
+    "id": 1,
+    "code": "10-K",
+    "name": "Annual Report"
+   },
+   "language": {
+    "code": "he"
+   },
+   "title": "דוח תקופתי ושנתי לשנת 2024",
+   "fiscal_year": 2024,
+   "fiscal_period": "FY",
+   "release_datetime": "2025-03-18T05:00:03.453000+00:00",
+   "file_extension": "HTM",
+   "file_size": 119796,
+   "document": "https://cdn.financialreports.eu/financialreports/media/filings/6901/2025/RNS/6901_rns_2025-03-18_221e76f9-83e4-469f-a3a2-17202b789d81.htm",
+   "viewer_url": "https://financialfilings.com/filings/malam-team/annual-report/2025/63728804/",
+   "processing_status": "COMPLETED"
+  },
+  {
+   "id": 63741680,
+   "company": {
+    "id": 6901,
+    "name": "Malam-Team Ltd.",
+    "isins": [
+     "IL0001560189"
+    ],
+    "country_code": "IL"
+   },
+   "filing_type": {
+    "id": 1,
+    "code": "10-K",
+    "name": "Annual Report"
+   },
+   "language": {
+    "code": "he"
+   },
+   "title": "דוח תקופתי ושנתי לשנת - 2023 - דוח iXBRL",
+   "fiscal_year": 2023,
+   "fiscal_period": "FY",
+   "release_datetime": "2024-06-13T17:12:12.860000+00:00",
+   "file_extension": "HTM",
+   "file_size": 44782,
+   "document": "https://cdn.financialreports.eu/financialreports/media/filings/6901/2024/RNS/6901_rns_2024-06-13_52fc20b8-2645-465c-ac06-3475d25c5456.htm",
+   "viewer_url": "https://financialfilings.com/filings/malam-team/annual-report/2024/63741680/",
+   "processing_status": "COMPLETED"
+  },
+  {
+   "id": 63741686,
+   "company": {
+    "id": 6901,
+    "name": "Malam-Team Ltd.",
+    "isins": [
+     "IL0001560189"
+    ],
+    "country_code": "IL"
+   },
+   "filing_type": {
+    "id": 1,
+    "code": "10-K",
+    "name": "Annual Report"
+   },
+   "language": {
+    "code": "he"
+   },
+   "title": "דוח תקופתי ושנתי לשנת 2023",
+   "fiscal_year": 2023,
+   "fiscal_period": "FY",
+   "release_datetime": "2024-03-20T04:59:14.100000+00:00",
+   "file_extension": "PDF",
+   "file_size": 3724450,
+   "document": "https://cdn.financialreports.eu/financialreports/media/filings/6901/2024/RNS/6901_rns_2024-03-20_58ebd766-4fe4-4efc-a897-ae7375c1ffe3.pdf",
+   "viewer_url": "https://financialfilings.com/filings/malam-team/annual-report/2024/63741686/",
+   "processing_status": "COMPLETED"
+  },
+  {
+   "id": 63728855,
+   "company": {
+    "id": 6901,
+    "name": "Malam-Team Ltd.",
+    "isins": [
+     "IL0001560189"
+    ],
+    "country_code": "IL"
+   },
+   "filing_type": {
+    "id": 1,
+    "code": "10-K",
+    "name": "Annual Report"
+   },
+   "language": {
+    "code": "he"
+   },
+   "title": "דוח תקופתי ושנתי לשנת 2023",
+   "fiscal_year": 2023,
+   "fiscal_period": "FY",
+   "release_datetime": "2024-03-20T04:59:14.100000+00:00",
+   "file_extension": "HTM",
+   "file_size": 109619,
+   "document": "https://cdn.financialreports.eu/financialreports/media/filings/6901/2024/RNS/6901_rns_2024-03-20_2c6468ec-8405-4d7c-b90c-113509a880b6.htm",
+   "viewer_url": "https://financialfilings.com/filings/malam-team/annual-report/2024/63728855/",
+   "processing_status": "COMPLETED"
+  }
+ ]
+}

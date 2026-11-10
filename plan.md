@@ -62,7 +62,7 @@ class Paragraph(BaseModel):
     in_table: bool
 ```
 Two Markdown styles, sometimes within one company:
-- **A** (Malam 2024): `<!-- page 57 -->` markers; footer `… מלם תים בע"מ **| 55 |**` (printed number, offset 2); picture-text blocks.
+- **A** (Malam 2024): `<!-- page 57 -->` markers; footer `… מלם תים בע"מ **| 55 |**` (printed number = page index − 1; verified against the PDF); picture-text blocks.
 - **B** (Malam 2025): pages split by a `---` line (not a table divider); footer `… מלם תים בע"מ | 57`; repeated page headers.
 
 Detect the style → assign pages → check the printed/index offset is consistent → strip footers, picture-text blocks and lines repeated on > 30% of pages → split on blank lines (a table = one paragraph) → normalize (`normalize.py`, shared): strip bidi control chars, `**`, `<u>`, `<br>`, unify `״"` and `׳'`, unescape entities, collapse whitespace.
