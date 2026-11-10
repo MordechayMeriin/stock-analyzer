@@ -163,6 +163,8 @@ class Settings(BaseModel):
 class MissingCredential(RuntimeError):
     """A live call needs a credential that is not configured."""
 
+    code = "missing_credential"
+
     def __init__(self, env_var: str, purpose: str):
         self.env_var = env_var
         super().__init__(f"{purpose} needs {env_var}; set it in the environment (see .env.example)")

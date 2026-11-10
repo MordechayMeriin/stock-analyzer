@@ -16,10 +16,10 @@
 
 ## 3. Filings client
 
-- [ ] 3.1 Check paths and fields against the provider's `/api/schema/` (companies, filings, markdown paging headers, financials endpoint, `include=revisions`, usage) and record the findings in `server/docs/fr_api.md`; verify the doc lists each endpoint used, with its confirmed parameters
-- [ ] 3.2 Implement `fr_client.py` with the `X-API-Key` header, retries with exponential backoff that honor `Retry-After` on 429/5xx, immediate failure on other 4xx, a permanent disk cache with `refresh`, a cached-only mode raising `NotCached`, and a credit log in `DATA_DIR/logs/fr.jsonl`; verify respx tests for each of these behaviors and that the API key never appears in logs
-- [ ] 3.3 Implement `search_companies`, `list_filings`, `get_markdown` (follow the next offset; assert the total equals `X-Total-Chars`; save `raw/{ticker}/{fy}.md` + `.meta.json`), `get_financials` and `usage`; verify respx tests, including a multi-page fetch and the truncation failure
-- [ ] 3.4 Add `data/companies.yaml` (MLTM) and `select.py` implementing the report-selection rule; verify tests reproducing Malam FY2025 → 32935334, FY2024 → 63741657, and a loud failure when there is no candidate
+- [x] 3.1 Check paths and fields against the provider's `/api/schema/` (companies, filings, markdown paging headers, financials endpoint, `include=revisions`, usage) and record the findings in `server/docs/fr_api.md`; verify the doc lists each endpoint used, with its confirmed parameters
+- [x] 3.2 Implement `fr_client.py` with the `X-API-Key` header, retries with exponential backoff that honor `Retry-After` on 429/5xx, immediate failure on other 4xx, a permanent disk cache with `refresh`, a cached-only mode raising `NotCached`, and a credit log in `DATA_DIR/logs/fr.jsonl`; verify respx tests for each of these behaviors and that the API key never appears in logs
+- [x] 3.3 Implement `search_companies`, `list_filings`, `get_markdown` (follow the next offset; assert the total equals `X-Total-Chars`; save `raw/{ticker}/{fy}.md` + `.meta.json`), `get_financials` and `usage`; verify respx tests, including a multi-page fetch and the truncation failure
+- [x] 3.4 Add `data/companies.yaml` (MLTM) and `select.py` implementing the report-selection rule; verify tests reproducing Malam FY2025 → 32935334, FY2024 → 63741657, and a loud failure when there is no candidate
 - [ ] 3.5 Add the `cli.py` commands `fetch TICKER FY... [--refresh]` and `usage`; run a live fetch of Malam FY2024/FY2025 plus financials once; verify the raw files exist, the lengths match their metadata, and the credits used are logged
 - [ ] 3.6 Save trimmed fixture slices (TOC, risk section, legal section, one table, auditor's report, pages in style A and style B, plus a saved financials JSON) to `server/tests/fixtures/`; verify fixtures are under a size budget and full documents are not committed
 

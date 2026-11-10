@@ -1,0 +1,8 @@
+# Tracked companies (version-controlled). plan.md §1.2
+# ticker: exchange ticker; fr_company_id: FinancialFilings internal company id.
+companies:
+  - ticker: MLTM
+    name_he: מלם תים
+    name_en: Malam-Team Ltd.
+    fr_company_id: 6901
+    isin: IL0001560189
