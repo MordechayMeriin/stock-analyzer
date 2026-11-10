@@ -64,3 +64,21 @@ def settings(data_dir) -> Settings:
 @pytest.fixture
 def fixtures_dir() -> Path:
     return FIXTURES
+
+
+LIVE_RAW = SERVER_ROOT / "data" / "raw" / "MLTM"
+LIVE_FILINGS = {2024: 63741657, 2025: 32935334}
+
+
+def live_report(fiscal_year: int) -> str:
+    """Full cached Malam report text; skips the test when it has not been fetched."""
+    path = LIVE_RAW / f"{fiscal_year}.md"
+    if not path.exists():
+        pytest.skip(
+            f"full Malam FY{fiscal_year} report not cached (run: stock-analyzer fetch MLTM {fiscal_year})"
+        )
+    return path.read_text(encoding="utf-8", newline="")
+
+
+def fixture_text(name: str) -> str:
+    return (FIXTURES / name).read_text(encoding="utf-8", newline="")

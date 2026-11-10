@@ -28,9 +28,12 @@ STYLE_B_PAGES = [
     *range(56, 65),  # legal proceedings (body §19), risk factors (body §22) incl. the impact table
     *range(65, 68),  # directors' report: chapter page + lettered headings
     *range(83, 91),  # financial statements: chapter page, FS TOC, auditor's report, first statement
-    99, 100,  # notes: ביאור 1 and the bidi-reversed "... - 2 ביאור"
+    99,
+    100,  # notes: ביאור 1 and the bidi-reversed "... - 2 ביאור"
     *range(146, 152),  # chapter 4 + the footnote "---" inside PDF page 150 (md 150/151)
-    165, 184, 188,  # chapters 5, 6 (internal control), 7
+    165,
+    184,
+    188,  # chapters 5, 6 (internal control), 7
 ]
 
 
@@ -53,8 +56,18 @@ def trim_financials(data: dict, years: range) -> dict:
     keep_period = {"fiscal_year", "fiscal_period", "period_start_date", "period_end_date"}
     keep_stmt = {"statement_type", "currency", "currency_mismatch", "source_filing"}
     keep_item = {
-        "code", "name", "statement_type", "depth", "parent_code", "sort_order", "value", "raw_value",
-        "scale", "currency", "available_at", "revisions",
+        "code",
+        "name",
+        "statement_type",
+        "depth",
+        "parent_code",
+        "sort_order",
+        "value",
+        "raw_value",
+        "scale",
+        "currency",
+        "available_at",
+        "revisions",
     }
     periods = []
     for p in data["periods"]:
@@ -94,7 +107,10 @@ def main() -> None:
     write("mltm_2024_style_a.md", style_a_slice(a, STYLE_A_PAGES))
     write("mltm_2025_style_b.md", style_b_slice(b, STYLE_B_PAGES))
     fin = json.loads((RAW / "financials.json").read_text(encoding="utf-8"))
-    write("mltm_financials.json", json.dumps(trim_financials(fin, range(2021, 2026)), ensure_ascii=False, indent=1))
+    write(
+        "mltm_financials.json",
+        json.dumps(trim_financials(fin, range(2021, 2026)), ensure_ascii=False, indent=1),
+    )
     meta = {
         "style_a_pages": STYLE_A_PAGES,
         "style_b_pages": STYLE_B_PAGES,

@@ -25,12 +25,12 @@
 
 ## 4. Report parsing
 
-- [ ] 4.1 Implement the shared `ingest/normalize.py` (bidi controls, `**`/`<u>`/`<br>`, geresh/gershayim unification, entities, whitespace); verify table-driven unit tests, including `ש״ח` ≡ `ש"ח`
-- [ ] 4.2 Implement page-style detection and page assignment in `parse_md.py` (style A markers, style B `---` excluding table dividers, printed-page footers, the offset consistency check per numbering run, footnote `---` rules that are not page breaks); verify tests on both fixtures, including the Malam FY2024 offset of 1 (verified against the PDF) and Malam FY2025 having 188 pages like its PDF
-- [ ] 4.3 Implement stripping of footers, picture text and repeated lines, plus paragraph splitting into the `Paragraph` model with stable `pid`s and one paragraph per table; verify tests for stable ids across runs, a repeated header removed, and a table kept as one paragraph
-- [ ] 4.4 Implement chapter detection in `structure.py`, ignoring TOC matches, with once-per-chapter sanity; verify a test on Malam FY2025 showing all five chapters found once
-- [ ] 4.5 Implement TOC parsing and title-anchored business sections (`token_set_ratio` threshold from config); verify a test where the TOC says 25 and the body says 22 and the section is still found by title, plus a warning when fewer than 10 sections are found
-- [ ] 4.6 Implement subsection regexes for all six numbering forms, directors'-report lettered headings, and splitting financial statements into the auditor's report, the statements and the `ביאור N` notes; verify one test per numbering form and a notes test
+- [x] 4.1 Implement the shared `ingest/normalize.py` (bidi controls, `**`/`<u>`/`<br>`, geresh/gershayim unification, entities, whitespace); verify table-driven unit tests, including `ש״ח` ≡ `ש"ח`
+- [x] 4.2 Implement page-style detection and page assignment in `parse_md.py` (style A markers, style B `---` excluding table dividers, printed-page footers, the offset consistency check per numbering run, footnote `---` rules that are not page breaks); verify tests on both fixtures, including the Malam FY2024 offset of 1 (verified against the PDF) and Malam FY2025 having 188 pages like its PDF
+- [x] 4.3 Implement stripping of footers, picture text and repeated lines, plus paragraph splitting into the `Paragraph` model with stable `pid`s and one paragraph per table; verify tests for stable ids across runs, a repeated header removed, and a table kept as one paragraph
+- [x] 4.4 Implement chapter detection in `structure.py`, ignoring TOC matches, with once-per-chapter sanity; verify a test on Malam FY2025 showing all five chapters found once
+- [x] 4.5 Implement TOC parsing and title-anchored business sections (`token_set_ratio` threshold from config); verify a test where the TOC says 25 and the body says 22 and the section is still found by title, plus a warning when fewer than 10 sections are found
+- [x] 4.6 Implement subsection regexes for all six numbering forms, directors'-report lettered headings, and splitting financial statements into the auditor's report, the statements and the `ביאור N` notes; verify one test per numbering form and a notes test
 - [ ] 4.7 Add the `structure TICKER FY` CLI command, which prints the tree with page ranges and a coverage summary; run it on cached Malam 2024 and 2025 and verify the tree against the Markdown by spot-checking 5 sections; record any discrepancies as fixtures plus tests
 
 ## 5. Financial data

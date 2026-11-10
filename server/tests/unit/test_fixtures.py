@@ -26,5 +26,7 @@ def test_markdown_fixtures_are_slices():
 
 
 def test_full_reports_not_tracked_by_git():
-    out = subprocess.run(["git", "ls-files", "--", "data/raw"], capture_output=True, text=True, cwd=FIXTURES.parent.parent)
+    out = subprocess.run(
+        ["git", "ls-files", "--", "data/raw"], capture_output=True, text=True, cwd=FIXTURES.parent.parent
+    )
     assert out.stdout.strip() == ""
