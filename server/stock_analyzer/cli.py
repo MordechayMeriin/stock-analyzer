@@ -112,7 +112,7 @@ def structure(
         if depth and by_id[node_id].level > depth:
             continue
         typer.echo(line)
-    c = out.coverage
+    c = out.coverage.model_dump()
     typer.echo("")
     typer.echo(
         f"{out.ticker} FY{out.fiscal_year} — filing {out.filing_id}, {out.page_count} pages (style {out.page_style})"

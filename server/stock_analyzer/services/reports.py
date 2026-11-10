@@ -123,7 +123,7 @@ def report_structure(ctx: Ctx, ticker: str, fiscal_year: int) -> StructureOut:
         nodes=[_node_out(n, parsed) for n in structure.nodes],
         roots=structure.roots,
         toc=[TocEntryOut(**e.model_dump()) for e in structure.toc],
-        coverage=structure.coverage.model_dump(),
+        coverage=structure.coverage,
         warnings=structure.warnings + parsed.warnings,
     )
 

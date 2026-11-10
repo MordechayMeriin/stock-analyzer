@@ -7,6 +7,8 @@ from typing import Any
 
 from pydantic import BaseModel
 
+from stock_analyzer.ingest.structure import Coverage
+
 
 class CompanyOut(BaseModel):
     ticker: str
@@ -103,7 +105,7 @@ class StructureOut(BaseModel):
     nodes: list[NodeOut]
     roots: list[str]
     toc: list[TocEntryOut]
-    coverage: dict[str, Any]
+    coverage: Coverage
     warnings: list[str]
 
 

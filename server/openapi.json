@@ -108,6 +108,96 @@
         "title": "CompanySearchHit",
         "type": "object"
       },
+      "Coverage": {
+        "properties": {
+          "auditor_reports": {
+            "title": "Auditor Reports",
+            "type": "integer"
+          },
+          "business_sections": {
+            "title": "Business Sections",
+            "type": "integer"
+          },
+          "business_sections_matched_from_toc": {
+            "title": "Business Sections Matched From Toc",
+            "type": "integer"
+          },
+          "business_toc_entries": {
+            "title": "Business Toc Entries",
+            "type": "integer"
+          },
+          "chapters_duplicated": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Chapters Duplicated",
+            "type": "array"
+          },
+          "chapters_found": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Chapters Found",
+            "type": "array"
+          },
+          "chapters_missing": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Chapters Missing",
+            "type": "array"
+          },
+          "directors_headings": {
+            "title": "Directors Headings",
+            "type": "integer"
+          },
+          "note_numbers_missing": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Note Numbers Missing",
+            "type": "array"
+          },
+          "notes": {
+            "title": "Notes",
+            "type": "integer"
+          },
+          "paragraphs": {
+            "title": "Paragraphs",
+            "type": "integer"
+          },
+          "paragraphs_in_chapters": {
+            "title": "Paragraphs In Chapters",
+            "type": "integer"
+          },
+          "statements": {
+            "title": "Statements",
+            "type": "integer"
+          },
+          "subsections": {
+            "title": "Subsections",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "paragraphs",
+          "paragraphs_in_chapters",
+          "chapters_found",
+          "chapters_missing",
+          "chapters_duplicated",
+          "business_toc_entries",
+          "business_sections",
+          "business_sections_matched_from_toc",
+          "subsections",
+          "directors_headings",
+          "notes",
+          "note_numbers_missing",
+          "auditor_reports",
+          "statements"
+        ],
+        "title": "Coverage",
+        "type": "object"
+      },
       "ErrorOut": {
         "properties": {
           "code": {
@@ -957,9 +1047,7 @@
       "StructureOut": {
         "properties": {
           "coverage": {
-            "additionalProperties": true,
-            "title": "Coverage",
-            "type": "object"
+            "$ref": "#/components/schemas/Coverage"
           },
           "document_url": {
             "anyOf": [
