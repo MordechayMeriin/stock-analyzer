@@ -72,6 +72,70 @@ def usage(mode: ModeOpt = "live") -> None:
     typer.echo()
 
 
+def render_structure(out) -> list[str]:
+    """Text rendering of a structure tree, shared by the CLI and the parity test."""
+    by_id = {n.node_id: n for n in out.nodes}
+    lines: list[str] = []
+
+    def walk(node_id: str, depth: int) -> None:
+        n = by_id[node_id]
+        printed = n.printed_pages
+        pp = f" (printed {printed[0]}–{printed[1]})" if printed[0] is not None else ""
+        number = f"{n.number} " if n.number and n.kind != "chapter" else ""
+        lines.append(f"{'  ' * depth}{number}{n.title}  [p{n.pages[0]}–{n.pages[1]}{pp}]  #{n.node_id}")
+        for child in n.children:
+            walk(child, depth + 1)
+
+    for root in out.roots:
+        walk(root, 0)
+    return lines
+
+
+@app.command()
+def structure(
+    ticker: str,
+    fiscal_year: int,
+    mode: ModeOpt = "cached",
+    depth: Annotated[int, typer.Option(help="Max tree depth to print (0 = all)")] = 0,
+) -> None:
+    """Print a report's structure tree with page ranges, then a coverage summary."""
+    from stock_analyzer.services import reports
+
+    try:
+        out = reports.report_structure(_ctx(mode), ticker, fiscal_year)
+    except (AnalyzerError, MissingCredential, ValueError) as exc:
+        _fail(exc)
+        return
+    by_id = {n.node_id: n for n in out.nodes}
+    for line in render_structure(out):
+        node_id = line.rsplit("#", 1)[-1]
+        if depth and by_id[node_id].level > depth:
+            continue
+        typer.echo(line)
+    c = out.coverage
+    typer.echo("")
+    typer.echo(
+        f"{out.ticker} FY{out.fiscal_year} — filing {out.filing_id}, {out.page_count} pages (style {out.page_style})"
+    )
+    typer.echo(
+        f"chapters: {', '.join(c['chapters_found'])}"
+        + (f" | missing: {', '.join(c['chapters_missing'])}" if c["chapters_missing"] else "")
+        + (f" | duplicated: {', '.join(c['chapters_duplicated'])}" if c["chapters_duplicated"] else "")
+    )
+    typer.echo(
+        f"business sections: {c['business_sections']} (TOC entries {c['business_toc_entries']}, matched "
+        f"{c['business_sections_matched_from_toc']}), subsections: {c['subsections']}"
+    )
+    typer.echo(
+        f"directors' headings: {c['directors_headings']}, auditor's reports: {c['auditor_reports']}, "
+        f"statements: {c['statements']}, notes: {c['notes']}"
+        + (f" (no heading for {c['note_numbers_missing']})" if c["note_numbers_missing"] else "")
+    )
+    typer.echo(f"paragraphs in chapters: {c['paragraphs_in_chapters']}/{c['paragraphs']}")
+    for warning in out.warnings:
+        typer.secho(f"warning: {warning}", fg=typer.colors.YELLOW)
+
+
 def main() -> None:  # pragma: no cover
     app()
 

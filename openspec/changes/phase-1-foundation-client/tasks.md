@@ -31,7 +31,7 @@
 - [x] 4.4 Implement chapter detection in `structure.py`, ignoring TOC matches, with once-per-chapter sanity; verify a test on Malam FY2025 showing all five chapters found once
 - [x] 4.5 Implement TOC parsing and title-anchored business sections (`token_set_ratio` threshold from config); verify a test where the TOC says 25 and the body says 22 and the section is still found by title, plus a warning when fewer than 10 sections are found
 - [x] 4.6 Implement subsection regexes for all six numbering forms, directors'-report lettered headings, and splitting financial statements into the auditor's report, the statements and the `ביאור N` notes; verify one test per numbering form and a notes test
-- [ ] 4.7 Add the `structure TICKER FY` CLI command, which prints the tree with page ranges and a coverage summary; run it on cached Malam 2024 and 2025 and verify the tree against the Markdown by spot-checking 5 sections; record any discrepancies as fixtures plus tests
+- [x] 4.7 Add the `structure TICKER FY` CLI command, which prints the tree with page ranges and a coverage summary; run it on cached Malam 2024 and 2025 and verify the tree against the Markdown by spot-checking 5 sections; record any discrepancies as fixtures plus tests
 
 ## 5. Financial data
 

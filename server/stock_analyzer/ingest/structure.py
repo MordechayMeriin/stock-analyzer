@@ -153,7 +153,7 @@ _NOTE_PATTERNS = (
     re.compile(r"^(\d{1,2})\s+ביאור\s*(?:[-–:]\s*(.*))?$"),
     re.compile(r"^(.*?)\s*[-–]\s*(\d{1,2})\s+ביאור$"),
 )
-_AUDITOR = re.compile(r"דוח(?:ות)?\s+(?:מיוחד\s+של\s+)?(?:רואה|רואי|ראי|רוא\"ח)\s+ה?חשבון")
+_AUDITOR = re.compile(r"^דוח(?:ות)?\s+(?:מיוחד\s+של\s+)?(?:רואה|רואי|ראי|רוא\"ח)\s+ה?חשבון")
 _STATEMENT = re.compile(
     r"^(?:דוחות|דוח|נתונים)\s+(?:מאוחדים\s+|מאוחד\s+|כספיים\s+)?על\s+(?:ה)?(?:מצב\s+הכספי|רווח\s+(?:ו|או\s+)הפסד|רווח\s+הכולל|"
     r"הרווח\s+הכולל|רווח\s+כולל|שינויים\s+בהון|השינויים\s+בהון|תזרימי\s+המזומנים|תזרימי\s+מזומנים)"
@@ -299,7 +299,10 @@ def find_chapters(
                     or not (q.heading_level or len(_first_line(q)) <= 60)
                 ):
                     break
-                hints.append(_first_line(q))
+                line = _first_line(q)
+                # skip brand and footer-like lines ("MalamTeam", "www.x.com | חברה | 3")
+                if re.search(r"[א-ת]", line) and not re.search(r"\||www\.|https?:", line):
+                    hints.append(line)
             nxt = " ".join(hints)
             title_hint = f"{t} {nxt}"
         else:

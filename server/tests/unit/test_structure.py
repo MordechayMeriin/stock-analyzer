@@ -219,6 +219,24 @@ def test_financial_statements_parts(fixture_b):
     assert (note.title, note.kind, note.parent) == ("כללי", "note", "financials-notes")
 
 
+def test_auditor_heading_must_start_the_line():
+    text = doc(
+        "# פרק שלישי\n\n## דוחות כספיים",
+        "# דוח רואה החשבון המבקר לבעלי המניות\n\nחוות דעת",
+        "שותף ההתקשרות של הביקורת נשוא דוח רואה החשבון המבקר הוא פלוני.\n\nדוחות מאוחדים על המצב הכספי",
+    )
+    s = structure_of(text)
+    assert [n.title for n in s.nodes if n.kind == "auditor_report"] == ["דוח רואה החשבון המבקר לבעלי המניות"]
+    assert [n.title for n in s.nodes if n.kind == "statement"] == ["דוחות מאוחדים על המצב הכספי"]
+
+
+def test_chapter_title_skips_brand_lines():
+    s = structure_of(
+        doc('# פרק חמישי\n## שאלון ממשל תאגידי\n\nMalamTeam\n\nwww.malamteam.com | מלם-תים בע"מ 0 |', "גוף")
+    )
+    assert s.node("chapter-5").title == "פרק חמישי שאלון ממשל תאגידי"
+
+
 def test_notes_in_every_layout():
     text = doc(
         "# פרק שלישי\n\n## דוחות כספיים",

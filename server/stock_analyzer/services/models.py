@@ -71,3 +71,65 @@ class UsageOut(BaseModel):
     provider_error: str | None = None
     fr_log: dict[str, int]
     llm: dict[str, float | int]
+
+
+class NodeOut(BaseModel):
+    node_id: str
+    kind: str
+    chapter: str
+    number: str | None
+    title: str
+    level: int
+    para_range: tuple[int, int]
+    pages: tuple[int, int]
+    printed_pages: tuple[int | None, int | None]
+    children: list[str]
+    parent: str | None
+
+
+class TocEntryOut(BaseModel):
+    number: str | None
+    title: str
+    matched_node: str | None
+
+
+class StructureOut(BaseModel):
+    ticker: str
+    fiscal_year: int
+    filing_id: int
+    document_url: str | None
+    page_count: int
+    page_style: str
+    nodes: list[NodeOut]
+    roots: list[str]
+    toc: list[TocEntryOut]
+    coverage: dict[str, Any]
+    warnings: list[str]
+
+
+class ParagraphOut(BaseModel):
+    pid: str
+    seq: int
+    text: str
+    page_index: int
+    page_printed: int | None
+    heading_level: int
+    in_table: bool
+    citation_url: str | None  # document_url#page=N
+
+
+class NodeParagraphsOut(BaseModel):
+    ticker: str
+    fiscal_year: int
+    node: NodeOut
+    paragraphs: list[ParagraphOut]
+
+
+class PageParagraphsOut(BaseModel):
+    ticker: str
+    fiscal_year: int
+    page_index: int
+    page_printed: int | None
+    citation_url: str | None
+    node_ids: list[str]  # deepest nodes that cover this page
+    paragraphs: list[ParagraphOut]
