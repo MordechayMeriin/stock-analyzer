@@ -61,12 +61,12 @@
 - [x] 8.1 Write `server/Dockerfile` (slim Python, uv, uvicorn, `/data` volume, non-root user, no secrets); verify `docker build` succeeds, the container serves `/health`, and inspecting the image shows no `.env` or data
 - [x] 8.2 Write `web/Dockerfile` (Node build → nginx serving `dist/`, with an entrypoint writing `/config.js` from `API_BASE_URL`); verify one image built once works against two different API URLs
 - [x] 8.3 Write `docker-compose.yml` (server + web, `.env`, `./server/data` mounted, `ALLOW_LIVE` defaulting to false) and a root `README.md` covering the one-command local run and separate deployment of each part; verify that `docker compose up` serves the client and it loads cached Malam data
-- [ ] 8.4 Add CI with path filters (server: lint + pytest offline; web: lint + build + OpenAPI type-staleness check); verify both jobs pass and each triggers only on its own paths
+- [x] 8.4 Add CI with path filters (server: lint + pytest offline; web: lint + build + OpenAPI type-staleness check); verify both jobs pass and each triggers only on its own paths
 
 ## 9. End-to-end check
 
 - [x] 9.1 Starting from a clean checkout with cached Malam data only, run the stack in cached mode and walk through each view: browse → read the risk section through page links → financials → a playground question with FakeLLM. Verify zero provider calls in `fr.jsonl` during the walkthrough
-- [ ] 9.2 Run one live playground question and one `--refresh` fetch against the real services; verify that the cost and credits appear in the usage panel and the logs
+- [x] 9.2 Run one live playground question and one `--refresh` fetch against the real services; verify that the cost and credits appear in the usage panel and the logs
 
 ## Workflow follow-up
 
