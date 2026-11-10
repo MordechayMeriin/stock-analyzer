@@ -16,6 +16,13 @@ import { rememberYear } from '@/lib/years'
 
 type Status = 'idle' | 'streaming' | 'done' | 'cancelled' | 'error'
 
+/** Render the model's **bold** spans; everything else stays plain text (no HTML injection). */
+function renderAnswer(text: string) {
+  return text.split(/(\*\*[^*\n]+\*\*)/g).map((part, i) =>
+    part.startsWith('**') && part.endsWith('**') && part.length > 4 ? <strong key={i}>{part.slice(2, -2)}</strong> : part,
+  )
+}
+
 function pageOfPid(pid: string): number | null {
   const m = /-p(\d{4})-\d{3}$/.exec(pid)
   return m ? Number(m[1]) : null
@@ -180,7 +187,7 @@ export function PlaygroundPage() {
             </CardHeader>
             <CardContent>
               <p className="leading-7 whitespace-pre-wrap" dir="rtl">
-                {answer}
+                {renderAnswer(answer)}
                 {status === 'streaming' && <span className="animate-pulse">▍</span>}
               </p>
             </CardContent>
