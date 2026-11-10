@@ -82,3 +82,51 @@ def live_report(fiscal_year: int) -> str:
 
 def fixture_text(name: str) -> str:
     return (FIXTURES / name).read_text(encoding="utf-8", newline="")
+
+
+def seed_fr_cache(settings, path: str, params: dict, body) -> None:
+    """Put a provider response into the FR client's disk cache (as if fetched live)."""
+    import json as _json
+    from datetime import UTC, datetime
+
+    from stock_analyzer.ingest.fr_client import FRClient, FRResponse
+
+    client = FRClient(settings)
+    text = body if isinstance(body, str) else _json.dumps(body, ensure_ascii=False)
+    client.cache.set(
+        FRClient.cache_key(path, params),
+        FRResponse(
+            status=200, body=text, total_chars=len(text), fetched_at=datetime.now(UTC).isoformat()
+        ).model_dump(),
+    )
+    client.close()
+
+
+def seed_malam(settings) -> None:
+    """Cached Malam data for offline service/API tests: filings, FY2025 report (fixture), financials."""
+    import json as _json
+
+    from stock_analyzer.ingest.fr_client import Filing, save_report
+
+    filings = _json.loads((FIXTURES / "malam_filings.json").read_text())
+    seed_fr_cache(
+        settings,
+        "/filings/",
+        {
+            "company": 6901,
+            "type": "10-K",
+            "ordering": "-release_datetime",
+            "view": "full",
+            "page_size": 100,
+            "page": 1,
+        },
+        filings,
+    )
+    seed_fr_cache(
+        settings,
+        "/companies/6901/financials/",
+        {"fiscal_period": "FY"},
+        _json.loads((FIXTURES / "mltm_financials.json").read_text()),
+    )
+    row = next(r for r in filings["results"] if r["id"] == 32935334)
+    save_report(settings, "MLTM", 2025, Filing.model_validate(row), fixture_text("mltm_2025_style_b.md"))

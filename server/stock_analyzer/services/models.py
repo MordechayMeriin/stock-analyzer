@@ -133,3 +133,26 @@ class PageParagraphsOut(BaseModel):
     citation_url: str | None
     node_ids: list[str]  # deepest nodes that cover this page
     paragraphs: list[ParagraphOut]
+
+
+class FinItemOut(BaseModel):
+    code: str
+    label: str
+    depth: int
+    values: dict[str, str | None]  # fiscal year → exact decimal string (never a JSON float)
+    as_reported: dict[str, bool]  # fiscal year → raw value and scale both reported
+
+
+class FinStatementOut(BaseModel):
+    statement: str
+    label: str
+    items: list[FinItemOut]
+
+
+class FinancialsOut(BaseModel):
+    ticker: str
+    currency: str | None
+    years: list[int]  # newest first
+    as_of: str | None
+    statements: list[FinStatementOut]
+    available_at: dict[str, str | None]  # fiscal year → earliest availability timestamp

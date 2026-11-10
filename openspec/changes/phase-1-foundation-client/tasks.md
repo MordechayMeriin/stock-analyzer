@@ -35,8 +35,8 @@
 
 ## 5. Financial data
 
-- [ ] 5.1 Implement `fin/normalize.py` → `FinValue` (exact Decimal from raw value × scale, statement, currency, `available_at`, source filing) with a currency-mismatch error and an `as_of` filter; verify tests for the scaled value (4,138,004 thousands → 4138004000), the mismatch error, and the late-availability trap for Malam FY2023
-- [ ] 5.2 Add the `fin-raw TICKER` CLI command, which prints values grouped by statement and year; verify it runs on cached Malam and shows FY2025 revenue
+- [x] 5.1 Implement `fin/normalize.py` → `FinValue` (exact Decimal from raw value × scale, statement, currency, `available_at`, source filing) with a currency-mismatch error and an `as_of` filter; verify tests for the scaled value (4,138,004 thousands → 4138004000), the mismatch error, and the late-availability trap for Malam FY2023
+- [x] 5.2 Add the `fin-raw TICKER` CLI command, which prints values grouped by statement and year; verify it runs on cached Malam and shows FY2025 revenue
 
 ## 6. Analyzer API
 

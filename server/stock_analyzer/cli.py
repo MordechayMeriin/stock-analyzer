@@ -136,6 +136,46 @@ def structure(
         typer.secho(f"warning: {warning}", fg=typer.colors.YELLOW)
 
 
+def _fmt_decimal(raw: str | None) -> str:
+    if raw is None:
+        return "—"
+    from decimal import Decimal
+
+    d = Decimal(raw)
+    return f"{d:,.0f}" if d == d.to_integral_value() or abs(d) >= 1000 else f"{d:,}"
+
+
+@app.command("fin-raw")
+def fin_raw(
+    ticker: str,
+    mode: ModeOpt = "cached",
+    as_of: Annotated[
+        str | None, typer.Option("--as-of", help="Only values available by this date (YYYY-MM-DD)")
+    ] = None,
+) -> None:
+    """Print a company's normalized financial values, grouped by statement and fiscal year."""
+    from datetime import date
+
+    from stock_analyzer.services import financials as fin_service
+
+    try:
+        cutoff = date.fromisoformat(as_of) if as_of else None
+        out = fin_service.financials(_ctx(mode), ticker, as_of=cutoff)
+    except (AnalyzerError, MissingCredential, ValueError) as exc:
+        _fail(exc)
+        return
+    years = [str(y) for y in out.years]
+    width = max((len(i.label) for s in out.statements for i in s.items), default=10) + 2
+    typer.echo(f"{out.ticker} — currency {out.currency}" + (f", as of {out.as_of}" if out.as_of else ""))
+    for st in out.statements:
+        typer.echo("")
+        typer.echo(f"{st.label} ({st.statement})")
+        typer.echo(f"{'':{width}}" + "".join(f"{('FY' + y):>18}" for y in years))
+        for it in st.items:
+            label = ("  " * it.depth + it.label)[: width - 1]
+            typer.echo(f"{label:{width}}" + "".join(f"{_fmt_decimal(it.values.get(y)):>18}" for y in years))
+
+
 def main() -> None:  # pragma: no cover
     app()
 
