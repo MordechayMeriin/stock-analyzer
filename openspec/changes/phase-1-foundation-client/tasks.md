@@ -9,10 +9,10 @@
 
 ## 2. LLM gateway
 
-- [ ] 2.1 Implement `llm.py` `complete_json` (OpenRouter through the OpenAI-compatible client, JSON-schema output, pydantic validation, one repair retry carrying the error); verify unit tests for valid output, a successful repair, and a failed repair raising with the raw output (HTTP mocked with respx)
-- [ ] 2.2 Add the disk cache keyed by model, prompts, schema and params, and the JSONL cost/latency log under `DATA_DIR/logs/llm.jsonl`; verify a test showing that a second identical call is a cache hit with cost 0 and both calls are logged
-- [ ] 2.3 Implement `stream_text` yielding `delta` events and a final usage/cost event; verify a test against a mocked streaming response
-- [ ] 2.4 Implement `FakeLLM` (scripted or schema-derived responses, streaming supported) behind the same interface; verify the full suite passes with the network disabled and no API key
+- [x] 2.1 Implement `llm.py` `complete_json` (OpenRouter through the OpenAI-compatible client, JSON-schema output, pydantic validation, one repair retry carrying the error); verify unit tests for valid output, a successful repair, and a failed repair raising with the raw output (HTTP mocked with respx)
+- [x] 2.2 Add the disk cache keyed by model, prompts, schema and params, and the JSONL cost/latency log under `DATA_DIR/logs/llm.jsonl`; verify a test showing that a second identical call is a cache hit with cost 0 and both calls are logged
+- [x] 2.3 Implement `stream_text` yielding `delta` events and a final usage/cost event; verify a test against a mocked streaming response
+- [x] 2.4 Implement `FakeLLM` (scripted or schema-derived responses, streaming supported) behind the same interface; verify the full suite passes with the network disabled and no API key
 
 ## 3. Filings client
 

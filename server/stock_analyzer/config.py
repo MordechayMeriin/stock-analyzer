@@ -58,6 +58,7 @@ class Settings(BaseModel):
     openrouter_base_url: str = "https://openrouter.ai/api/v1"
     model_main: str = "anthropic/claude-sonnet-5.5"
     model_cheap: str = "anthropic/claude-haiku-5.5"
+    llm_fake: bool = False  # serve every LLM call from FakeLLM (offline demos and tests)
     llm_timeout_s: float = 120.0
     llm_max_tokens: int = 4096
     playground_max_tokens: int = 60_000  # budget for the selected report text
@@ -115,6 +116,8 @@ class Settings(BaseModel):
             values["prompts_dir"] = Path(raw).expanduser()
         if (raw := env.get("ALLOW_LIVE")) is not None:
             values["allow_live"] = _parse_bool("ALLOW_LIVE", raw)
+        if (raw := env.get("LLM_FAKE")) is not None:
+            values["llm_fake"] = _parse_bool("LLM_FAKE", raw)
         if (raw := get("CORS_ORIGINS")) is not None:
             values["cors_origins"] = tuple(o.strip() for o in raw.split(",") if o.strip())
 
