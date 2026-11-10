@@ -65,7 +65,7 @@
 
 ## 9. End-to-end check
 
-- [ ] 9.1 Starting from a clean checkout with cached Malam data only, run the stack in cached mode and walk through each view: browse → read the risk section through page links → financials → a playground question with FakeLLM. Verify zero provider calls in `fr.jsonl` during the walkthrough
+- [x] 9.1 Starting from a clean checkout with cached Malam data only, run the stack in cached mode and walk through each view: browse → read the risk section through page links → financials → a playground question with FakeLLM. Verify zero provider calls in `fr.jsonl` during the walkthrough
 - [ ] 9.2 Run one live playground question and one `--refresh` fetch against the real services; verify that the cost and credits appear in the usage panel and the logs
 
 ## Workflow follow-up
