@@ -1,0 +1,1829 @@
+{
+  "components": {
+    "schemas": {
+      "CompanyOut": {
+        "properties": {
+          "fr_company_id": {
+            "title": "Fr Company Id",
+            "type": "integer"
+          },
+          "isin": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Isin"
+          },
+          "name_en": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name En"
+          },
+          "name_he": {
+            "title": "Name He",
+            "type": "string"
+          },
+          "ticker": {
+            "title": "Ticker",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ticker",
+          "name_he",
+          "fr_company_id"
+        ],
+        "title": "CompanyOut",
+        "type": "object"
+      },
+      "CompanySearchHit": {
+        "properties": {
+          "country_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Country Code"
+          },
+          "fr_company_id": {
+            "title": "Fr Company Id",
+            "type": "integer"
+          },
+          "isin": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Isin"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "ticker": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ticker"
+          },
+          "tracked_ticker": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tracked Ticker"
+          }
+        },
+        "required": [
+          "fr_company_id",
+          "name"
+        ],
+        "title": "CompanySearchHit",
+        "type": "object"
+      },
+      "ErrorOut": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message"
+        ],
+        "title": "ErrorOut",
+        "type": "object"
+      },
+      "FilingOut": {
+        "properties": {
+          "cached": {
+            "title": "Cached",
+            "type": "boolean"
+          },
+          "document_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Document Url"
+          },
+          "file_extension": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File Extension"
+          },
+          "file_size": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File Size"
+          },
+          "filing_id": {
+            "title": "Filing Id",
+            "type": "integer"
+          },
+          "fiscal_year": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fiscal Year"
+          },
+          "release_datetime": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Release Datetime"
+          },
+          "selected": {
+            "title": "Selected",
+            "type": "boolean"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "viewer_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Viewer Url"
+          }
+        },
+        "required": [
+          "filing_id",
+          "title",
+          "fiscal_year",
+          "release_datetime",
+          "file_extension",
+          "file_size",
+          "document_url",
+          "viewer_url",
+          "selected",
+          "cached"
+        ],
+        "title": "FilingOut",
+        "type": "object"
+      },
+      "FilingsOut": {
+        "properties": {
+          "ticker": {
+            "title": "Ticker",
+            "type": "string"
+          },
+          "years": {
+            "items": {
+              "$ref": "#/components/schemas/FiscalYearFilings"
+            },
+            "title": "Years",
+            "type": "array"
+          }
+        },
+        "required": [
+          "ticker",
+          "years"
+        ],
+        "title": "FilingsOut",
+        "type": "object"
+      },
+      "FinItemOut": {
+        "properties": {
+          "as_reported": {
+            "additionalProperties": {
+              "type": "boolean"
+            },
+            "title": "As Reported",
+            "type": "object"
+          },
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "depth": {
+            "title": "Depth",
+            "type": "integer"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "values": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Values",
+            "type": "object"
+          }
+        },
+        "required": [
+          "code",
+          "label",
+          "depth",
+          "values",
+          "as_reported"
+        ],
+        "title": "FinItemOut",
+        "type": "object"
+      },
+      "FinStatementOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/FinItemOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "statement": {
+            "title": "Statement",
+            "type": "string"
+          }
+        },
+        "required": [
+          "statement",
+          "label",
+          "items"
+        ],
+        "title": "FinStatementOut",
+        "type": "object"
+      },
+      "FinancialsOut": {
+        "properties": {
+          "as_of": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "As Of"
+          },
+          "available_at": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Available At",
+            "type": "object"
+          },
+          "currency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Currency"
+          },
+          "statements": {
+            "items": {
+              "$ref": "#/components/schemas/FinStatementOut"
+            },
+            "title": "Statements",
+            "type": "array"
+          },
+          "ticker": {
+            "title": "Ticker",
+            "type": "string"
+          },
+          "years": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Years",
+            "type": "array"
+          }
+        },
+        "required": [
+          "ticker",
+          "currency",
+          "years",
+          "as_of",
+          "statements",
+          "available_at"
+        ],
+        "title": "FinancialsOut",
+        "type": "object"
+      },
+      "FiscalYearFilings": {
+        "properties": {
+          "filings": {
+            "items": {
+              "$ref": "#/components/schemas/FilingOut"
+            },
+            "title": "Filings",
+            "type": "array"
+          },
+          "fiscal_year": {
+            "title": "Fiscal Year",
+            "type": "integer"
+          },
+          "report_cached": {
+            "title": "Report Cached",
+            "type": "boolean"
+          },
+          "selected_filing_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Selected Filing Id"
+          },
+          "selection_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Selection Error"
+          }
+        },
+        "required": [
+          "fiscal_year",
+          "selected_filing_id",
+          "report_cached",
+          "filings"
+        ],
+        "title": "FiscalYearFilings",
+        "type": "object"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "HealthOut": {
+        "properties": {
+          "allow_live": {
+            "title": "Allow Live",
+            "type": "boolean"
+          },
+          "credentials": {
+            "additionalProperties": {
+              "type": "boolean"
+            },
+            "title": "Credentials",
+            "type": "object"
+          },
+          "llm_fake": {
+            "title": "Llm Fake",
+            "type": "boolean"
+          },
+          "models": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Models",
+            "type": "object"
+          },
+          "status": {
+            "default": "ok",
+            "title": "Status",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "allow_live",
+          "llm_fake",
+          "credentials",
+          "models"
+        ],
+        "title": "HealthOut",
+        "type": "object"
+      },
+      "NodeOut": {
+        "properties": {
+          "chapter": {
+            "title": "Chapter",
+            "type": "string"
+          },
+          "children": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Children",
+            "type": "array"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "level": {
+            "title": "Level",
+            "type": "integer"
+          },
+          "node_id": {
+            "title": "Node Id",
+            "type": "string"
+          },
+          "number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Number"
+          },
+          "pages": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "integer"
+              }
+            ],
+            "title": "Pages",
+            "type": "array"
+          },
+          "para_range": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "integer"
+              }
+            ],
+            "title": "Para Range",
+            "type": "array"
+          },
+          "parent": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent"
+          },
+          "printed_pages": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            ],
+            "title": "Printed Pages",
+            "type": "array"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "node_id",
+          "kind",
+          "chapter",
+          "number",
+          "title",
+          "level",
+          "para_range",
+          "pages",
+          "printed_pages",
+          "children",
+          "parent"
+        ],
+        "title": "NodeOut",
+        "type": "object"
+      },
+      "NodeParagraphsOut": {
+        "properties": {
+          "fiscal_year": {
+            "title": "Fiscal Year",
+            "type": "integer"
+          },
+          "node": {
+            "$ref": "#/components/schemas/NodeOut"
+          },
+          "paragraphs": {
+            "items": {
+              "$ref": "#/components/schemas/ParagraphOut"
+            },
+            "title": "Paragraphs",
+            "type": "array"
+          },
+          "ticker": {
+            "title": "Ticker",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ticker",
+          "fiscal_year",
+          "node",
+          "paragraphs"
+        ],
+        "title": "NodeParagraphsOut",
+        "type": "object"
+      },
+      "PageParagraphsOut": {
+        "properties": {
+          "citation_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Citation Url"
+          },
+          "fiscal_year": {
+            "title": "Fiscal Year",
+            "type": "integer"
+          },
+          "node_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Node Ids",
+            "type": "array"
+          },
+          "page_index": {
+            "title": "Page Index",
+            "type": "integer"
+          },
+          "page_printed": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page Printed"
+          },
+          "paragraphs": {
+            "items": {
+              "$ref": "#/components/schemas/ParagraphOut"
+            },
+            "title": "Paragraphs",
+            "type": "array"
+          },
+          "ticker": {
+            "title": "Ticker",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ticker",
+          "fiscal_year",
+          "page_index",
+          "page_printed",
+          "citation_url",
+          "node_ids",
+          "paragraphs"
+        ],
+        "title": "PageParagraphsOut",
+        "type": "object"
+      },
+      "PageRange": {
+        "properties": {
+          "first": {
+            "minimum": 1.0,
+            "title": "First",
+            "type": "integer"
+          },
+          "last": {
+            "minimum": 1.0,
+            "title": "Last",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "first",
+          "last"
+        ],
+        "title": "PageRange",
+        "type": "object"
+      },
+      "ParagraphOut": {
+        "properties": {
+          "citation_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Citation Url"
+          },
+          "heading_level": {
+            "title": "Heading Level",
+            "type": "integer"
+          },
+          "in_table": {
+            "title": "In Table",
+            "type": "boolean"
+          },
+          "page_index": {
+            "title": "Page Index",
+            "type": "integer"
+          },
+          "page_printed": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page Printed"
+          },
+          "pid": {
+            "title": "Pid",
+            "type": "string"
+          },
+          "seq": {
+            "title": "Seq",
+            "type": "integer"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "pid",
+          "seq",
+          "text",
+          "page_index",
+          "page_printed",
+          "heading_level",
+          "in_table",
+          "citation_url"
+        ],
+        "title": "ParagraphOut",
+        "type": "object"
+      },
+      "PlaygroundDelta": {
+        "properties": {
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "PlaygroundDelta",
+        "type": "object"
+      },
+      "PlaygroundDone": {
+        "properties": {
+          "citations": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Citations",
+            "type": "object"
+          },
+          "latency_ms": {
+            "title": "Latency Ms",
+            "type": "integer"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "paragraph_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Paragraph Ids",
+            "type": "array"
+          },
+          "usage": {
+            "$ref": "#/components/schemas/PlaygroundUsage"
+          }
+        },
+        "required": [
+          "model",
+          "usage",
+          "latency_ms",
+          "paragraph_ids",
+          "citations"
+        ],
+        "title": "PlaygroundDone",
+        "type": "object"
+      },
+      "PlaygroundEvents": {
+        "description": "Documentation of the server-sent events: ``event: delta|done|error`` with these JSON payloads.",
+        "properties": {
+          "delta": {
+            "$ref": "#/components/schemas/PlaygroundDelta"
+          },
+          "done": {
+            "$ref": "#/components/schemas/PlaygroundDone"
+          },
+          "error": {
+            "$ref": "#/components/schemas/ErrorOut"
+          }
+        },
+        "required": [
+          "delta",
+          "done",
+          "error"
+        ],
+        "title": "PlaygroundEvents",
+        "type": "object"
+      },
+      "PlaygroundRequest": {
+        "properties": {
+          "fiscal_year": {
+            "title": "Fiscal Year",
+            "type": "integer"
+          },
+          "mode": {
+            "default": "cached",
+            "pattern": "^(cached|live)$",
+            "title": "Mode",
+            "type": "string"
+          },
+          "node_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Node Id"
+          },
+          "pages": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PageRange"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "question": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Question",
+            "type": "string"
+          },
+          "ticker": {
+            "title": "Ticker",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ticker",
+          "fiscal_year",
+          "question"
+        ],
+        "title": "PlaygroundRequest",
+        "type": "object"
+      },
+      "PlaygroundUsage": {
+        "properties": {
+          "cost": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cost"
+          },
+          "input_tokens": {
+            "title": "Input Tokens",
+            "type": "integer"
+          },
+          "output_tokens": {
+            "title": "Output Tokens",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "input_tokens",
+          "output_tokens",
+          "cost"
+        ],
+        "title": "PlaygroundUsage",
+        "type": "object"
+      },
+      "StructureOut": {
+        "properties": {
+          "coverage": {
+            "additionalProperties": true,
+            "title": "Coverage",
+            "type": "object"
+          },
+          "document_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Document Url"
+          },
+          "filing_id": {
+            "title": "Filing Id",
+            "type": "integer"
+          },
+          "fiscal_year": {
+            "title": "Fiscal Year",
+            "type": "integer"
+          },
+          "nodes": {
+            "items": {
+              "$ref": "#/components/schemas/NodeOut"
+            },
+            "title": "Nodes",
+            "type": "array"
+          },
+          "page_count": {
+            "title": "Page Count",
+            "type": "integer"
+          },
+          "page_style": {
+            "title": "Page Style",
+            "type": "string"
+          },
+          "roots": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Roots",
+            "type": "array"
+          },
+          "ticker": {
+            "title": "Ticker",
+            "type": "string"
+          },
+          "toc": {
+            "items": {
+              "$ref": "#/components/schemas/TocEntryOut"
+            },
+            "title": "Toc",
+            "type": "array"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "ticker",
+          "fiscal_year",
+          "filing_id",
+          "document_url",
+          "page_count",
+          "page_style",
+          "nodes",
+          "roots",
+          "toc",
+          "coverage",
+          "warnings"
+        ],
+        "title": "StructureOut",
+        "type": "object"
+      },
+      "TocEntryOut": {
+        "properties": {
+          "matched_node": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Matched Node"
+          },
+          "number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Number"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "number",
+          "title",
+          "matched_node"
+        ],
+        "title": "TocEntryOut",
+        "type": "object"
+      },
+      "UsageOut": {
+        "properties": {
+          "fr_log": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Fr Log",
+            "type": "object"
+          },
+          "llm": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Llm",
+            "type": "object"
+          },
+          "provider": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider"
+          },
+          "provider_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider Error"
+          }
+        },
+        "required": [
+          "provider",
+          "fr_log",
+          "llm"
+        ],
+        "title": "UsageOut",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "description": "Hebrew year-over-year analysis of Israeli periodic reports. Every endpoint calls the same service functions as the CLI. Data routes take `mode=cached|live`.",
+    "title": "The Committee — Analyzer API",
+    "version": "0.1.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/api/companies": {
+      "get": {
+        "operationId": "list_companies_api_companies_get",
+        "parameters": [
+          {
+            "description": "cached: local data only, no provider calls. live: fetch what is missing (if the server allows).",
+            "in": "query",
+            "name": "mode",
+            "required": false,
+            "schema": {
+              "default": "cached",
+              "description": "cached: local data only, no provider calls. live: fetch what is missing (if the server allows).",
+              "enum": [
+                "cached",
+                "live"
+              ],
+              "title": "Mode",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CompanyOut"
+                  },
+                  "title": "Response List Companies Api Companies Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Tracked companies",
+        "tags": [
+          "companies"
+        ]
+      }
+    },
+    "/api/companies/search": {
+      "get": {
+        "operationId": "search_companies_api_companies_search_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "q",
+            "required": true,
+            "schema": {
+              "maxLength": 100,
+              "minLength": 1,
+              "title": "Q",
+              "type": "string"
+            }
+          },
+          {
+            "description": "cached: local data only, no provider calls. live: fetch what is missing (if the server allows).",
+            "in": "query",
+            "name": "mode",
+            "required": false,
+            "schema": {
+              "default": "cached",
+              "description": "cached: local data only, no provider calls. live: fetch what is missing (if the server allows).",
+              "enum": [
+                "cached",
+                "live"
+              ],
+              "title": "Mode",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CompanySearchHit"
+                  },
+                  "title": "Response Search Companies Api Companies Search Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Search provider companies (Israel)",
+        "tags": [
+          "companies"
+        ]
+      }
+    },
+    "/api/companies/{ticker}": {
+      "get": {
+        "operationId": "get_company_api_companies__ticker__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ticker",
+            "required": true,
+            "schema": {
+              "title": "Ticker",
+              "type": "string"
+            }
+          },
+          {
+            "description": "cached: local data only, no provider calls. live: fetch what is missing (if the server allows).",
+            "in": "query",
+            "name": "mode",
+            "required": false,
+            "schema": {
+              "default": "cached",
+              "description": "cached: local data only, no provider calls. live: fetch what is missing (if the server allows).",
+              "enum": [
+                "cached",
+                "live"
+              ],
+              "title": "Mode",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompanyOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "One tracked company",
+        "tags": [
+          "companies"
+        ]
+      }
+    },
+    "/api/companies/{ticker}/filings": {
+      "get": {
+        "operationId": "list_filings_api_companies__ticker__filings_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ticker",
+            "required": true,
+            "schema": {
+              "title": "Ticker",
+              "type": "string"
+            }
+          },
+          {
+            "description": "cached: local data only, no provider calls. live: fetch what is missing (if the server allows).",
+            "in": "query",
+            "name": "mode",
+            "required": false,
+            "schema": {
+              "default": "cached",
+              "description": "cached: local data only, no provider calls. live: fetch what is missing (if the server allows).",
+              "enum": [
+                "cached",
+                "live"
+              ],
+              "title": "Mode",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FilingsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Annual filings with the selected report per year",
+        "tags": [
+          "companies"
+        ]
+      }
+    },
+    "/api/companies/{ticker}/financials": {
+      "get": {
+        "operationId": "get_financials_api_companies__ticker__financials_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ticker",
+            "required": true,
+            "schema": {
+              "title": "Ticker",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Only values available by this date",
+            "in": "query",
+            "name": "as_of",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only values available by this date",
+              "title": "As Of"
+            }
+          },
+          {
+            "description": "cached: local data only, no provider calls. live: fetch what is missing (if the server allows).",
+            "in": "query",
+            "name": "mode",
+            "required": false,
+            "schema": {
+              "default": "cached",
+              "description": "cached: local data only, no provider calls. live: fetch what is missing (if the server allows).",
+              "enum": [
+                "cached",
+                "live"
+              ],
+              "title": "Mode",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FinancialsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Normalized financials by statement and year",
+        "tags": [
+          "companies"
+        ]
+      }
+    },
+    "/api/companies/{ticker}/reports/{fiscal_year}/nodes/{node_id}": {
+      "get": {
+        "operationId": "get_node_api_companies__ticker__reports__fiscal_year__nodes__node_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ticker",
+            "required": true,
+            "schema": {
+              "title": "Ticker",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "fiscal_year",
+            "required": true,
+            "schema": {
+              "maximum": 2100,
+              "minimum": 1990,
+              "title": "Fiscal Year",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "node_id",
+            "required": true,
+            "schema": {
+              "title": "Node Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "cached: local data only, no provider calls. live: fetch what is missing (if the server allows).",
+            "in": "query",
+            "name": "mode",
+            "required": false,
+            "schema": {
+              "default": "cached",
+              "description": "cached: local data only, no provider calls. live: fetch what is missing (if the server allows).",
+              "enum": [
+                "cached",
+                "live"
+              ],
+              "title": "Mode",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NodeParagraphsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Paragraphs of a structure node",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/api/companies/{ticker}/reports/{fiscal_year}/pages/{page_index}": {
+      "get": {
+        "operationId": "get_page_api_companies__ticker__reports__fiscal_year__pages__page_index__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ticker",
+            "required": true,
+            "schema": {
+              "title": "Ticker",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "fiscal_year",
+            "required": true,
+            "schema": {
+              "maximum": 2100,
+              "minimum": 1990,
+              "title": "Fiscal Year",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "page_index",
+            "required": true,
+            "schema": {
+              "minimum": 1,
+              "title": "Page Index",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "cached: local data only, no provider calls. live: fetch what is missing (if the server allows).",
+            "in": "query",
+            "name": "mode",
+            "required": false,
+            "schema": {
+              "default": "cached",
+              "description": "cached: local data only, no provider calls. live: fetch what is missing (if the server allows).",
+              "enum": [
+                "cached",
+                "live"
+              ],
+              "title": "Mode",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageParagraphsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Paragraphs of a page (PDF page index)",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/api/companies/{ticker}/reports/{fiscal_year}/structure": {
+      "get": {
+        "operationId": "get_structure_api_companies__ticker__reports__fiscal_year__structure_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ticker",
+            "required": true,
+            "schema": {
+              "title": "Ticker",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "fiscal_year",
+            "required": true,
+            "schema": {
+              "maximum": 2100,
+              "minimum": 1990,
+              "title": "Fiscal Year",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "cached: local data only, no provider calls. live: fetch what is missing (if the server allows).",
+            "in": "query",
+            "name": "mode",
+            "required": false,
+            "schema": {
+              "default": "cached",
+              "description": "cached: local data only, no provider calls. live: fetch what is missing (if the server allows).",
+              "enum": [
+                "cached",
+                "live"
+              ],
+              "title": "Mode",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StructureOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Report structure tree",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/api/playground": {
+      "post": {
+        "operationId": "ask_api_playground_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlaygroundRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlaygroundEvents"
+                }
+              }
+            },
+            "description": "text/event-stream of `delta` events, then one `done` (or `error`) event. Payload schemas are listed in PlaygroundEvents."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Ask the main LLM about a report section (streamed)",
+        "tags": [
+          "playground"
+        ]
+      }
+    },
+    "/api/usage": {
+      "get": {
+        "operationId": "get_usage_api_usage_get",
+        "parameters": [
+          {
+            "description": "cached: local data only, no provider calls. live: fetch what is missing (if the server allows).",
+            "in": "query",
+            "name": "mode",
+            "required": false,
+            "schema": {
+              "default": "cached",
+              "description": "cached: local data only, no provider calls. live: fetch what is missing (if the server allows).",
+              "enum": [
+                "cached",
+                "live"
+              ],
+              "title": "Mode",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UsageOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Provider credits and LLM spend",
+        "tags": [
+          "usage"
+        ]
+      }
+    },
+    "/health": {
+      "get": {
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Liveness and configuration flags",
+        "tags": [
+          "health"
+        ]
+      }
+    }
+  }
+}

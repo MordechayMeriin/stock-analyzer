@@ -41,6 +41,10 @@ packages = ["stock_analyzer"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+filterwarnings = [
+    # starlette prefers its httpx2 fork in TestClient; we keep httpx because respx mocks it
+    "ignore:Using `httpx` with `starlette.testclient` is deprecated",
+]
 markers = [
     "live_data: needs full cached Malam reports under DATA_DIR (skipped otherwise)",
 ]

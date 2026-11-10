@@ -40,11 +40,11 @@
 
 ## 6. Analyzer API
 
-- [ ] 6.1 Implement the `services/` layer (companies, filings with the selected flag and cached status, report structure, node paragraphs, page paragraphs with citation URLs, financials, usage including LLM spend) and switch the CLI commands to call it; verify service unit tests on fixtures
-- [ ] 6.2 Create the FastAPI app with the error model (`code`, `message`, mapped statuses), CORS from `CORS_ORIGINS`, a `mode` request parameter honoring `ALLOW_LIVE`, and a `/health` endpoint reporting credential presence; verify TestClient tests for 404 `company_not_found`, a `not_cached` error, live refused when disabled, and health flags
-- [ ] 6.3 Add routers for companies, filings, report structure, node and page paragraphs, financials (decimals as strings) and usage; verify TestClient tests per endpoint plus a parity test checking that CLI and API structure output for MLTM 2025 match
-- [ ] 6.4 Add the SSE playground endpoint (node or page selection → labeled paragraphs + question → `MODEL_MAIN` via `stream_text`, using `prompts/playground.md`), with a size check against `PLAYGROUND_MAX_TOKENS`; verify FakeLLM tests for event order (`delta`… `done` carrying cost and paragraph ids) and rejection of an oversized selection
-- [ ] 6.5 Export `openapi.json` with a script and document running the API in `server/README.md`; verify that following the README starts the server and `/docs` lists every endpoint
+- [x] 6.1 Implement the `services/` layer (companies, filings with the selected flag and cached status, report structure, node paragraphs, page paragraphs with citation URLs, financials, usage including LLM spend) and switch the CLI commands to call it; verify service unit tests on fixtures
+- [x] 6.2 Create the FastAPI app with the error model (`code`, `message`, mapped statuses), CORS from `CORS_ORIGINS`, a `mode` request parameter honoring `ALLOW_LIVE`, and a `/health` endpoint reporting credential presence; verify TestClient tests for 404 `company_not_found`, a `not_cached` error, live refused when disabled, and health flags
+- [x] 6.3 Add routers for companies, filings, report structure, node and page paragraphs, financials (decimals as strings) and usage; verify TestClient tests per endpoint plus a parity test checking that CLI and API structure output for MLTM 2025 match
+- [x] 6.4 Add the SSE playground endpoint (node or page selection → labeled paragraphs + question → `MODEL_MAIN` via `stream_text`, using `prompts/playground.md`), with a size check against `PLAYGROUND_MAX_TOKENS`; verify FakeLLM tests for event order (`delta`… `done` carrying cost and paragraph ids) and rejection of an oversized selection
+- [x] 6.5 Export `openapi.json` with a script and document running the API in `server/README.md`; verify that following the README starts the server and `/docs` lists every endpoint
 
 ## 7. Web client
 
