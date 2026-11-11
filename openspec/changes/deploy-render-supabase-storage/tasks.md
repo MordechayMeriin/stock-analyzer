@@ -42,8 +42,8 @@
 
 ## 7. Provision and deploy
 
-- [ ] 7.1 Apply `schema.sql` to the Supabase project "Twin" (ref `uuphsgiqaswqtntdkqgp`) via `stock-analyzer db init` or the Supabase migration tool; verify the four tables exist in schema `stock_analyzer` with RLS enabled
-- [ ] 7.2 Check the tables are not publicly reachable: request `https://uuphsgiqaswqtntdkqgp.supabase.co/rest/v1/kv_cache` with the project's anon key; verify it is refused (schema not exposed / permission denied)
+- [x] 7.1 Apply `schema.sql` to the Supabase project "Twin" (ref `uuphsgiqaswqtntdkqgp`) via `stock-analyzer db init` or the Supabase migration tool; verify the four tables exist in schema `stock_analyzer` with RLS enabled
+- [x] 7.2 Check the tables are not publicly reachable: request `https://uuphsgiqaswqtntdkqgp.supabase.co/rest/v1/kv_cache` with the project's anon key; verify it is refused (schema not exposed / permission denied) — checked in-database (this session's network blocks supabase.co): `anon`/`authenticated` have no USAGE on schema `stock_analyzer` and no SELECT/INSERT on any of its tables; schema not in the exposed-API list; advisors report only the intended RLS-without-policy notices
 - [ ] 7.3 Developer copies the session pooler URI and database password from the Supabase dashboard into their local `.env` as `DATABASE_URL` (never into chat or the repo); verify `stock-analyzer db init` against it reports the schema is already present
 - [ ] 7.4 Create the Render services from `render.yaml` in the existing workspace (deploying from `main` after merge); developer enters `DATABASE_URL`, `FR_API_KEY`, `OPENROUTER_API_KEY`; verify both services deploy and the API's `/health` shows `storage: {backend: "postgres", ok: true}` and `allow_live: false`
 - [ ] 7.5 Set `CORS_ORIGINS` on the API to the static site's real URL and `VITE_API_BASE_URL` on the static site to the API's real URL, then redeploy both; verify the hosted client loads the companies list without CORS errors in the browser console
