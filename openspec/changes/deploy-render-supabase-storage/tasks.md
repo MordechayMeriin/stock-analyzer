@@ -15,12 +15,12 @@
 
 ## 3. Postgres backend
 
-- [ ] 3.1 Write `stock_analyzer/store/schema.sql` per design D3/D4 (schema `stock_analyzer`, four tables, index, RLS enabled on every table, revokes from `anon`/`authenticated`, all `if not exists`); verify applying it twice to a local `postgres:17` succeeds and leaves inserted rows intact
-- [ ] 3.2 Implement `PgStore` (psycopg 3, shared `ConnectionPool` min 1/max 4, `prepare_threshold=None`, `sslmode` from URL, 5 s connect timeout for `ping`, upserts, `totals()` via SQL aggregates, schema check raising `StorageNotInitialized` naming `stock-analyzer db init`, error messages scrubbed of the URL); verify the contract suite passes against a local Postgres
-- [ ] 3.3 Extend the contract fixture with a `postgres` parameter enabled only when `TEST_DATABASE_URL` is set: the socket guard in `conftest.py` allows only that host:port, and each test runs in a random schema dropped afterwards; verify fs-only runs still block all network access and the pg runs pass locally
-- [ ] 3.4 Add contract cases for the missing-schema error and for an unreachable database (URL, user and password absent from the message); verify both pass on the pg parameter
-- [ ] 3.5 Map `StorageNotInitialized` and storage-unreachable errors to the existing configuration/upstream error JSON shape in `api/errors.py`; verify API tests assert the code and that the message carries no connection details
-- [ ] 3.6 Add the `stock-analyzer db init` CLI command, which applies `schema.sql` to `DATABASE_URL` and exits non-zero with a clear message when it is unset; verify `test_cli_structure.py` covers it and a local run against `postgres:17` creates the tables
+- [x] 3.1 Write `stock_analyzer/store/schema.sql` per design D3/D4 (schema `stock_analyzer`, four tables, index, RLS enabled on every table, revokes from `anon`/`authenticated`, all `if not exists`); verify applying it twice to a local `postgres:17` succeeds and leaves inserted rows intact
+- [x] 3.2 Implement `PgStore` (psycopg 3, shared `ConnectionPool` min 1/max 4, `prepare_threshold=None`, `sslmode` from URL, 5 s connect timeout for `ping`, upserts, `totals()` via SQL aggregates, schema check raising `StorageNotInitialized` naming `stock-analyzer db init`, error messages scrubbed of the URL); verify the contract suite passes against a local Postgres
+- [x] 3.3 Extend the contract fixture with a `postgres` parameter enabled only when `TEST_DATABASE_URL` is set: the socket guard in `conftest.py` allows only that host:port, and each test runs in a random schema dropped afterwards; verify fs-only runs still block all network access and the pg runs pass locally
+- [x] 3.4 Add contract cases for the missing-schema error and for an unreachable database (URL, user and password absent from the message); verify both pass on the pg parameter
+- [x] 3.5 Map `StorageNotInitialized` and storage-unreachable errors to the existing configuration/upstream error JSON shape in `api/errors.py`; verify API tests assert the code and that the message carries no connection details
+- [x] 3.6 Add the `stock-analyzer db init` CLI command, which applies `schema.sql` to `DATABASE_URL` and exits non-zero with a clear message when it is unset; verify `test_cli_structure.py` covers it and a local run against `postgres:17` creates the tables
 - [ ] 3.7 Add a `postgres:17` service container to `.github/workflows/server.yml` and set `TEST_DATABASE_URL` for the test step; verify the workflow runs green on the branch with the pg contract cases reported as passed, not skipped
 
 ## 4. Health and usage

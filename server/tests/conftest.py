@@ -6,7 +6,9 @@ reaches a socket), and FastAPI's TestClient runs in-process.
 
 from __future__ import annotations
 
+import os
 import socket
+import uuid
 from pathlib import Path
 
 import pytest
@@ -63,12 +65,41 @@ def settings(data_dir) -> Settings:
     )
 
 
-STORE_BACKENDS = ["fs"]
+# Read before the autouse fixture clears it. When set, the store contract also runs on Postgres
+# (design D10). psycopg connects through libpq's own sockets, which the Python-level guard above
+# cannot see, so Postgres tests only ever run against this explicitly configured database.
+TEST_DATABASE_URL = os.environ.get("TEST_DATABASE_URL", "").strip() or None
+STORE_BACKENDS = [
+    "fs",
+    pytest.param(
+        "postgres",
+        marks=pytest.mark.skipif(TEST_DATABASE_URL is None, reason="TEST_DATABASE_URL not set"),
+    ),
+]
+
+
+@pytest.fixture
+def pg_schema():
+    """A fresh, empty schema with the state-store tables, dropped after the test."""
+    import psycopg
+
+    from stock_analyzer.store.pg import PgStore
+
+    schema = f"sa_test_{uuid.uuid4().hex[:12]}"
+    store = PgStore(TEST_DATABASE_URL, schema=schema)
+    store.init_schema()
+    yield store
+    store.shutdown()
+    with psycopg.connect(TEST_DATABASE_URL, autocommit=True) as conn:
+        conn.execute(f'drop schema if exists "{schema}" cascade')
 
 
 @pytest.fixture(params=STORE_BACKENDS)
 def store(request, settings):
     """A state store on each backend under test, empty at the start of the test."""
+    if request.param == "postgres":
+        yield request.getfixturevalue("pg_schema")
+        return
     from stock_analyzer.store import FsStore
 
     s = FsStore(settings)
