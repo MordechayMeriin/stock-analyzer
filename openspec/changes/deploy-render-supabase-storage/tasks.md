@@ -36,8 +36,8 @@
 
 ## 6. Hosting definition and keep-alive
 
-- [ ] 6.1 Add `render.yaml` per design D8 (Docker API: free, Frankfurt, `/health`, `PORT=8000`, `ALLOW_LIVE=false`, secrets and `CORS_ORIGINS` as `sync: false`; static web: `rootDir: web`, `npm ci && npm run build`, `dist`, rewrite `/* -> /index.html`, `VITE_API_BASE_URL` as `sync: false`); verify the Render blueprint plan/validation reports no errors and `grep` finds no secret values in the file
-- [ ] 6.2 Add `.github/workflows/keepalive.yml` per design D9 (daily schedule off the hour + `workflow_dispatch`, skips with a notice when `vars.API_URL` is unset, curl with retries and 120 s timeout, `jq -e '.storage.ok == true'`); verify a manual dispatch with `API_URL` unset ends as skipped, not failed
+- [x] 6.1 Add `render.yaml` per design D8 (Docker API: free, Frankfurt, `/health`, `PORT=8000`, `ALLOW_LIVE=false`, secrets and `CORS_ORIGINS` as `sync: false`; static web: `rootDir: web`, `npm ci && npm run build`, `dist`, rewrite `/* -> /index.html`, `VITE_API_BASE_URL` as `sync: false`); verify the Render blueprint plan/validation reports no errors and `grep` finds no secret values in the file — Render planned the Blueprint from `main` with no errors (two CreateService actions, no notices)
+- [x] 6.2 Add `.github/workflows/keepalive.yml` per design D9 (daily schedule off the hour + `workflow_dispatch`, skips with a notice when `vars.API_URL` is unset, curl with retries and 120 s timeout, `jq -e '.storage.ok == true'`); verify a manual dispatch with `API_URL` unset ends as skipped, not failed — dispatched on `main` with `API_URL` unset: `not-configured` posted the notice, `ping` skipped, run succeeded
 - [x] 6.3 Add a "Hosted deployment" section to the root `README.md`: architecture, required secrets, first-time setup order (design Migration Plan), populating from the CLI, the pitch runbook (warm up, set `ALLOW_LIVE=true`, set back to `false`), and rollback; verify every command and setting named exists in the repo or the Render/Supabase dashboards
 
 ## 7. Provision and deploy
