@@ -128,7 +128,8 @@ The server connects as the database owner role, which bypasses RLS. The verifica
 ### D5. psycopg 3 over the Supavisor session pooler, small pool, no prepared statements
 
 - **Connection string:** the "Session pooler" URI from Supabase → Connect, of the form `postgresql://postgres.<ref>:<password>@aws-?-eu-west-3.pooler.supabase.com:5432/postgres`, with `sslmode=require`. It's IPv4-reachable from Render, and the long-lived server gets real sessions.
-- **Pool:** `psycopg_pool.ConnectionPool(min_size=1, max_size=4, open on first use)`, shared per process. The free pooler allows a limited number of client connections, and one uvicorn worker plus occasional CLI runs need far fewer than that.
+- **Pool:** a small in-process pool (at most 4 connections), shared per process. The free pooler allows a limited number of client connections, and one uvicorn worker plus occasional CLI runs need far fewer than that.
+  - *Changed during implementation:* `psycopg_pool` was replaced by about 60 lines in `store/pg.py`. `psycopg_pool` connects from background threads: with the database down, callers wait out the whole pool timeout (too slow for `/health`, D6), and the threads log libpq errors that can include the database user name (the spec forbids credentials in logs). The in-process pool opens connections on demand in the caller's thread, so failures surface immediately as a scrubbed `StorageUnavailable`. Healthy connections are reused, and a reused connection that went stale is retried once on a fresh one.
 - **`prepare_threshold=None`:** keeps it working if someone pastes the transaction-pooler URI (port 6543) instead, which can't use prepared statements.
 - **Timeouts:** a short connect timeout (5 s) for `ping()`, so `/health` answers promptly when the database is paused.
 
@@ -180,14 +181,14 @@ One request a day wakes Render for about 15 minutes and opens a Supabase connect
 
 ### D10. Tests: a shared contract suite, Postgres optional, CI with a service container
 
-- `tests/unit/test_store_contract.py` runs the same cases against both backends via a parametrized `store` fixture:
+- `tests/unit/test_store_contract.py` runs the same cases against both backends via a parametrized `store` fixture (Postgres-only cases live in `test_store_pg.py` and `tests/api/test_api_store.py`):
   - get/set/contains per namespace
   - overwrite on refresh
   - exact text round-trip with CRLF and Hebrew
   - `cached_filing_id`
   - totals equivalence
   - the missing-schema error
-- The `postgres` parameter runs only when `TEST_DATABASE_URL` is set. `conftest.py` then allows `connect` to that one host and port, and nothing else. Each test runs in a fresh, randomly named schema that is dropped afterwards, which needs a search-path override in `PgStore`, settable in tests only.
+- The `postgres` parameter runs only when `TEST_DATABASE_URL` is set. psycopg connects through libpq's own sockets, which the Python-level socket guard cannot see, so the guard is unchanged: fs-only runs stay fully network-blocked, and Postgres tests only ever talk to the explicitly configured database. Each test runs in a fresh, randomly named schema that is dropped afterwards, which needs a search-path override in `PgStore`, settable in tests only.
 - `server.yml` adds a `postgres:17` service container and sets `TEST_DATABASE_URL`, so CI covers both backends.
 - Existing tests keep using `FsStore` through `settings.data_dir`, unchanged.
 - `DATABASE_URL` and `TEST_DATABASE_URL` are added to the env vars `conftest.py` clears, so a developer's `.env` can't leak into the offline suite.

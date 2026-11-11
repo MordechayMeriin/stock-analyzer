@@ -2,7 +2,7 @@
 
 ## 1. Dependencies and configuration
 
-- [x] 1.1 Add `psycopg[binary]` and `psycopg-pool` to `server/pyproject.toml` and refresh `uv.lock`; verify `uv sync --frozen` succeeds and `docker build server/` still builds
+- [x] 1.1 Add `psycopg[binary]` to `server/pyproject.toml` (`psycopg-pool` was dropped during 3.2, see design D5) and refresh `uv.lock`; verify `uv sync --frozen` succeeds and `docker build server/` still builds
 - [x] 1.2 Add `database_url: SecretStr | None` to `Settings`, read from `DATABASE_URL` (blank means unset), and include it in nothing that is logged or returned; verify `test_config.py` covers unset/blank/set and that the URL never appears in `repr(settings)`
 - [x] 1.3 Add `DATABASE_URL` and `TEST_DATABASE_URL` to the env vars `tests/conftest.py` clears; verify the suite still passes with both exported in the shell
 
@@ -16,7 +16,7 @@
 ## 3. Postgres backend
 
 - [x] 3.1 Write `stock_analyzer/store/schema.sql` per design D3/D4 (schema `stock_analyzer`, four tables, index, RLS enabled on every table, revokes from `anon`/`authenticated`, all `if not exists`); verify applying it twice to a local `postgres:17` succeeds and leaves inserted rows intact
-- [x] 3.2 Implement `PgStore` (psycopg 3, shared `ConnectionPool` min 1/max 4, `prepare_threshold=None`, `sslmode` from URL, 5 s connect timeout for `ping`, upserts, `totals()` via SQL aggregates, schema check raising `StorageNotInitialized` naming `stock-analyzer db init`, error messages scrubbed of the URL); verify the contract suite passes against a local Postgres
+- [x] 3.2 Implement `PgStore` (psycopg 3, shared in-process pool of max 4 connections, `prepare_threshold=None`, `sslmode` from URL, 5 s connect timeout for `ping`, upserts, `totals()` via SQL aggregates, schema check raising `StorageNotInitialized` naming `stock-analyzer db init`, error messages scrubbed of the URL); verify the contract suite passes against a local Postgres
 - [x] 3.3 Extend the contract fixture with a `postgres` parameter enabled only when `TEST_DATABASE_URL` is set: the socket guard in `conftest.py` allows only that host:port, and each test runs in a random schema dropped afterwards; verify fs-only runs still block all network access and the pg runs pass locally
 - [x] 3.4 Add contract cases for the missing-schema error and for an unreachable database (URL, user and password absent from the message); verify both pass on the pg parameter
 - [x] 3.5 Map `StorageNotInitialized` and storage-unreachable errors to the existing configuration/upstream error JSON shape in `api/errors.py`; verify API tests assert the code and that the message carries no connection details
@@ -38,7 +38,7 @@
 
 - [ ] 6.1 Add `render.yaml` per design D8 (Docker API: free, Frankfurt, `/health`, `PORT=8000`, `ALLOW_LIVE=false`, secrets and `CORS_ORIGINS` as `sync: false`; static web: `rootDir: web`, `npm ci && npm run build`, `dist`, rewrite `/* -> /index.html`, `VITE_API_BASE_URL` as `sync: false`); verify the Render blueprint plan/validation reports no errors and `grep` finds no secret values in the file
 - [ ] 6.2 Add `.github/workflows/keepalive.yml` per design D9 (daily schedule off the hour + `workflow_dispatch`, skips with a notice when `vars.API_URL` is unset, curl with retries and 120 s timeout, `jq -e '.storage.ok == true'`); verify a manual dispatch with `API_URL` unset ends as skipped, not failed
-- [ ] 6.3 Add a "Hosted deployment" section to the root `README.md`: architecture, required secrets, first-time setup order (design Migration Plan), populating from the CLI, the pitch runbook (warm up, set `ALLOW_LIVE=true`, set back to `false`), and rollback; verify every command and setting named exists in the repo or the Render/Supabase dashboards
+- [x] 6.3 Add a "Hosted deployment" section to the root `README.md`: architecture, required secrets, first-time setup order (design Migration Plan), populating from the CLI, the pitch runbook (warm up, set `ALLOW_LIVE=true`, set back to `false`), and rollback; verify every command and setting named exists in the repo or the Render/Supabase dashboards
 
 ## 7. Provision and deploy
 
