@@ -22,7 +22,9 @@ FROM nginx:1.27-alpine
 COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
 COPY docker/40-write-config.sh /docker-entrypoint.d/40-write-config.sh
 COPY --from=build /app/dist /usr/share/nginx/html
-RUN chmod +x /docker-entrypoint.d/40-write-config.sh
+# Strip CRs in case the build context came from a CRLF checkout (see .gitattributes).
+RUN sed -i 's/\r$//' /docker-entrypoint.d/40-write-config.sh && \
+    chmod +x /docker-entrypoint.d/40-write-config.sh
 ENV API_BASE_URL=""
 EXPOSE 80
 HEALTHCHECK --interval=30s --timeout=5s CMD wget -q -O /dev/null http://127.0.0.1/ || exit 1
