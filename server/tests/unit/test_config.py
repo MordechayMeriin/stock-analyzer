@@ -55,3 +55,14 @@ def test_secrets_never_in_repr():
         assert "or-SECRET-456" not in text
     assert s.fr_api_key.get_secret_value() == "fr-SECRET-123"
     assert s.credential_flags() == {"fr_api_key": True, "openrouter_api_key": True}
+
+
+def test_database_url_unset_blank_and_set():
+    assert Settings.from_env({}).database_url is None
+    assert Settings.from_env({"DATABASE_URL": "   "}).database_url is None
+    url = "postgresql://postgres.ref:pw-SECRET-789@pooler.example:5432/postgres"
+    s = Settings.from_env({"DATABASE_URL": f"  {url} "})
+    assert s.database_url.get_secret_value() == url
+    for text in (repr(s), str(s), s.model_dump_json()):
+        assert "pw-SECRET-789" not in text
+        assert "pooler.example" not in text

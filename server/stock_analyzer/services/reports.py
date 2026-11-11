@@ -36,7 +36,7 @@ def citation_url(document_url: str | None, page_index: int) -> str | None:
 
 
 def _ensure_raw(ctx: Ctx, ticker: str, fiscal_year: int) -> tuple[str, ReportMeta]:
-    loaded = load_report(ctx.settings, ticker, fiscal_year)
+    loaded = load_report(ctx.settings, ticker, fiscal_year, store=ctx.store)
     if loaded is not None and not ctx.refresh:
         return loaded
     if ctx.mode != "live":
@@ -47,7 +47,7 @@ def _ensure_raw(ctx: Ctx, ticker: str, fiscal_year: int) -> tuple[str, ReportMet
     company = resolve_ticker(ctx.settings.companies_file, ticker)
     filing = select_report(ctx.fr.list_filings(company.fr_company_id), fiscal_year, ticker=company.ticker)
     text = ctx.fr.get_markdown(filing.id)
-    meta = save_report(ctx.settings, company.ticker, fiscal_year, filing, text)
+    meta = save_report(ctx.settings, company.ticker, fiscal_year, filing, text, store=ctx.store)
     return text, meta
 
 

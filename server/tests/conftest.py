@@ -34,7 +34,8 @@ def _offline(monkeypatch):
 
     monkeypatch.setattr(socket.socket, "connect", guarded)
     proxies = ("HTTPS_PROXY", "HTTP_PROXY", "ALL_PROXY", "https_proxy", "http_proxy", "all_proxy")
-    for var in ("FR_API_KEY", "OPENROUTER_API_KEY", "DATA_DIR", "ALLOW_LIVE", "LLM_FAKE", *proxies):
+    cleared = ("FR_API_KEY", "OPENROUTER_API_KEY", "DATABASE_URL", "TEST_DATABASE_URL", "DATA_DIR")
+    for var in (*cleared, "ALLOW_LIVE", "LLM_FAKE", *proxies):
         monkeypatch.delenv(var, raising=False)
     reset_settings_cache()
     yield
@@ -60,6 +61,19 @@ def settings(data_dir) -> Settings:
         fr_backoff_base_s=0.0,
         fr_backoff_max_s=0.0,
     )
+
+
+STORE_BACKENDS = ["fs"]
+
+
+@pytest.fixture(params=STORE_BACKENDS)
+def store(request, settings):
+    """A state store on each backend under test, empty at the start of the test."""
+    from stock_analyzer.store import FsStore
+
+    s = FsStore(settings)
+    yield s
+    s.close()
 
 
 @pytest.fixture

@@ -3,28 +3,39 @@
 - ``X-API-Key`` header from env only; the key never reaches logs, cache files or responses.
 - Retries 429/5xx and transport errors with exponential backoff, honoring ``Retry-After``;
   other 4xx fail immediately.
-- Permanent disk cache keyed by path + params (``refresh`` bypasses and overwrites it);
+- Permanent cache in the state store (files or Postgres, see ``stock_analyzer.store``), keyed by path + params (``refresh`` bypasses and overwrites it);
   ``mode="cached"`` never touches the network and raises :class:`NotCached` on a miss.
-- One JSONL record per call in ``DATA_DIR/logs/fr.jsonl`` (cache hits included, at 0 credits).
+- One usage log record per call in the state store (cache hits included, at 0 credits).
 """
 
 from __future__ import annotations
 
 import hashlib
 import json
-import threading
 import time
 from collections.abc import Callable, Mapping
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Literal
 
-import diskcache
 import httpx
 from pydantic import BaseModel, ConfigDict
 
 from stock_analyzer.config import MissingCredential, Settings
 from stock_analyzer.errors import NotCached, ProviderError, ProviderNotFound, TruncatedContent
+from stock_analyzer.store import Store, StoreLog, fr_totals, get_store
+from stock_analyzer.store.base import KVCache, ReportMeta
+from stock_analyzer.store.fs import raw_paths, read_exact, read_jsonl
+
+__all__ = [
+    "FRClient",
+    "ReportMeta",
+    "load_report",
+    "raw_paths",
+    "read_exact",
+    "read_fr_totals",
+    "save_report",
+]
 
 Mode = Literal["live", "cached"]
 
@@ -97,29 +108,9 @@ class FRResponse(BaseModel):
         return json.loads(self.body)
 
 
-class FetchLog:
-    def __init__(self, path: Path):
-        self.path = path
-        self._lock = threading.Lock()
-
-    def write(self, **record: Any) -> None:
-        record = {"ts": datetime.now(UTC).isoformat(), **record}
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        with self._lock, self.path.open("a", encoding="utf-8") as fh:
-            fh.write(json.dumps(record, ensure_ascii=False, default=str) + "\n")
-
-
 def read_fr_totals(path: Path) -> dict[str, int]:
-    """Credit totals from the fetch log, for the usage endpoint."""
-    calls = hits = credits = 0
-    if path.exists():
-        for line in path.read_text(encoding="utf-8").splitlines():
-            if line.strip():
-                rec = json.loads(line)
-                calls += 1
-                hits += rec.get("cache") == "hit"
-                credits += int(rec.get("credits") or 0)
-    return {"calls": calls, "cache_hits": hits, "network_calls": calls - hits, "credits_logged": credits}
+    """Credit totals from a JSONL fetch log file (file backend)."""
+    return fr_totals(read_jsonl(path))
 
 
 def _int_header(headers: Mapping[str, str], name: str) -> int | None:
@@ -169,6 +160,7 @@ class FRClient:
         refresh: bool = False,
         transport: httpx.BaseTransport | None = None,
         sleep: Callable[[float], None] = time.sleep,
+        store: Store | None = None,
     ):
         if mode not in ("live", "cached"):
             raise ValueError(f"mode must be 'live' or 'cached', got {mode!r}")
@@ -180,18 +172,17 @@ class FRClient:
         self._transport = transport
         self._sleep = sleep
         self._http: httpx.Client | None = None
-        self._cache: diskcache.Cache | None = None
-        self.log = FetchLog(settings.logs_dir / "fr.jsonl")
+        self._owns_store = store is None
+        self.store: Store = store if store is not None else get_store(settings)
+        self.log = StoreLog(self.store, "fr")
         self.credits_used = 0  # credits spent by this client instance (network calls only)
         self.network_calls = 0
 
     # -- plumbing
 
     @property
-    def cache(self) -> diskcache.Cache:
-        if self._cache is None:
-            self._cache = diskcache.Cache(str(self.settings.cache_dir / "fr"))
-        return self._cache
+    def cache(self) -> KVCache:
+        return self.store.cache("fr")
 
     @property
     def http(self) -> httpx.Client:
@@ -213,8 +204,8 @@ class FRClient:
     def close(self) -> None:
         if self._http is not None:
             self._http.close()
-        if self._cache is not None:
-            self._cache.close()
+        if self._owns_store:
+            self.store.close()
 
     def __enter__(self) -> FRClient:
         return self
@@ -415,32 +406,15 @@ class FRClient:
 # ---------------------------------------------------------------- raw report storage
 
 
-class ReportMeta(BaseModel):
-    ticker: str
-    fiscal_year: int
-    filing_id: int
-    title: str
-    document_url: str | None
-    release_datetime: datetime | None
-    total_chars: int
-    sha256: str
-    fetched_at: str
-
-
-def read_exact(path: Path) -> str:
-    """Read UTF-8 text without newline translation (Path.read_text(newline=) needs Python 3.13)."""
-    with path.open(encoding="utf-8", newline="") as fh:
-        return fh.read()
-
-
-def raw_paths(settings: Settings, ticker: str, fiscal_year: int) -> tuple[Path, Path]:
-    base = settings.raw_dir / ticker.upper()
-    return base / f"{fiscal_year}.md", base / f"{fiscal_year}.meta.json"
-
-
-def save_report(settings: Settings, ticker: str, fiscal_year: int, filing: Filing, text: str) -> ReportMeta:
-    md_path, meta_path = raw_paths(settings, ticker, fiscal_year)
-    md_path.parent.mkdir(parents=True, exist_ok=True)
+def save_report(
+    settings: Settings,
+    ticker: str,
+    fiscal_year: int,
+    filing: Filing,
+    text: str,
+    *,
+    store: Store | None = None,
+) -> ReportMeta:
     meta = ReportMeta(
         ticker=ticker.upper(),
         fiscal_year=fiscal_year,
@@ -452,17 +426,21 @@ def save_report(settings: Settings, ticker: str, fiscal_year: int, filing: Filin
         sha256=hashlib.sha256(text.encode("utf-8")).hexdigest(),
         fetched_at=datetime.now(UTC).isoformat(),
     )
-    tmp = md_path.with_suffix(".md.tmp")
-    tmp.write_text(text, encoding="utf-8", newline="")
-    tmp.replace(md_path)
-    meta_path.write_text(meta.model_dump_json(indent=2), encoding="utf-8")
+    target = store if store is not None else get_store(settings)
+    try:
+        target.save_report(ticker.upper(), fiscal_year, meta, text)
+    finally:
+        if store is None:
+            target.close()
     return meta
 
 
-def load_report(settings: Settings, ticker: str, fiscal_year: int) -> tuple[str, ReportMeta] | None:
-    md_path, meta_path = raw_paths(settings, ticker, fiscal_year)
-    if not (md_path.exists() and meta_path.exists()):
-        return None
-    meta = ReportMeta.model_validate_json(meta_path.read_text(encoding="utf-8"))
-    text = read_exact(md_path)
-    return text, meta
+def load_report(
+    settings: Settings, ticker: str, fiscal_year: int, *, store: Store | None = None
+) -> tuple[str, ReportMeta] | None:
+    target = store if store is not None else get_store(settings)
+    try:
+        return target.load_report(ticker.upper(), fiscal_year)
+    finally:
+        if store is None:
+            target.close()

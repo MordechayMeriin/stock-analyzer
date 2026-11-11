@@ -34,6 +34,7 @@ STATUS_BY_CODE: dict[str, int] = {
     "llm_error": 502,
     "configuration_error": 503,
     "missing_credential": 503,
+    "storage_unavailable": 503,
     "internal_error": 500,
 }
 

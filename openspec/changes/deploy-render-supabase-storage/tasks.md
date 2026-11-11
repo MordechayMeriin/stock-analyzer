@@ -2,16 +2,16 @@
 
 ## 1. Dependencies and configuration
 
-- [ ] 1.1 Add `psycopg[binary]` and `psycopg-pool` to `server/pyproject.toml` and refresh `uv.lock`; verify `uv sync --frozen` succeeds and `docker build server/` still builds
-- [ ] 1.2 Add `database_url: SecretStr | None` to `Settings`, read from `DATABASE_URL` (blank means unset), and include it in nothing that is logged or returned; verify `test_config.py` covers unset/blank/set and that the URL never appears in `repr(settings)`
-- [ ] 1.3 Add `DATABASE_URL` and `TEST_DATABASE_URL` to the env vars `tests/conftest.py` clears; verify the suite still passes with both exported in the shell
+- [x] 1.1 Add `psycopg[binary]` and `psycopg-pool` to `server/pyproject.toml` and refresh `uv.lock`; verify `uv sync --frozen` succeeds and `docker build server/` still builds
+- [x] 1.2 Add `database_url: SecretStr | None` to `Settings`, read from `DATABASE_URL` (blank means unset), and include it in nothing that is logged or returned; verify `test_config.py` covers unset/blank/set and that the URL never appears in `repr(settings)`
+- [x] 1.3 Add `DATABASE_URL` and `TEST_DATABASE_URL` to the env vars `tests/conftest.py` clears; verify the suite still passes with both exported in the shell
 
 ## 2. Store interface and filesystem backend (no behaviour change)
 
-- [ ] 2.1 Create `stock_analyzer/store/` with the `Store`/`KVCache` protocols (design D1) and `get_store(settings)`; verify `get_store` returns the fs backend when `database_url` is unset (unit test)
-- [ ] 2.2 Implement `FsStore` by moving today's code into it: diskcache namespaces `fr`/`llm`, `raw/<TICKER>/<year>.md` + `.meta.json` with exact newlines, financials JSON files, JSONL logs and their totals; verify the on-disk layout under `DATA_DIR` is unchanged (test lists the files written by a fetch)
-- [ ] 2.3 Route `FRClient` (cache, `is_cached`, `FetchLog`), `OpenRouterLLM`/`FakeLLM` (cache, `CallLog`), `services/filings.py` (`cached_filing_id`, `fetch`, financials snapshots, `FetchedReport.path` via `report_location`), `services/reports.py` (`_ensure_raw`) and `services/usage.py` (totals) through the store obtained from `Ctx`/settings; verify the whole existing test suite passes unchanged and `ruff check` / `ruff format --check` are clean
-- [ ] 2.4 Write `tests/unit/test_store_contract.py` with a parametrized `store` fixture (fs only for now) covering: get/set/contains per namespace, overwrite on refresh, byte-exact report round-trip with CRLF and Hebrew, `cached_filing_id`, log totals matching the old `read_*_totals` shape, and cached-only `NotCached` via `FRClient`; verify it passes
+- [x] 2.1 Create `stock_analyzer/store/` with the `Store`/`KVCache` protocols (design D1) and `get_store(settings)`; verify `get_store` returns the fs backend when `database_url` is unset (unit test)
+- [x] 2.2 Implement `FsStore` by moving today's code into it: diskcache namespaces `fr`/`llm`, `raw/<TICKER>/<year>.md` + `.meta.json` with exact newlines, financials JSON files, JSONL logs and their totals; verify the on-disk layout under `DATA_DIR` is unchanged (test lists the files written by a fetch)
+- [x] 2.3 Route `FRClient` (cache, `is_cached`, `FetchLog`), `OpenRouterLLM`/`FakeLLM` (cache, `CallLog`), `services/filings.py` (`cached_filing_id`, `fetch`, financials snapshots, `FetchedReport.path` via `report_location`), `services/reports.py` (`_ensure_raw`) and `services/usage.py` (totals) through the store obtained from `Ctx`/settings; verify the whole existing test suite passes unchanged and `ruff check` / `ruff format --check` are clean
+- [x] 2.4 Write `tests/unit/test_store_contract.py` with a parametrized `store` fixture (fs only for now) covering: get/set/contains per namespace, overwrite on refresh, byte-exact report round-trip with CRLF and Hebrew, `cached_filing_id`, log totals matching the old `read_*_totals` shape, and cached-only `NotCached` via `FRClient`; verify it passes
 
 ## 3. Postgres backend
 

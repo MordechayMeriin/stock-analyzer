@@ -37,6 +37,8 @@ class Settings(BaseModel):
     # --- credentials (env only, never logged) ---
     fr_api_key: SecretStr | None = None
     openrouter_api_key: SecretStr | None = None
+    # Postgres URL for the state store; unset = files under data_dir (state-store spec, design D1)
+    database_url: SecretStr | None = None
 
     # --- storage / deployment ---
     data_dir: Path = SERVER_ROOT / "data"
@@ -104,7 +106,11 @@ class Settings(BaseModel):
             raw = env.get(name)
             return raw if raw is not None and raw.strip() != "" else None
 
-        for name, field in (("FR_API_KEY", "fr_api_key"), ("OPENROUTER_API_KEY", "openrouter_api_key")):
+        for name, field in (
+            ("FR_API_KEY", "fr_api_key"),
+            ("OPENROUTER_API_KEY", "openrouter_api_key"),
+            ("DATABASE_URL", "database_url"),
+        ):
             if (raw := get(name)) is not None:
                 values[field] = SecretStr(raw.strip())
 
