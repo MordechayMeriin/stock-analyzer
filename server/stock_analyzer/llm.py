@@ -4,9 +4,9 @@ One entry point for every LLM call:
 
 - :meth:`OpenRouterLLM.complete_json` sends (model, system, user, schema) through OpenRouter's
   OpenAI-compatible API with JSON-schema output, validates with pydantic, and makes exactly
-  one repair request carrying the validation error. Results are cached on disk.
+  one repair request carrying the validation error. Results are cached in the state store.
 - :meth:`OpenRouterLLM.stream_text` streams text increments followed by a final usage/cost event.
-- Every provider call (and cache hit) appends a record to ``DATA_DIR/logs/llm.jsonl``.
+- Every provider call (and cache hit) appends a usage record to the state store.
 - :class:`FakeLLM` has the same interface, makes no network calls, and returns scripted or
   schema-derived responses so the test suite runs offline.
 
@@ -17,7 +17,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import threading
 import time
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
@@ -25,10 +24,12 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Literal, Protocol, TypeVar
 
-import diskcache
 from pydantic import BaseModel, ValidationError
 
 from stock_analyzer.config import MissingCredential, Settings
+from stock_analyzer.store import Store, StoreLog, get_store, llm_totals
+from stock_analyzer.store.base import KVCache
+from stock_analyzer.store.fs import JsonlLog, read_jsonl
 
 T = TypeVar("T", bound=BaseModel)
 Role = Literal["main", "cheap"]
@@ -103,34 +104,18 @@ class LLM(Protocol):
 
 
 class CallLog:
-    """Append-only JSONL log of LLM calls. Never receives prompts or credentials."""
+    """Append-only JSONL file of LLM calls (file backend). Never receives prompts or credentials."""
 
     def __init__(self, path: Path):
-        self.path = path
-        self._lock = threading.Lock()
+        self._log = JsonlLog(path)
 
     def write(self, **record: Any) -> None:
-        record = {"ts": datetime.now(UTC).isoformat(), **record}
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        line = json.dumps(record, ensure_ascii=False, default=str)
-        with self._lock, self.path.open("a", encoding="utf-8") as fh:
-            fh.write(line + "\n")
+        self._log.append({"ts": datetime.now(UTC).isoformat(), **record})
 
 
 def read_llm_totals(path: Path) -> dict[str, float | int]:
-    """Totals over the LLM log, for the usage endpoint."""
-    calls = cache_hits = failures = 0
-    cost = 0.0
-    if path.exists():
-        for line in path.read_text(encoding="utf-8").splitlines():
-            if not line.strip():
-                continue
-            rec = json.loads(line)
-            calls += 1
-            cache_hits += bool(rec.get("cache_hit"))
-            failures += not rec.get("ok", True)
-            cost += float(rec.get("cost") or 0)
-    return {"calls": calls, "cache_hits": cache_hits, "failures": failures, "total_cost_usd": round(cost, 6)}
+    """Totals over a JSONL LLM log file (file backend)."""
+    return llm_totals(read_jsonl(path))
 
 
 # ---------------------------------------------------------------- helpers
@@ -199,18 +184,16 @@ def _add(a: Usage, b: Usage) -> Usage:
 class OpenRouterLLM:
     """Real gateway: OpenRouter via the OpenAI-compatible client."""
 
-    def __init__(self, settings: Settings, *, client: Any | None = None):
+    def __init__(self, settings: Settings, *, client: Any | None = None, store: Store | None = None):
         self.settings = settings
         self._client = client
-        self.log = CallLog(settings.logs_dir / "llm.jsonl")
-        self._cache: diskcache.Cache | None = None
+        # the store opens lazily, so constructing the gateway never needs a key or touches storage
+        self.store: Store = store if store is not None else get_store(settings)
+        self.log = StoreLog(self.store, "llm")
 
-    # lazily created so constructing the gateway never needs a key or touches disk
     @property
-    def cache(self) -> diskcache.Cache:
-        if self._cache is None:
-            self._cache = diskcache.Cache(str(self.settings.cache_dir / "llm"))
-        return self._cache
+    def cache(self) -> KVCache:
+        return self.store.cache("llm")
 
     @property
     def client(self) -> Any:
@@ -460,12 +443,15 @@ class FakeLLM:
     """
 
     settings: Settings | None = None
+    store: Store | None = None
     script: dict[str, ScriptEntry | list[ScriptEntry]] = field(default_factory=dict)
     chunk_chars: int = 12
     calls: list[FakeCall] = field(default_factory=list)
 
     def __post_init__(self) -> None:
-        self.log = CallLog(self.settings.logs_dir / "llm.jsonl") if self.settings else None
+        if self.store is None and self.settings is not None:
+            self.store = get_store(self.settings)
+        self.log = StoreLog(self.store, "llm") if self.store is not None else None
 
     def _model(self, role: str) -> str:
         return f"fake/{self.settings.model_for(role) if self.settings else role}"
@@ -549,8 +535,8 @@ class FakeLLM:
         yield DoneEvent(model=model, usage=usage, latency_ms=0)
 
 
-def get_llm(settings: Settings) -> LLM:
+def get_llm(settings: Settings, store: Store | None = None) -> LLM:
     """The configured gateway: FakeLLM when ``LLM_FAKE`` is on, OpenRouter otherwise."""
     if settings.llm_fake:
-        return FakeLLM(settings=settings)
-    return OpenRouterLLM(settings)
+        return FakeLLM(settings=settings, store=store)
+    return OpenRouterLLM(settings, store=store)

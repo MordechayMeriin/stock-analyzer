@@ -1,6 +1,6 @@
 """Command-line interface (typer). Thin adapter over ``services`` (design D4).
 
-Commands: fetch, usage, structure, fin-raw.
+Commands: fetch, usage, structure, fin-raw, db init.
 """
 
 from __future__ import annotations
@@ -70,6 +70,39 @@ def usage(mode: ModeOpt = "live") -> None:
         return
     json.dump(out.model_dump(mode="json"), sys.stdout, ensure_ascii=False, indent=2)
     typer.echo()
+
+
+db_app = typer.Typer(no_args_is_help=True, help="State store database (Postgres backend)")
+app.add_typer(db_app, name="db")
+
+
+@db_app.command("init")
+def db_init() -> None:
+    """Create the state-store schema in DATABASE_URL (idempotent; existing data is kept)."""
+    from stock_analyzer import store as store_module
+    from stock_analyzer.store.pg import PgStore
+
+    settings = get_settings()
+    if settings.database_url is None:
+        typer.secho(
+            "error [configuration_error]: DATABASE_URL is not set. `db init` creates the Postgres schema "
+            "for the state store; without DATABASE_URL the server keeps its state in DATA_DIR, "
+            "which needs no setup.",
+            fg=typer.colors.RED,
+            err=True,
+        )
+        raise typer.Exit(1)
+    store = store_module.get_store(settings)
+    assert isinstance(store, PgStore)
+    try:
+        existed = store.init_schema()
+    except AnalyzerError as exc:
+        _fail(exc)
+        return
+    if existed:
+        typer.echo(f"schema {store.schema!r} is already present; checked, existing data kept")
+    else:
+        typer.echo(f"created schema {store.schema!r}: kv_cache, reports, financials_snapshots, usage_log")
 
 
 def render_structure(out) -> list[str]:

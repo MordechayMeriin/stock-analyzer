@@ -56,7 +56,7 @@ def resolve_llm(ctx: Ctx, override: LLM | None = None) -> LLM:
     """The LLM for a playground call. Paid calls need live mode: cached mode spends nothing."""
     if override is not None:
         return override
-    llm = get_llm(ctx.settings)
+    llm = get_llm(ctx.settings, store=ctx.store)
     if not isinstance(llm, FakeLLM) and ctx.mode != "live":
         raise LiveModeDisabled(
             "the playground calls the LLM, which costs money: switch to live mode (or run with LLM_FAKE=true)"

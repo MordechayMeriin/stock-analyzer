@@ -81,3 +81,15 @@ class SelectionTooLarge(AnalyzerError):
 
 class ConfigurationError(AnalyzerError):
     code = "configuration_error"
+
+
+class StorageNotInitialized(AnalyzerError):
+    """A database is configured but its schema has not been created (run ``stock-analyzer db init``)."""
+
+    code = "configuration_error"
+
+
+class StorageUnavailable(AnalyzerError):
+    """The state store cannot be reached. Messages never include the connection string."""
+
+    code = "storage_unavailable"

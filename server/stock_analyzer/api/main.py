@@ -8,8 +8,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from stock_analyzer import __version__
 from stock_analyzer.api import errors
 from stock_analyzer.api.routers import companies, playground, reports, usage
-from stock_analyzer.api.schemas import HealthOut
+from stock_analyzer.api.schemas import HealthOut, StorageHealth
 from stock_analyzer.config import Settings, get_settings
+from stock_analyzer.store import get_store
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -32,13 +33,21 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @app.get("/health", response_model=HealthOut, tags=["health"], summary="Liveness and configuration flags")
     def health() -> HealthOut:
+        # Always 200: a paused database shows as storage.ok=false instead of failing the host's
+        # health check, which would only restart the service in a loop (design D6).
         s: Settings = app.state.settings
+        store = get_store(s)
+        try:
+            storage = StorageHealth(backend=store.backend, ok=store.ping())
+        finally:
+            store.close()
         return HealthOut(
             version=__version__,
             allow_live=s.allow_live,
             llm_fake=s.llm_fake,
             credentials=s.credential_flags(),
             models={"main": s.model_main, "cheap": s.model_cheap},
+            storage=storage,
         )
 
     for module in (companies, reports, usage, playground):

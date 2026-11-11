@@ -45,6 +45,18 @@ def test_fetch_saves_reports_financials_and_logs_credits(tmp_path, monkeypatch, 
     log = [json.loads(line) for line in (tmp_path / "logs" / "fr.jsonl").read_text().splitlines()]
     assert sum(r["credits"] for r in log) == 93
     assert "dummy-key" not in (tmp_path / "logs" / "fr.jsonl").read_text()
+    # the file backend keeps exactly the pre-store layout under DATA_DIR
+    written = {p.relative_to(tmp_path).as_posix() for p in tmp_path.rglob("*") if p.is_file()}
+    assert {p for p in written if not p.startswith("cache/")} == {
+        "raw/MLTM/2024.md",
+        "raw/MLTM/2024.meta.json",
+        "raw/MLTM/2025.md",
+        "raw/MLTM/2025.meta.json",
+        "raw/MLTM/financials.json",
+        "raw/MLTM/financials_revisions.json",
+        "logs/fr.jsonl",
+    }
+    assert "cache/fr/cache.db" in written  # diskcache's SQLite file
 
 
 def test_fetch_without_key_explains(tmp_path, monkeypatch):

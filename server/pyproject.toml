@@ -13,6 +13,8 @@ dependencies = [
     "scipy>=1.13",
     "numpy>=1.26",
     "diskcache>=5.6",
+    # state store: Postgres backend (design D5)
+    "psycopg[binary]>=3.2",
     "typer>=0.12",
     "pyyaml>=6.0",
     # analyzer API

@@ -6,7 +6,9 @@ reaches a socket), and FastAPI's TestClient runs in-process.
 
 from __future__ import annotations
 
+import os
 import socket
+import uuid
 from pathlib import Path
 
 import pytest
@@ -34,7 +36,8 @@ def _offline(monkeypatch):
 
     monkeypatch.setattr(socket.socket, "connect", guarded)
     proxies = ("HTTPS_PROXY", "HTTP_PROXY", "ALL_PROXY", "https_proxy", "http_proxy", "all_proxy")
-    for var in ("FR_API_KEY", "OPENROUTER_API_KEY", "DATA_DIR", "ALLOW_LIVE", "LLM_FAKE", *proxies):
+    cleared = ("FR_API_KEY", "OPENROUTER_API_KEY", "DATABASE_URL", "TEST_DATABASE_URL", "DATA_DIR")
+    for var in (*cleared, "ALLOW_LIVE", "LLM_FAKE", *proxies):
         monkeypatch.delenv(var, raising=False)
     reset_settings_cache()
     yield
@@ -60,6 +63,48 @@ def settings(data_dir) -> Settings:
         fr_backoff_base_s=0.0,
         fr_backoff_max_s=0.0,
     )
+
+
+# Read before the autouse fixture clears it. When set, the store contract also runs on Postgres
+# (design D10). psycopg connects through libpq's own sockets, which the Python-level guard above
+# cannot see, so Postgres tests only ever run against this explicitly configured database.
+TEST_DATABASE_URL = os.environ.get("TEST_DATABASE_URL", "").strip() or None
+STORE_BACKENDS = [
+    "fs",
+    pytest.param(
+        "postgres",
+        marks=pytest.mark.skipif(TEST_DATABASE_URL is None, reason="TEST_DATABASE_URL not set"),
+    ),
+]
+
+
+@pytest.fixture
+def pg_schema():
+    """A fresh, empty schema with the state-store tables, dropped after the test."""
+    import psycopg
+
+    from stock_analyzer.store.pg import PgStore
+
+    schema = f"sa_test_{uuid.uuid4().hex[:12]}"
+    store = PgStore(TEST_DATABASE_URL, schema=schema)
+    store.init_schema()
+    yield store
+    store.shutdown()
+    with psycopg.connect(TEST_DATABASE_URL, autocommit=True) as conn:
+        conn.execute(f'drop schema if exists "{schema}" cascade')
+
+
+@pytest.fixture(params=STORE_BACKENDS)
+def store(request, settings):
+    """A state store on each backend under test, empty at the start of the test."""
+    if request.param == "postgres":
+        yield request.getfixturevalue("pg_schema")
+        return
+    from stock_analyzer.store import FsStore
+
+    s = FsStore(settings)
+    yield s
+    s.close()
 
 
 @pytest.fixture

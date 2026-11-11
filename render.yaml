@@ -1,0 +1,60 @@
+# Render Blueprint: the API (Docker, free, Frankfurt) and the web client (static site).
+# Design D8 in openspec/changes/deploy-render-supabase-storage/design.md.
+#
+# No secret values live here. Entries with `sync: false` are entered in the Render Dashboard
+# (or when the Blueprint is first applied) and are never committed:
+#   API: DATABASE_URL (Supabase session pooler URI), FR_API_KEY, OPENROUTER_API_KEY,
+#        CORS_ORIGINS (the static site's https URL, known after it is created)
+#   Web: VITE_API_BASE_URL (the API's https URL)
+#
+# Live mode stays off (ALLOW_LIVE=false). For a demo, set ALLOW_LIVE=true on the API in the
+# Dashboard, then set it back to false: no code change is needed (see README "Hosted deployment").
+
+services:
+  - type: web
+    name: stock-analyzer-api
+    runtime: docker
+    dockerfilePath: ./server/Dockerfile
+    dockerContext: ./server
+    plan: free
+    region: frankfurt
+    branch: main
+    autoDeploy: true
+    healthCheckPath: /health
+    buildFilter:
+      paths:
+        - server/**
+      ignoredPaths:
+        - server/tests/**
+        - server/docs/**
+        - server/**/*.md
+    envVars:
+      - key: PORT # the image's uvicorn listens on 8000
+        value: "8000"
+      - key: ALLOW_LIVE
+        value: "false"
+      - key: DATABASE_URL
+        sync: false
+      - key: FR_API_KEY
+        sync: false
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+
+  - type: web
+    name: stock-analyzer-web
+    runtime: static
+    rootDir: web
+    branch: main
+    autoDeploy: true
+    buildCommand: npm ci && npm run build
+    staticPublishPath: dist
+    routes:
+      # client-side routing (createBrowserRouter): serve the app for every path
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_API_BASE_URL # build-time; public/config.js leaves the runtime value empty
+        sync: false

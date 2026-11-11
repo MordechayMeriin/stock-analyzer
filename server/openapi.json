@@ -569,6 +569,9 @@
             "title": "Status",
             "type": "string"
           },
+          "storage": {
+            "$ref": "#/components/schemas/StorageHealth"
+          },
           "version": {
             "title": "Version",
             "type": "string"
@@ -579,7 +582,8 @@
           "allow_live",
           "llm_fake",
           "credentials",
-          "models"
+          "models",
+          "storage"
         ],
         "title": "HealthOut",
         "type": "object"
@@ -1042,6 +1046,29 @@
           "cost"
         ],
         "title": "PlaygroundUsage",
+        "type": "object"
+      },
+      "StorageHealth": {
+        "properties": {
+          "backend": {
+            "enum": [
+              "fs",
+              "postgres"
+            ],
+            "title": "Backend",
+            "type": "string"
+          },
+          "ok": {
+            "description": "The state store is reachable and ready (connection details are never shown)",
+            "title": "Ok",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "backend",
+          "ok"
+        ],
+        "title": "StorageHealth",
         "type": "object"
       },
       "StructureOut": {

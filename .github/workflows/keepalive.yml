@@ -1,0 +1,38 @@
+name: keepalive
+
+# Daily call to the hosted API's /health (design D9). It wakes the free Render instance and opens
+# a database connection, so the free Supabase project is never idle long enough to auto-pause.
+# The run fails (and GitHub emails the owner) when the API is unreachable or reports storage down.
+#
+# Configure: Settings -> Secrets and variables -> Actions -> Variables -> API_URL
+#            (the API's https URL, e.g. https://stock-analyzer-api.onrender.com)
+
+on:
+  schedule:
+    - cron: "17 3 * * *" # daily, off the hour
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  not-configured:
+    if: vars.API_URL == ''
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "::notice::API_URL repository variable is not set; keep-alive skipped"
+
+  ping:
+    if: vars.API_URL != ''
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call /health (allows for a free-instance cold start)
+        env:
+          API_URL: ${{ vars.API_URL }}
+        run: |
+          set -euo pipefail
+          body=$(curl -fsS --retry 3 --retry-delay 20 --retry-all-errors --max-time 120 "${API_URL%/}/health")
+          echo "$body" | jq '{status, allow_live, storage}'
+          if ! echo "$body" | jq -e '.storage.ok == true' > /dev/null; then
+            echo "::error::API is up but reports storage as unreachable (database paused or down?)"
+            exit 1
+          fi

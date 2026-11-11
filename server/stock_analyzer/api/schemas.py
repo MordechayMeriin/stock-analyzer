@@ -2,9 +2,18 @@
 
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import BaseModel, Field, model_validator
 
 from stock_analyzer.api.errors import ErrorOut
+
+
+class StorageHealth(BaseModel):
+    backend: Literal["fs", "postgres"]
+    ok: bool = Field(
+        description="The state store is reachable and ready (connection details are never shown)"
+    )
 
 
 class HealthOut(BaseModel):
@@ -14,6 +23,7 @@ class HealthOut(BaseModel):
     llm_fake: bool
     credentials: dict[str, bool]  # whether each credential is configured; values are never returned
     models: dict[str, str]
+    storage: StorageHealth
 
 
 class PageRange(BaseModel):

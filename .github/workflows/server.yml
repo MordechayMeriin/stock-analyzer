@@ -17,6 +17,19 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
+    services:
+      # State-store contract tests also run on Postgres (design D10).
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     defaults:
       run:
         working-directory: server
@@ -31,7 +44,15 @@ jobs:
         run: |
           uv run ruff check .
           uv run ruff format --check .
-      - name: Tests (offline; full-report checks skip without cached data)
-        run: uv run pytest
+      - name: Tests (offline + Postgres store; full-report checks skip without cached data)
+        env:
+          TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+        shell: bash
+        run: |
+          set -o pipefail
+          uv run pytest -rs | tee pytest.out
+          if grep -q "TEST_DATABASE_URL not set" pytest.out; then
+            echo "::error::Postgres store tests were skipped"; exit 1
+          fi
       - name: openapi.json is up to date
         run: uv run python scripts/export_openapi.py --check
