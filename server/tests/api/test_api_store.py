@@ -17,7 +17,12 @@ from tests.conftest import TEST_DATABASE_URL, seed_fr_cache, seed_malam
 
 pytestmark = pytest.mark.skipif(TEST_DATABASE_URL is None, reason="TEST_DATABASE_URL not set")
 
-STORE_USERS = ("stock_analyzer.services.context", "stock_analyzer.ingest.fr_client", "stock_analyzer.llm")
+STORE_USERS = (
+    "stock_analyzer.services.context",
+    "stock_analyzer.ingest.fr_client",
+    "stock_analyzer.llm",
+    "stock_analyzer.api.main",
+)
 
 
 def use_store(monkeypatch, store) -> None:
@@ -55,6 +60,12 @@ def test_usage_totals_from_postgres_log(pg_client, settings, pg_schema):
     assert body["fr_log"] == {"calls": 1, "cache_hits": 1, "network_calls": 0, "credits_logged": 0}
 
 
+def test_health_reports_postgres_reachable(pg_client):
+    body = pg_client.get("/health").json()
+    assert body["storage"] == {"backend": "postgres", "ok": True}
+    assert TEST_DATABASE_URL not in pg_client.get("/health").text
+
+
 def test_missing_schema_is_a_configuration_error(monkeypatch, settings):
     schema = f"sa_test_{uuid.uuid4().hex[:12]}"
     use_store(monkeypatch, PgStore(TEST_DATABASE_URL, schema=schema))
@@ -72,6 +83,10 @@ def test_unreachable_database_is_storage_unavailable(monkeypatch, settings):
     use_store(monkeypatch, PgStore(url, connect_timeout=2))
     with TestClient(create_app(settings)) as c:
         r = c.get("/api/companies/MLTM/filings")
+        health = c.get("/health")
     assert r.status_code == 503 and r.json()["code"] == "storage_unavailable"
+    # health still answers 200 and reports storage as down
+    assert health.status_code == 200 and health.json()["status"] == "ok"
+    assert health.json()["storage"] == {"backend": "postgres", "ok": False}
     for leak in ("secret_user", "secret_pw", "secret_db", "127.0.0.1"):
-        assert leak not in r.text
+        assert leak not in r.text and leak not in health.text

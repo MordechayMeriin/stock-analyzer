@@ -39,6 +39,7 @@ def test_health_reports_credential_flags_without_values(settings):
     assert body["status"] == "ok" and body["allow_live"] is True
     assert body["credentials"] == {"fr_api_key": True, "openrouter_api_key": True}
     assert "DO-NOT-LOG" not in json.dumps(body)
+    assert body["storage"] == {"backend": "fs", "ok": True}
     bare = settings.model_copy(update={"fr_api_key": None, "openrouter_api_key": None, "allow_live": False})
     with TestClient(create_app(bare)) as c:
         body = c.get("/health").json()
@@ -262,3 +263,18 @@ def test_playground_llm_failure_is_an_error_event(settings):
         )
     ((name, data),) = [e for e in sse_events(r.text)]
     assert name == "error" and data["code"] == "internal_error"
+
+
+def test_usage_totals_come_from_the_store(client, settings):
+    from stock_analyzer.store import get_store
+
+    seed_fr_cache(settings, "/usage/", {}, {"free_credits": {"remaining": 224}})
+    store = get_store(settings)
+    store.log("fr", {"cache": "miss", "credits": 6})
+    store.log("llm", {"cost": 0.125, "cache_hit": False, "ok": True})
+    store.log("llm", {"cost": 0.0, "cache_hit": True, "ok": True})
+    store.close()
+    body = client.get("/api/usage").json()
+    assert body["llm"] == {"calls": 2, "cache_hits": 1, "failures": 0, "total_cost_usd": 0.125}
+    # the logged miss, plus the usage request itself served from cache
+    assert body["fr_log"] == {"calls": 2, "cache_hits": 1, "network_calls": 1, "credits_logged": 6}

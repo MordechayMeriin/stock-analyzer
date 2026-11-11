@@ -21,18 +21,18 @@
 - [x] 3.4 Add contract cases for the missing-schema error and for an unreachable database (URL, user and password absent from the message); verify both pass on the pg parameter
 - [x] 3.5 Map `StorageNotInitialized` and storage-unreachable errors to the existing configuration/upstream error JSON shape in `api/errors.py`; verify API tests assert the code and that the message carries no connection details
 - [x] 3.6 Add the `stock-analyzer db init` CLI command, which applies `schema.sql` to `DATABASE_URL` and exits non-zero with a clear message when it is unset; verify `test_cli_structure.py` covers it and a local run against `postgres:17` creates the tables
-- [ ] 3.7 Add a `postgres:17` service container to `.github/workflows/server.yml` and set `TEST_DATABASE_URL` for the test step; verify the workflow runs green on the branch with the pg contract cases reported as passed, not skipped
+- [x] 3.7 Add a `postgres:17` service container to `.github/workflows/server.yml` and set `TEST_DATABASE_URL` for the test step; verify the workflow runs green on the branch with the pg contract cases reported as passed, not skipped
 
 ## 4. Health and usage
 
-- [ ] 4.1 Add `storage: {backend, ok}` to `HealthOut` and `/health` (fs: data dir writable; pg: `ping()`), always answering 200 (design D6); verify API tests for fs ok, pg ok, and pg unreachable (`ok: false`, status 200, no URL in body)
-- [ ] 4.2 Regenerate `server/openapi.json` and `web/src/api/schema.d.ts`; verify `scripts/export_openapi.py --check` and the web types staleness check pass, and `npm run build` succeeds
-- [ ] 4.3 Confirm `/usage` totals come from the active store; verify an API test that logs records through the store and reads matching `fr_log`/`llm` totals
+- [x] 4.1 Add `storage: {backend, ok}` to `HealthOut` and `/health` (fs: data dir writable; pg: `ping()`), always answering 200 (design D6); verify API tests for fs ok, pg ok, and pg unreachable (`ok: false`, status 200, no URL in body)
+- [x] 4.2 Regenerate `server/openapi.json` and `web/src/api/schema.d.ts`; verify `scripts/export_openapi.py --check` and the web types staleness check pass, and `npm run build` succeeds
+- [x] 4.3 Confirm `/usage` totals come from the active store; verify an API test that logs records through the store and reads matching `fr_log`/`llm` totals
 
 ## 5. Configuration docs
 
-- [ ] 5.1 Add `DATABASE_URL=` (empty) to `.env.example` with a comment: optional, use the Supabase session pooler URI, never commit; verify `test_config.py` (or a doc test) checks every `Settings` env var appears in `.env.example`
-- [ ] 5.2 Update `server/README.md` with the storage backends, `db init`, and running the CLI against the hosted store (`uv run --env-file ../.env ...`); verify the documented commands run as written against local Postgres
+- [x] 5.1 Add `DATABASE_URL=` (empty) to `.env.example` with a comment: optional, use the Supabase session pooler URI, never commit; verify `test_config.py` (or a doc test) checks every `Settings` env var appears in `.env.example`
+- [x] 5.2 Update `server/README.md` with the storage backends, `db init`, and running the CLI against the hosted store (`uv run --env-file ../.env ...`); verify the documented commands run as written against local Postgres
 
 ## 6. Hosting definition and keep-alive
 

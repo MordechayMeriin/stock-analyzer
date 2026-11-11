@@ -371,6 +371,7 @@ export interface components {
              * @default ok
              */
             status: string;
+            storage: components["schemas"]["StorageHealth"];
             /** Version */
             version: string;
         };
@@ -514,6 +515,19 @@ export interface components {
             input_tokens: number;
             /** Output Tokens */
             output_tokens: number;
+        };
+        /** StorageHealth */
+        StorageHealth: {
+            /**
+             * Backend
+             * @enum {string}
+             */
+            backend: "fs" | "postgres";
+            /**
+             * Ok
+             * @description The state store is reachable and ready (connection details are never shown)
+             */
+            ok: boolean;
         };
         /** StructureOut */
         StructureOut: {
