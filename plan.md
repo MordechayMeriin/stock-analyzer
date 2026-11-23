@@ -17,7 +17,7 @@ Spec for a coding agent. Build in the order of §9; each step ends runnable and 
 - Python 3.11+: `httpx pydantic>=2 openai chromadb sentence-transformers rapidfuzz scipy numpy diskcache gradio typer pytest respx`.
 - **Code fetches, parses, aligns, diffs, computes and verifies; the LLM only summarizes, scores materiality and argues.** No LLM output becomes a number, page, id or citation without a code check. Modules 1–3 run fully with `--no-llm`.
 - **Direct REST calls, not the provider's MCP server** (MCP is for exploring data during development). Code fixes company, filing and `as_of`; responses are cached forever; tests run offline.
-- **No PDF processing.** Text comes from the provider's Markdown, figures from its structured data. `document_url` is used only for citation links (`#page=N`).
+- **No PDF processing.** Text comes from the provider's Markdown, figures from its structured data. Nothing links to the PDF (generalize-report-parsing): a page is a page of the provider's Markdown, and citations show the paragraph id and the printed page number.
 - Agents call our tools (§5.2), never the provider.
 - `Decimal` for all financial values. Point-in-time filtering in code, never in prompts.
 - Hebrew text; prompts in English with Hebrew output. CLI first (`typer`); the UI calls the same functions.
@@ -183,7 +183,7 @@ Top 15 changes plus the pinned ones, `MODEL_MAIN`. Output `{summary_he ≤25 wor
 ```python
 class Citation(BaseModel):
     pid: str; fiscal_year: int; page_index: int; page_printed: int | None
-    url: str                              # document_url#page=N
+    # no PDF link (generalize-report-parsing): the printed page is the reader's reference
 class Change(BaseModel):
     change_id: str; type: str; node_path: list[str]
     added: list[Sentence]; removed: list[Sentence]; number_changes: list[NumberChange]

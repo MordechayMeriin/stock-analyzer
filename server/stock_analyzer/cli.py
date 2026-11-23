@@ -1,6 +1,6 @@
 """Command-line interface (typer). Thin adapter over ``services`` (design D4).
 
-Commands: fetch, usage, structure, fin-raw, companies list|add|remove, db init.
+Commands: fetch, usage, structure, parse-check, fin-raw, companies list|add|remove, db init.
 """
 
 from __future__ import annotations
@@ -220,7 +220,8 @@ def structure(
     )
     typer.echo(
         f"business sections: {c['business_sections']} (TOC entries {c['business_toc_entries']}, matched "
-        f"{c['business_sections_matched_from_toc']}), subsections: {c['subsections']}"
+        f"{c['business_sections_matched_from_toc']}; source: {c['business_sections_source']}), "
+        f"subsections: {c['subsections']}"
     )
     typer.echo(
         f"directors' headings: {c['directors_headings']}, auditor's reports: {c['auditor_reports']}, "
@@ -230,6 +231,62 @@ def structure(
     typer.echo(f"paragraphs in chapters: {c['paragraphs_in_chapters']}/{c['paragraphs']}")
     for warning in out.warnings:
         typer.secho(f"warning: {warning}", fg=typer.colors.YELLOW)
+
+
+SCORE_HEADER = (
+    f"{'TICKER':<7}{'FY':<6}{'PAGES':>6}{'PRINTED':>8}  {'CHAPTERS':<9}{'SECTIONS':>9}{'TOC':>8}"
+    f"{'NOTES':>7}{'STMTS':>6}{'WARN':>6}{'SEC':>7}  MISSING / ERROR"
+)
+
+
+def render_score_row(row) -> str:
+    """One scorecard line (shared by the CLI and its tests)."""
+    head = f"{row.ticker:<7}{row.fiscal_year:<6}"
+    if row.error:
+        return f"{head}{'':>6}{'':>8}  {'':<9}{'':>9}{'':>8}{'':>7}{'':>6}{'':>6}{row.seconds:>7.1f}  ERROR {row.error}"
+    chapters = f"{len(row.chapters_found)}/{len(row.chapters_found) + len(row.chapters_missing)}"
+    toc = f"{row.business_toc_matched}/{row.business_toc_entries}"
+    notes = []
+    if row.business_sections_source != "toc":
+        notes.append(f"sections from {row.business_sections_source.replace('_', ' ')}")
+    if row.chapters_missing:
+        notes.append("missing: " + ", ".join(row.chapters_missing))
+    if row.chapters_duplicated:
+        notes.append("duplicated: " + ", ".join(row.chapters_duplicated))
+    return (
+        f"{head}{row.pages:>6}{row.pages_printed:>8}  {chapters:<9}{row.business_sections:>9}{toc:>8}"
+        f"{row.notes:>7}{row.statements:>6}{row.warnings:>6}{row.seconds:>7.1f}  {'; '.join(notes)}"
+    ).rstrip()
+
+
+@app.command("parse-check")
+def parse_check(
+    ticker: Annotated[str | None, typer.Argument(help="Only this ticker")] = None,
+    fiscal_year: Annotated[int | None, typer.Argument(help="Only this fiscal year")] = None,
+) -> None:
+    """Parse every stored report (or the ones named) and print a coverage row per report.
+
+    Stored data only: no provider calls. Exits 1 if any report fails to parse.
+    """
+    from stock_analyzer.services import scorecard
+
+    try:
+        rows = scorecard.scorecard(_ctx("cached"), ticker, fiscal_year)
+    except (AnalyzerError, MissingCredential, ValueError) as exc:
+        _fail(exc)
+        return
+    if not rows:
+        typer.echo("no stored reports")
+        return
+    typer.echo(SCORE_HEADER)
+    for row in rows:
+        line = render_score_row(row)
+        if row.error:
+            typer.secho(line, fg=typer.colors.RED)
+        else:
+            typer.echo(line)
+    if any(r.error for r in rows):
+        raise typer.Exit(1)
 
 
 def _fmt_decimal(raw: str | None) -> str:

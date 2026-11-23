@@ -186,6 +186,15 @@
             "title": "Business Sections Matched From Toc",
             "type": "integer"
           },
+          "business_sections_source": {
+            "default": "toc",
+            "enum": [
+              "toc",
+              "body_numbering"
+            ],
+            "title": "Business Sections Source",
+            "type": "string"
+          },
           "business_toc_entries": {
             "title": "Business Toc Entries",
             "type": "integer"
@@ -286,17 +295,6 @@
             "title": "Cached",
             "type": "boolean"
           },
-          "document_url": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Document Url"
-          },
           "file_extension": {
             "anyOf": [
               {
@@ -353,17 +351,6 @@
           "title": {
             "title": "Title",
             "type": "string"
-          },
-          "viewer_url": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Viewer Url"
           }
         },
         "required": [
@@ -373,8 +360,6 @@
           "release_datetime",
           "file_extension",
           "file_size",
-          "document_url",
-          "viewer_url",
           "selected",
           "cached"
         ],
@@ -808,17 +793,6 @@
       },
       "PageParagraphsOut": {
         "properties": {
-          "citation_url": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Citation Url"
-          },
           "fiscal_year": {
             "title": "Fiscal Year",
             "type": "integer"
@@ -862,7 +836,6 @@
           "fiscal_year",
           "page_index",
           "page_printed",
-          "citation_url",
           "node_ids",
           "paragraphs"
         ],
@@ -891,17 +864,6 @@
       },
       "ParagraphOut": {
         "properties": {
-          "citation_url": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Citation Url"
-          },
           "heading_level": {
             "title": "Heading Level",
             "type": "integer"
@@ -945,8 +907,7 @@
           "page_index",
           "page_printed",
           "heading_level",
-          "in_table",
-          "citation_url"
+          "in_table"
         ],
         "title": "ParagraphOut",
         "type": "object"
@@ -966,20 +927,6 @@
       },
       "PlaygroundDone": {
         "properties": {
-          "citations": {
-            "additionalProperties": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ]
-            },
-            "title": "Citations",
-            "type": "object"
-          },
           "latency_ms": {
             "title": "Latency Ms",
             "type": "integer"
@@ -1003,8 +950,7 @@
           "model",
           "usage",
           "latency_ms",
-          "paragraph_ids",
-          "citations"
+          "paragraph_ids"
         ],
         "title": "PlaygroundDone",
         "type": "object"
@@ -1140,17 +1086,6 @@
           "coverage": {
             "$ref": "#/components/schemas/Coverage"
           },
-          "document_url": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Document Url"
-          },
           "filing_id": {
             "title": "Filing Id",
             "type": "integer"
@@ -1204,7 +1139,6 @@
           "ticker",
           "fiscal_year",
           "filing_id",
-          "document_url",
           "page_count",
           "page_style",
           "nodes",
@@ -1926,7 +1860,7 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Paragraphs of a page (PDF page index)",
+        "summary": "Paragraphs of a page (Markdown page index)",
         "tags": [
           "reports"
         ]

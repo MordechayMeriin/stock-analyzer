@@ -1,0 +1,70 @@
+{
+ "note": "style_b fixtures are composites: page i in the fixture is source page pages[i-1]",
+ "fixtures": {
+  "elal_2025_style_b.md": {
+   "ticker": "ELAL",
+   "fiscal_year": 2025,
+   "filing_id": 32839476,
+   "pages": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    66,
+    78,
+    79,
+    80,
+    81,
+    82,
+    120,
+    218,
+    238,
+    272
+   ]
+  },
+  "rmli_2025_style_b.md": {
+   "ticker": "RMLI",
+   "fiscal_year": 2025,
+   "filing_id": 33051170,
+   "pages": [
+    2,
+    17,
+    19,
+    20,
+    26,
+    35,
+    100,
+    102,
+    123,
+    141,
+    228,
+    247
+   ]
+  },
+  "dlekg_2025_style_b.md": {
+   "ticker": "DLEKG",
+   "fiscal_year": 2025,
+   "filing_id": 33037602,
+   "pages": [
+    2,
+    3,
+    5,
+    6,
+    465,
+    507,
+    528,
+    557,
+    714,
+    723,
+    727,
+    801,
+    802,
+    818,
+    842
+   ]
+  }
+ }
+}

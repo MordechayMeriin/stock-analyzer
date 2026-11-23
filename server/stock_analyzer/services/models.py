@@ -62,8 +62,6 @@ class FilingOut(BaseModel):
     release_datetime: datetime | None
     file_extension: str | None
     file_size: int | None
-    document_url: str | None
-    viewer_url: str | None
     selected: bool  # the full annual report chosen for its fiscal year
     cached: bool  # its Markdown is saved locally
 
@@ -127,7 +125,6 @@ class StructureOut(BaseModel):
     ticker: str
     fiscal_year: int
     filing_id: int
-    document_url: str | None
     page_count: int
     page_style: str
     nodes: list[NodeOut]
@@ -145,7 +142,6 @@ class ParagraphOut(BaseModel):
     page_printed: int | None
     heading_level: int
     in_table: bool
-    citation_url: str | None  # document_url#page=N
 
 
 class NodeParagraphsOut(BaseModel):
@@ -160,7 +156,6 @@ class PageParagraphsOut(BaseModel):
     fiscal_year: int
     page_index: int
     page_printed: int | None
-    citation_url: str | None
     node_ids: list[str]  # deepest nodes that cover this page
     paragraphs: list[ParagraphOut]
 

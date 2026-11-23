@@ -1,4 +1,6 @@
-"""Report services: structure tree, node paragraphs and page paragraphs with citations.
+"""Report services: structure tree, node paragraphs and page paragraphs.
+
+A page is a page of the report's Markdown; nothing links to the source PDF.
 
 Parsed structures are recomputed from the raw Markdown (cheap, deterministic) and memoized
 on (file hash, parser version, structure version) so the API does not reparse per request.
@@ -29,10 +31,6 @@ from stock_analyzer.services.models import (
 _MEMO: OrderedDict[str, tuple[ParsedReport, Structure, ReportMeta]] = OrderedDict()
 _MEMO_LOCK = threading.Lock()
 _MEMO_SIZE = 8
-
-
-def citation_url(document_url: str | None, page_index: int) -> str | None:
-    return f"{document_url}#page={page_index}" if document_url else None
 
 
 def _ensure_raw(ctx: Ctx, ticker: str, fiscal_year: int) -> tuple[str, ReportMeta]:
@@ -98,7 +96,7 @@ def _node_out(node: Node, parsed: ParsedReport) -> NodeOut:
     )
 
 
-def _para_out(p: Paragraph, document_url: str | None) -> ParagraphOut:
+def _para_out(p: Paragraph) -> ParagraphOut:
     return ParagraphOut(
         pid=p.pid,
         seq=p.seq,
@@ -107,7 +105,6 @@ def _para_out(p: Paragraph, document_url: str | None) -> ParagraphOut:
         page_printed=p.page_printed,
         heading_level=p.heading_level,
         in_table=p.in_table,
-        citation_url=citation_url(document_url, p.page_index),
     )
 
 
@@ -117,7 +114,6 @@ def report_structure(ctx: Ctx, ticker: str, fiscal_year: int) -> StructureOut:
         ticker=structure.ticker,
         fiscal_year=fiscal_year,
         filing_id=meta.filing_id,
-        document_url=meta.document_url,
         page_count=parsed.page_count,
         page_style=parsed.style,
         nodes=[_node_out(n, parsed) for n in structure.nodes],
@@ -129,7 +125,7 @@ def report_structure(ctx: Ctx, ticker: str, fiscal_year: int) -> StructureOut:
 
 
 def node_paragraphs(ctx: Ctx, ticker: str, fiscal_year: int, node_id: str) -> NodeParagraphsOut:
-    parsed, structure, meta = load_parsed(ctx, ticker, fiscal_year)
+    parsed, structure, _ = load_parsed(ctx, ticker, fiscal_year)
     node = structure.node(node_id)
     if node is None:
         raise NodeNotFound(f"no node {node_id!r} in {structure.ticker} FY{fiscal_year}")
@@ -138,12 +134,12 @@ def node_paragraphs(ctx: Ctx, ticker: str, fiscal_year: int, node_id: str) -> No
         ticker=structure.ticker,
         fiscal_year=fiscal_year,
         node=_node_out(node, parsed),
-        paragraphs=[_para_out(p, meta.document_url) for p in parsed.paragraphs[a : b + 1]],
+        paragraphs=[_para_out(p) for p in parsed.paragraphs[a : b + 1]],
     )
 
 
 def page_paragraphs(ctx: Ctx, ticker: str, fiscal_year: int, page_index: int) -> PageParagraphsOut:
-    parsed, structure, meta = load_parsed(ctx, ticker, fiscal_year)
+    parsed, structure, _ = load_parsed(ctx, ticker, fiscal_year)
     if not any(p.index == page_index for p in parsed.pages):
         raise PageNotFound(
             f"page {page_index} is outside {structure.ticker} FY{fiscal_year} (1-{parsed.page_count})"
@@ -156,9 +152,8 @@ def page_paragraphs(ctx: Ctx, ticker: str, fiscal_year: int, page_index: int) ->
         fiscal_year=fiscal_year,
         page_index=page_index,
         page_printed=_printed(parsed, page_index),
-        citation_url=citation_url(meta.document_url, page_index),
         node_ids=deepest,
-        paragraphs=[_para_out(p, meta.document_url) for p in paras],
+        paragraphs=[_para_out(p) for p in paras],
     )
 
 
@@ -171,7 +166,7 @@ def select_paragraphs(
     pages: tuple[int, int] | None = None,
 ) -> list[ParagraphOut]:
     """Paragraphs of a node or an inclusive page range (used by the playground)."""
-    parsed, structure, meta = load_parsed(ctx, ticker, fiscal_year)
+    parsed, structure, _ = load_parsed(ctx, ticker, fiscal_year)
     if node_id is not None:
         return node_paragraphs(ctx, ticker, fiscal_year, node_id).paragraphs
     if pages is None:
@@ -185,4 +180,4 @@ def select_paragraphs(
         raise PageNotFound(
             f"page range {first}-{last} is outside {structure.ticker} FY{fiscal_year} (1-{parsed.page_count})"
         )
-    return [_para_out(p, meta.document_url) for p in parsed.paragraphs if first <= p.page_index <= last]
+    return [_para_out(p) for p in parsed.paragraphs if first <= p.page_index <= last]

@@ -112,18 +112,53 @@ def fixtures_dir() -> Path:
     return FIXTURES
 
 
-LIVE_RAW = SERVER_ROOT / "data" / "raw" / "MLTM"
-LIVE_FILINGS = {2024: 63741657, 2025: 32935334}
+# Full stored reports for the opt-in ``live_data`` tests, read through the state store
+# (design D12): the local ``DATA_DIR`` (default ``server/data``) or, when ``DATABASE_URL`` is set,
+# the Postgres store it names (e.g. the hosted one, which holds every reference report, so these
+# tests cost no provider credits). Both are read here, before the autouse fixture clears them.
+LIVE_DATA_DIR = Path(os.environ.get("DATA_DIR", "").strip() or SERVER_ROOT / "data")
+LIVE_DATABASE_URL = os.environ.get("DATABASE_URL", "").strip() or None
+
+# The reference reports every parser change is checked against (report-parsing spec).
+REFERENCE_REPORTS: list[tuple[str, int]] = [
+    ("MLTM", 2024),
+    ("MLTM", 2025),
+    ("ELAL", 2024),
+    ("ELAL", 2025),
+    ("RMLI", 2025),
+    ("DLEKG", 2025),
+]
+
+_live_store = None
 
 
-def live_report(fiscal_year: int) -> str:
-    """Full cached Malam report text; skips the test when it has not been fetched."""
-    path = LIVE_RAW / f"{fiscal_year}.md"
-    if not path.exists():
-        pytest.skip(
-            f"full Malam FY{fiscal_year} report not cached (run: stock-analyzer fetch MLTM {fiscal_year})"
+def _get_live_store():
+    global _live_store
+    if _live_store is None:
+        import atexit
+
+        from stock_analyzer.store import get_store
+
+        live_settings = Settings(
+            data_dir=LIVE_DATA_DIR,
+            database_url=SecretStr(LIVE_DATABASE_URL) if LIVE_DATABASE_URL else None,
         )
-    return read_exact(path)
+        _live_store = get_store(live_settings)
+        atexit.register(_live_store.close)
+    return _live_store
+
+
+def live_report(ticker: str, fiscal_year: int) -> tuple[str, int]:
+    """(text, filing id) of a full stored report; skips the test when it is not stored."""
+    loaded = _get_live_store().load_report(ticker.upper(), fiscal_year)
+    if loaded is None:
+        where = "the DATABASE_URL store" if LIVE_DATABASE_URL else str(LIVE_DATA_DIR)
+        pytest.skip(
+            f"full {ticker.upper()} FY{fiscal_year} report not stored in {where} "
+            f"(run: stock-analyzer fetch {ticker.upper()} {fiscal_year})"
+        )
+    text, meta = loaded
+    return text, meta.filing_id
 
 
 def fixture_text(name: str) -> str:

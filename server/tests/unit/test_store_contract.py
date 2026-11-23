@@ -76,6 +76,15 @@ def test_report_overwrite_replaces_filing(store):
     assert store.cached_filing_id("MLTM", 2025) == 2
 
 
+def test_list_reports(store):
+    assert store.list_reports() == []
+    store.save_report("MLTM", 2025, _meta(), HEBREW_CRLF)
+    store.save_report("MLTM", 2024, _meta(2), HEBREW_CRLF)
+    store.save_report("ELAL", 2025, _meta(3), HEBREW_CRLF)
+    store.save_report("MLTM", 2025, _meta(4), HEBREW_CRLF)  # overwrite: still one entry
+    assert store.list_reports() == [("ELAL", 2025), ("MLTM", 2024), ("MLTM", 2025)]
+
+
 def test_financials_snapshot_saves_and_overwrites(store):
     store.save_financials("MLTM", False, {"company_id": 6901, "periods": []})
     store.save_financials("MLTM", True, {"company_id": 6901, "periods": [{"fy": 2025}]})

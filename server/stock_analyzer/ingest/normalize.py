@@ -67,3 +67,15 @@ def normalize_title(text: str) -> str:
     t = normalize(text)
     t = re.sub(r"^(?:#+|[-*•]\s)\s*", "", t)
     return t.strip(" .:-–|")
+
+
+_MATRES = re.compile(r"(?<=[א-ת])[וי]+")
+_ACRONYM_QUOTE = re.compile(r'(?<=[א-ת])"(?=[א-ת])')
+
+
+def match_key(text: str) -> str:
+    """Spelling-insensitive key for fuzzy title matching (keys only, never display text):
+    Hebrew plene/defective spellings (שירותי/שרותי, חיסכון/חסכון) agree once vav/yod inside a
+    word are dropped, and ``דו"ח``/``דוח`` agree once a quote between Hebrew letters is dropped.
+    Lengths change, so match on keys of both sides."""
+    return _MATRES.sub("", _ACRONYM_QUOTE.sub("", text))

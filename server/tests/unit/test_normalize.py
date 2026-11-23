@@ -52,3 +52,12 @@ def test_idempotent():
 )
 def test_normalize_title(raw, expected):
     assert normalize_title(raw) == expected
+
+
+def test_match_key_ignores_acronym_quotes_and_matres():
+    from stock_analyzer.ingest.normalize import match_key
+
+    assert match_key('דו"ח הדירקטוריון') == match_key("דוח הדירקטוריון")
+    assert match_key('דו"חות כספיים') == match_key("דוחות כספיים")
+    assert match_key("שירותי") == match_key("שרותי")
+    assert match_key('"החברה"') == '"החברה"'  # quotes around a word are kept

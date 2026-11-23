@@ -3,9 +3,10 @@ import logging
 import pytest
 
 from stock_analyzer.config import Settings
+from stock_analyzer.ingest.normalize import normalize_title
 from stock_analyzer.ingest.parse_md import parse_report
 from stock_analyzer.ingest.structure import build_structure, chapter_ordinal
-from tests.conftest import LIVE_FILINGS, fixture_text, live_report
+from tests.conftest import fixture_text, live_report
 
 
 def structure_of(text, fy=2025, settings=None):
@@ -69,7 +70,7 @@ def test_missing_and_duplicate_chapters_reported():
             "# פרק ראשון\n\n## תיאור עסקי התאגיד",
             "גוף",
             "# פרק שני\n\n## דוח הדירקטוריון",
-            "# פרק ראשון\n\n## תיאור עסקי",
+            "# פרק ראשון\n\n## תיאור עסקי התאגיד",
         )
     )
     assert s.coverage.chapters_duplicated == ["business"]
@@ -80,7 +81,9 @@ def test_missing_and_duplicate_chapters_reported():
 
 
 def test_cross_reference_is_not_a_chapter():
-    s = structure_of(doc("# פרק ראשון\n\nתיאור", "לפרטים ר' פרק שני לדוח זה ואת דוח הדירקטוריון הכלול בדוח."))
+    s = structure_of(
+        doc("# פרק ראשון\n\nתיאור עסקי התאגיד", "לפרטים ר' פרק שני לדוח זה ואת דוח הדירקטוריון הכלול בדוח.")
+    )
     assert s.coverage.chapters_found == ["business"]
 
 
@@ -124,16 +127,21 @@ def test_sections_numbers_glued_spelling_and_references():
 
 
 def test_toc_threshold_from_config():
-    text = doc("# פרק ראשון - תיאור עסקי", TOC, "1. פעילות החבר\n\n2. תחומי הפעילות")
+    text = doc("# פרק ראשון - תיאור עסקי התאגיד", TOC, "1. פעילות החבר\n\n2. תחומי הפעילות")
     assert structure_of(text).coverage.business_sections == 2
-    strict = Settings(repeated_line_min_pages=999, toc_match_threshold=100)
+    # min_business_sections=1 keeps the body-numbering fallback out of this TOC-threshold check
+    strict = Settings(repeated_line_min_pages=999, toc_match_threshold=100, min_business_sections=1)
     assert structure_of(text, settings=strict).coverage.business_sections == 1
 
 
 def test_toc_table_rows_parsed():
     table = "### תוכן עניינים\n\n|5|**תיאור ההתפתחות**|**.א**|\n|---|---|---|\n|5|**פעילות החברה**|**1.**|\n|8|**תחומי הפעילות**<br>**של הקבוצה**|**2**<br>**.**<br>|\n|9|**חלוקת דיבידנדים**|**3**<br>**.**|"
     s = structure_of(
-        doc("# פרק ראשון", table, "1. פעילות החברה\n\n2. תחומי הפעילות של הקבוצה\n\n3. חלוקת דיבידנדים")
+        doc(
+            "# פרק ראשון - תיאור עסקי התאגיד",
+            table,
+            "1. פעילות החברה\n\n2. תחומי הפעילות של הקבוצה\n\n3. חלוקת דיבידנדים",
+        )
     )
     assert [(e.number, e.title) for e in s.toc] == [
         ("1", "פעילות החברה"),
@@ -164,7 +172,7 @@ SUB_FORMS = {
 def test_each_numbering_form(form):
     line, number, title = SUB_FORMS[form]
     text = doc(
-        "# פרק ראשון - תיאור עסקי",
+        "# פרק ראשון - תיאור עסקי התאגיד",
         "# תוכן עניינים\n\n22. דיון בגורמי סיכון\n23. אחר\n24. עוד",
         f"22. דיון בגורמי סיכון\n\n22.1. גורמים חיצוניים\n\n{line}\n\nגוף הסעיף. כמפורט בסעיף 22.1.9 לעיל.",
     )
@@ -176,7 +184,7 @@ def test_each_numbering_form(form):
 
 def test_orphan_number_followed_by_heading_has_no_title():
     text = doc(
-        "# פרק ראשון",
+        "# פרק ראשון - תיאור עסקי התאגיד",
         "# תוכן עניינים\n\n22. סיכונים\n23. א\n24. ב",
         "22. סיכונים\n\n.22.2.3\n\n22.2.4. תמחור פרויקטים",
     )
@@ -232,7 +240,11 @@ def test_auditor_heading_must_start_the_line():
 
 def test_chapter_title_skips_brand_lines():
     s = structure_of(
-        doc('# פרק חמישי\n## שאלון ממשל תאגידי\n\nMalamTeam\n\nwww.malamteam.com | מלם-תים בע"מ 0 |', "גוף")
+        doc(
+            "# פרק ראשון - תיאור עסקי התאגיד",
+            '# פרק חמישי\n## שאלון ממשל תאגידי\n\nMalamTeam\n\nwww.malamteam.com | מלם-תים בע"מ 0 |',
+            "גוף",
+        )
     )
     assert s.node("chapter-5").title == "פרק חמישי שאלון ממשל תאגידי"
 
@@ -279,9 +291,8 @@ def test_stable_structure_across_runs():
 @pytest.mark.live_data
 @pytest.mark.parametrize("fy", [2024, 2025])
 def test_live_chapters_once_and_sections(fy):
-    s = build_structure(
-        parse_report(live_report(fy), ticker="MLTM", fiscal_year=fy, filing_id=LIVE_FILINGS[fy])
-    )
+    text, filing_id = live_report("MLTM", fy)
+    s = build_structure(parse_report(text, ticker="MLTM", fiscal_year=fy, filing_id=filing_id))
     c = s.coverage
     assert c.chapters_found == ["business", "directors", "financials", "additional", "governance"]
     assert c.chapters_duplicated == [] and c.chapters_missing == []
@@ -293,11 +304,341 @@ def test_live_chapters_once_and_sections(fy):
 
 @pytest.mark.live_data
 def test_live_fy2025_risk_and_notes():
-    s = build_structure(
-        parse_report(live_report(2025), ticker="MLTM", fiscal_year=2025, filing_id=LIVE_FILINGS[2025])
-    )
+    text, filing_id = live_report("MLTM", 2025)
+    s = build_structure(parse_report(text, ticker="MLTM", fiscal_year=2025, filing_id=filing_id))
     assert next(e for e in s.toc if e.matched_node == "business-22").number == "25"
     ai = s.node("business-22.2.3")
     assert ai.title.startswith("סיכונים הנובעים משימוש ופיתוח טכנולוגיות בינה מלאכותית")
     assert s.node("financials-note-32").title.startswith("דיווח מגזרי")
     assert s.coverage.notes >= 24 and s.coverage.auditor_reports >= 2 and s.coverage.statements >= 5
+
+
+# ---------------------------------------------------------------- chapters across issuers (D2/D3)
+
+
+def issuer_structure(name: str, ticker: str):
+    logging.disable(logging.WARNING)
+    try:
+        text = fixture_text(name)
+        return build_structure(parse_report(text, ticker=ticker, fiscal_year=2025, filing_id=1))
+    finally:
+        logging.disable(logging.NOTSET)
+
+
+MAIN = ["business", "directors", "financials", "additional", "governance"]
+
+
+def chapter_pages(s):
+    return {n.node_id: n.pages[0] for n in s.nodes if n.kind == "chapter"}
+
+
+def test_letter_ordinals_and_title_on_the_next_line():
+    """El Al FY2025: covers "# פרק א'" / "דוח תיאור עסקי התאגיד", … "# פרק ו'"."""
+    s = issuer_structure("elal_2025_style_b.md", "ELAL")
+    assert s.coverage.chapters_found == MAIN and s.coverage.chapters_duplicated == []
+    # fixture pages 3, 8, 14, 16, 17 = source covers 3, 66, 120, 238, 272
+    assert chapter_pages(s) == {
+        "business": 3,
+        "directors": 8,
+        "financials": 14,
+        "additional": 16,
+        "governance": 17,
+    }
+
+
+def test_digit_numbered_parts_are_not_chapters():
+    """El Al FY2025: "פרק 1: כללי" and "פרק 2: …" inside the business chapter."""
+    s = issuer_structure("elal_2025_style_b.md", "ELAL")
+    business = s.node("business")
+    assert business.pages == (3, 7)  # through source page 7, up to the directors' cover
+    assert not any(n.kind == "chapter" and n.chapter == "other" for n in s.nodes)
+
+
+def test_separate_financial_information_stays_in_the_financial_statements():
+    """El Al FY2025 "פרק ד'" / "מידע כספי נפרד…" (fixture page 15) is not a chapter of its own."""
+    s = issuer_structure("elal_2025_style_b.md", "ELAL")
+    assert s.node("financials").pages == (14, 15)
+
+
+def test_ordinal_lost_in_extraction():
+    """Delek FY2025: covers hold "פרק" alone (the letter was an image), title below."""
+    s = issuer_structure("dlekg_2025_style_b.md", "DLEKG")
+    assert s.coverage.chapters_found == MAIN and s.coverage.chapters_duplicated == []
+    # fixture pages 2, 5, 6, 14, 15 = source covers 3, 465, 507, 818, 842
+    assert chapter_pages(s) == {
+        "business": 2,
+        "directors": 5,
+        "financials": 6,
+        "additional": 14,
+        "governance": 15,
+    }
+
+
+def test_part_word_inside_a_pereq_report_is_inner():
+    """Delek: "חלק ראשון- תיאור ההתפתחות הכללית של עסקי החברה" inside the business chapter."""
+    s = issuer_structure("dlekg_2025_style_b.md", "DLEKG")
+    assert s.node("business").pages == (2, 4)
+
+
+def test_part_used_as_the_chapter_level():
+    """Rami Levy FY2025: chapters open with "חלק א'" / "תיאור עסקי התאגיד" … "חלק ה'"."""
+    s = issuer_structure("rmli_2025_style_b.md", "RMLI")
+    assert s.coverage.chapters_found == MAIN and s.coverage.chapters_duplicated == []
+    # fixture pages 2, 9, 10, 11, 12 = source covers 17, 123, 141, 228, 247
+    assert chapter_pages(s) == {
+        "business": 2,
+        "directors": 9,
+        "financials": 10,
+        "additional": 11,
+        "governance": 12,
+    }
+
+
+def test_inner_parts_with_the_chapter_word_or_an_earlier_ordinal():
+    """Rami Levy: "פרק א' - תיאור ההתפתחות…" (other word), "חלק ב' - מידע אחר" and "חלק ד': …"
+    (the chapter word, but ordinals the main chapters use) are inner parts of the business chapter."""
+    s = issuer_structure("rmli_2025_style_b.md", "RMLI")
+    assert s.node("business").pages == (2, 8)
+    assert [n.node_id for n in s.nodes if n.kind == "chapter"] == MAIN
+
+
+def test_spelling_and_extraction_variants_in_titles():
+    s = structure_of(
+        doc(
+            "# חלק א'\n\n## תיאור עסקי התאגיד",
+            "# חלק ב'\n\nדו\"ח הדירקטוריון",
+            "# חלק ג'\n\n## דו\"חות כספיים",
+            "# חלק ד'\n\n## פרסים נוספים\n\n### על התאגיד",
+            "# חלק ה'\n\n## דו\"ח בדבר אפקטיביות הבקרה הפנימית על הדיווח ועל הגילוי",
+        )
+    )
+    assert s.coverage.chapters_found == MAIN and s.coverage.chapters_missing == []
+
+
+def test_reversed_opener_and_stray_space_in_the_ordinal():
+    s = structure_of(
+        doc(
+            "# פרק ראשון - תיאור עסקי התאגיד",
+            "ב' פרק דוח הדירקטוריון על מצב ענייני התאגיד",  # bidi-reversed (El Al FY2024)
+            "פרק ש לישי דוחות כספיים מאוחדים לשנת 2024",  # stray space (Malam FY2024)
+        )
+    )
+    assert s.coverage.chapters_found == ["business", "directors", "financials"]
+
+
+def test_title_at_the_start_of_a_page_without_an_opener():
+    """El Al FY2024 p231 "פרטים נוספים על התאגיד שם חברה: …" starts the chapter; p36's
+    "פרטים נוספים על התאגיד ." (the end of a sentence) does not."""
+    s = structure_of(
+        doc(
+            "# פרק א' - תיאור עסקי התאגיד",
+            "פרטים נוספים על התאגיד .\n\nלפרטים נוספים ראו פרק פרטים נוספים על התאגיד.",
+            "# פרק ב' - דוח הדירקטוריון",
+            "פרטים נוספים על התאגיד שם חברה: אל על",
+        )
+    )
+    assert chapter_pages(s) == {"business": 1, "directors": 3, "additional": 4}
+
+
+BODY = "\n\n".join(f"שורת גוף מספר {i} בעמוד." for i in range(1, 9))  # the header stays out of the head
+
+
+def test_chapter_located_from_running_header():
+    """No opener for the governance chapter, but its pages carry its running header."""
+    gov = "פרק ו | דוח שנתי בדבר אפקטיביות הבקרה הפנימית"
+    pages = [
+        "# פרק א' - תיאור עסקי התאגיד",
+        "# פרק ה' - פרטים נוספים על התאגיד",
+        "ו' ו' דוח שנתי בדבר אפקטיביות ה פ ב ר פ ק ר ק",  # a garbled cover (El Al FY2024)
+    ] + [f"{BODY}\n\n{i}\n\n{gov}" for i in range(1, 6)]
+    s = structure_of(doc(*pages), settings=Settings(repeated_line_min_pages=999))
+    assert "governance" in s.coverage.chapters_found
+    assert chapter_pages(s)["governance"] == 4  # the first page carrying the header
+    assert any("page-edge header on page 4" in w for w in s.warnings)
+
+
+def test_edge_header_fallback_respects_chapter_order():
+    """A header naming a missing chapter is not used before the chapter that precedes it."""
+    pages = [
+        "# פרק א' - תיאור עסקי התאגיד",
+        f"{BODY}\n\nפרק ו | דוח שנתי בדבר אפקטיביות הבקרה הפנימית",  # stray, before "additional"
+        "# פרק ה' - פרטים נוספים על התאגיד",
+        f"{BODY}\n\nפרק ו | דוח שנתי בדבר אפקטיביות הבקרה הפנימית",
+    ]
+    s = structure_of(doc(*pages))
+    assert chapter_pages(s)["governance"] == 4
+
+
+# ---------------------------------------------------------------- business TOC levels (D7)
+
+
+def test_multi_level_toc_keeps_levels_and_anchors_on_top_level():
+    """Rami Levy FY2025 has a short and a detailed TOC; "כללי .2" is section 2 and the detailed
+    TOC's "2.1"/"2.2" entries never become sections 21/22."""
+    s = issuer_structure("rmli_2025_style_b.md", "RMLI")
+    numbers = [e.number for e in s.toc]
+    assert ("2", "כללי") in [(e.number, e.title) for e in s.toc]
+    assert {e.level for e in s.toc} == {1}
+    titles = {e.number: e.title for e in s.toc}
+    assert "2.1" not in numbers and "שנת התאגדות וצורת התאגדות" not in titles.values()
+    assert titles["21"] == "תשקיף מדף" and titles["22"] == "מיסוי"  # the real sections 21 and 22
+    assert numbers == [str(i) for i in range(1, 30)]
+
+
+def test_toc_row_number_cells_and_numbered_titles():
+    from stock_analyzer.ingest.structure import _parse_toc_row
+
+    assert _parse_toc_row("|  12 | שנת התאגדות וצורת התאגדות | 2.1 |   |").model_dump(
+        exclude={"matched_node"}
+    ) == {
+        "number": "2.1",
+        "title": "שנת התאגדות וצורת התאגדות",
+        "level": 2,
+    }
+    assert _parse_toc_row("|  9 | הגדרות | .1  |").number == "1"  # page 9, section 1
+    delek = _parse_toc_row("|  א-279 | 1.12 הון אנושי  |")  # Delek: number inside the title cell
+    assert (delek.number, delek.title, delek.level) == ("1.12", "הון אנושי", 2)
+    assert _parse_toc_row("|  א-9 | חלק שני - מידע אחר  |") is None  # a part row
+
+
+def test_section_numbers_at_a_deeper_top_level():
+    """Delek numbers its business sections 1.1, 1.2 …; the number may sit alone on the line
+    before the title."""
+    toc = "# תוכן עניינים\n\n|  עמוד | נושא |\n| --- | --- |\n" + "\n".join(
+        f"|  א-{i} | 1.{i} {t}  |" for i, t in enumerate(["כללי", "תחומי הפעילות", "דיבידנדים", "מימון"], 1)
+    )
+    s = structure_of(
+        doc(
+            "# פרק א - תיאור עסקי התאגיד",
+            toc,
+            "1.1\n\nכללי\n\nגוף.",
+            "תחומי הפעילות\n\n.1.2 הקבוצה פועלת בשני תחומים: 1.2.1 תחום אחד.",
+            "1.3 דיבידנדים\n\nגוף.\n\n1.4 מימון\n\nגוף.",
+        )
+    )
+    assert [(n.node_id, n.title) for n in s.nodes if n.kind == "section"] == [
+        ("business-1.1", "כללי"),
+        ("business-1.2", "תחומי הפעילות"),
+        ("business-1.3", "דיבידנדים"),
+        ("business-1.4", "מימון"),
+    ]
+    assert s.node("business-1.2.1").parent == "business-1.2"
+
+
+# ---------------------------------------------------------------- body-numbering fallback (D8)
+
+
+def test_sections_from_body_numbering_without_a_toc():
+    titles = [f"נושא מספר {w}" for w in "אבגדהוזחטיכל"]
+    body = "\n\n".join(f"{i}. {t}\n\nגוף הסעיף {i}." for i, t in enumerate(titles, 1))
+    s = structure_of(doc("# פרק ראשון - תיאור עסקי התאגיד", body, "# פרק שני - דוח הדירקטוריון"))
+    sections = [n for n in s.nodes if n.kind == "section" and n.chapter == "business"]
+    assert [(n.node_id, n.title) for n in sections] == [(f"business-{i}", t) for i, t in enumerate(titles, 1)]
+    assert s.coverage.business_sections == 12 and s.coverage.business_sections_source == "body_numbering"
+    assert any("body numbering" in w for w in s.warnings)
+
+
+def test_body_numbering_skips_cross_references_and_jumps():
+    body = "1. כללי\n\nגוף.\n\n2. תחומים\n\n9. קפיצה גדולה מדי\n\n3. להלן פירוט\n\n3. מימון\n\n4. מיסוי"
+    s = structure_of(doc("# פרק ראשון - תיאור עסקי התאגיד", body))
+    assert [n.title for n in s.nodes if n.kind == "section"] == ["כללי", "תחומים", "מימון", "מיסוי"]
+
+
+def test_malam_sections_come_from_the_toc(fixture_b):
+    assert fixture_b.coverage.business_sections_source == "toc"
+
+
+def test_heading_worded_unlike_the_toc_confirmed_by_its_number():
+    """El Al FY2024: TOC "פרטים שונים לגבי פעילות החברה", body "###### פרטים נוספים לגבי פעילות
+    החברה" followed by "**8.**" alone; without the number the wording alone is not enough."""
+    toc = "# תוכן עניינים\n\n1. כללי\n2. פרטים שונים לגבי פעילות החברה\n3. מימון"
+    s = structure_of(
+        doc(
+            "# פרק א' - תיאור עסקי התאגיד",
+            toc,
+            "1. כללי\n\nגוף.\n\n###### פרטים נוספים לגבי פעילות החברה\n\n**2.**\n\nגוף.\n\n3. מימון",
+        ),
+        settings=Settings(repeated_line_min_pages=999, min_business_sections=1),
+    )
+    assert [(n.node_id, n.title) for n in s.nodes if n.kind == "section"] == [
+        ("business-1", "כללי"),
+        ("business-2", "פרטים שונים לגבי פעילות החברה"),
+        ("business-3", "מימון"),
+    ]
+    unconfirmed = structure_of(
+        doc("# פרק א' - תיאור עסקי התאגיד", toc, "1. כללי\n\n###### פרטים נוספים לגבי פעילות החברה\n\nגוף."),
+        settings=Settings(repeated_line_min_pages=999, min_business_sections=1),
+    )
+    assert unconfirmed.node("business-2") is None
+
+
+# ---------------------------------------------------------------- notes and statement sets (D9)
+
+
+@pytest.mark.parametrize(
+    ("line", "number", "title"),
+    [
+        ("באור 2: עיקרי המדיניות החשבונאית", 2, "עיקרי המדיניות החשבונאית"),
+        ("ביאור 1 – כללי", 1, "כללי"),
+        ("## באור 3: מזומנים ושווי מזומנים", 3, "מזומנים ושווי מזומנים"),
+        ("באור 1: - כללי (המשך)", 1, "כללי"),
+        ("#### באור 1: א.", 1, ""),  # the note's first lettered paragraph, not its title
+        ("עיקרי המדיניות החשבונאיות - 2 ביאור", 2, "עיקרי המדיניות החשבונאיות"),
+    ],
+)
+def test_note_heading_spellings_and_separators(line, number, title):
+    from stock_analyzer.ingest.structure import _note_heading
+
+    assert _note_heading(normalize_title(line)) == (number, title)
+
+
+def test_note_heading_mid_paragraph():
+    """Rami Levy FY2025: "ביאור 26 - …" sits on a later line of a paragraph."""
+    text = doc(
+        "# פרק שלישי\n\n## דוחות כספיים",
+        "ביאור 1 - כללי\n\nגוף",
+        "ה. הסכמי שכירות (המשך)\nשורה\nשורה\nשורה\nביאור 2 - אירועים לאחר תאריך המאזן\nגוף",
+    )
+    assert structure_of(text).node("financials-note-2").title == "אירועים לאחר תאריך המאזן"
+
+
+def test_delek_notes_and_separate_set_under_the_standard_title():
+    s = issuer_structure("dlekg_2025_style_b.md", "DLEKG")
+    main = [n.number for n in s.nodes if n.node_id.startswith("financials-note-")]
+    separate = [n.number for n in s.nodes if n.node_id.startswith("financials-separate-note-")]
+    assert main == ["1", "2", "3", "4"] and separate == ["1", "3", "5", "6"]
+    assert s.node("financials-separate").title.startswith("נתונים כספיים מתוך הדוחות הכספיים המאוחדים")
+    assert s.node("financials-note-1").title == "ביאור 1"  # "באור 1: א." has no title of its own
+    assert s.coverage.note_numbers_missing == []
+
+
+def test_attached_statement_set_restarting_notes():
+    text = doc(
+        "# פרק שלישי\n\n## דוחות כספיים",
+        "ביאור 1 - כללי\n\nגוף",
+        "ביאור 2 - מזומנים\n\nגוף",
+        "דוחות כספיים ליום 31.12.2025\n\nחברה כלולה מהותית",
+        "ביאור 1 - כללי\n\nגוף",
+        "ביאור 2 - רכוש קבוע\n\nגוף",
+    )
+    s = structure_of(text)
+    assert [n.node_id for n in s.nodes if n.kind == "note"] == [
+        "financials-note-1",
+        "financials-note-2",
+        "financials-attached-1-note-1",
+        "financials-attached-1-note-2",
+    ]
+    assert s.node("financials-attached-1").title == "דוחות כספיים ליום 31.12.2025"
+    assert s.coverage.note_numbers_missing == []
+
+
+def test_statement_mention_inside_notes_is_not_a_new_set():
+    """A statement heading inside the notes followed by a higher note is just a mention."""
+    text = doc(
+        "# פרק שלישי\n\n## דוחות כספיים",
+        "ביאור 1 - כללי\n\nגוף",
+        "דוחות מאוחדים על המצב הכספי\n\nביאור 2 - מזומנים",
+        "ביאור 1 - כללי (המשך)\n\nביאור 3 - לקוחות",
+    )
+    s = structure_of(text)
+    assert [n.node_id for n in s.nodes if n.kind == "note"] == [f"financials-note-{i}" for i in (1, 2, 3)]

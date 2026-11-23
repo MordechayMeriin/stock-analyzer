@@ -48,8 +48,6 @@ def list_filings(ctx: Ctx, ticker: str) -> FilingsOut:
                         release_datetime=f.release_datetime,
                         file_extension=f.file_extension,
                         file_size=f.file_size,
-                        document_url=f.url,
-                        viewer_url=f.viewer_url,
                         selected=selected is not None and f.id == selected.id,
                         cached=cached_id == f.id,
                     )

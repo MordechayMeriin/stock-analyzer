@@ -25,25 +25,31 @@ from pydantic import BaseModel
 from rapidfuzz import fuzz
 
 from stock_analyzer.config import Settings
-from stock_analyzer.ingest.normalize import normalize, normalize_title
-from stock_analyzer.ingest.parse_md import Paragraph, ParsedReport
+from stock_analyzer.ingest.normalize import match_key, normalize, normalize_title
+from stock_analyzer.ingest.parse_md import PageInfo, Paragraph, ParsedReport
+from stock_analyzer.ingest.vocab import (
+    AUDITOR,
+    CHAPTER_TITLES_HE,
+    CHAPTER_WORDS,
+    GERESH,
+    MAIN_CHAPTERS,
+    NOTE_PATTERNS,
+    ORDINAL_LETTERS,
+    ORDINAL_WORDS,
+    ORDINAL_WORDS_LONGEST_FIRST,
+    SEPARATE,
+    STATEMENT,
+    TOC_HEADINGS,
+    Chapter,
+    chapter_title_prefix,
+    classify_chapter_title,
+)
 
 log = logging.getLogger(__name__)
 
-STRUCTURE_VERSION = "1"
+STRUCTURE_VERSION = "2"
 
 NodeKind = Literal["chapter", "section", "subsection", "note", "auditor_report", "statement", "other"]
-Chapter = Literal["business", "directors", "financials", "additional", "governance", "other"]
-MAIN_CHAPTERS: tuple[Chapter, ...] = ("business", "directors", "financials", "additional", "governance")
-
-CHAPTER_TITLES_HE: dict[str, str] = {
-    "business": "תיאור עסקי התאגיד",
-    "directors": "דוח הדירקטוריון",
-    "financials": "דוחות כספיים",
-    "additional": "פרטים נוספים על התאגיד",
-    "governance": "אפקטיביות הבקרה הפנימית והצהרות מנהלים",
-    "other": "אחר",
-}
 
 
 class Node(BaseModel):
@@ -61,8 +67,9 @@ class Node(BaseModel):
 
 
 class TocEntry(BaseModel):
-    number: str | None
+    number: str | None  # dotted ("2", "2.1", "1.12"); display only
     title: str
+    level: int = 1  # number of parts in ``number``
     matched_node: str | None = None
 
 
@@ -75,6 +82,7 @@ class Coverage(BaseModel):
     business_toc_entries: int
     business_sections: int
     business_sections_matched_from_toc: int
+    business_sections_source: Literal["toc", "body_numbering"] = "toc"
     subsections: int
     directors_headings: int
     notes: int
@@ -100,65 +108,38 @@ class Structure(BaseModel):
 
 # ---------------------------------------------------------------- patterns
 
-_ORDINALS = {
-    "ראשון": 1,
-    "שני": 2,
-    "שלישי": 3,
-    "רביעי": 4,
-    "חמישי": 5,
-    "שישי": 6,
-    "שביעי": 7,
-    "שמיני": 8,
-}
-_CHAPTER_ORDINAL = re.compile(r"^פרק\s+(ראשון|שני|שלישי|רביעי|חמישי|שישי|שביעי|שמיני)(?![א-ת])")
-_ORDINALS_LONGEST_FIRST = sorted(_ORDINALS, key=len, reverse=True)
+_CHAPTER_ORDINAL = re.compile(rf"^פרק\s+({'|'.join(ORDINAL_WORDS_LONGEST_FIRST)})(?![א-ת])")
 
 
 def chapter_ordinal(text: str) -> int | None:
     """The chapter ordinal of a heading like "פרק שלישי", tolerating a stray space inside
     the word ("פרק ש לישי"), which the provider's text extraction sometimes produces."""
     if m := _CHAPTER_ORDINAL.match(text):
-        return _ORDINALS[m.group(1)]
+        return ORDINAL_WORDS[m.group(1)]
     compact = re.sub(r"\s+", "", text[:24])
     if not compact.startswith("פרק"):
         return None
     rest = compact[3:]
-    for word in _ORDINALS_LONGEST_FIRST:
+    for word in ORDINAL_WORDS_LONGEST_FIRST:
         if rest.startswith(word):
-            return _ORDINALS[word]
+            return ORDINAL_WORDS[word]
     return None
 
 
-_CHAPTER_TITLE_MARKERS: tuple[tuple[str, Chapter], ...] = (
-    ("תיאור עסקי", "business"),
-    ("דוח הדירקטוריון", "directors"),
-    ("דוחות כספיים", "financials"),
-    ("פרטים נוספים", "additional"),
-    ("אפקטיביות הבקרה", "governance"),
-    ("הצהרות מנהלים", "governance"),
-)
-_ORDINAL_DEFAULT: dict[int, Chapter] = {1: "business", 2: "directors", 3: "financials", 4: "additional"}
-_TOC_HEADINGS = ("תוכן עניינים", "תוכן העניינים", "רשימת פרקים", "תוכן העניין")
-
 _REF_BEFORE = re.compile(r"(?:סעיפים|סעיף|ס'|תקנה|תקנות|ביאור|ביאורים|ר'|ראה|ראו|בפרק|פרק)\s*[-–]?\s*$")
 _REF_AFTER = re.compile(r"^\s*(?:לעיל|להלן|לדוח|לחוק|לתקנות)")
-_SINGLE_BEFORE = re.compile(r"(?:^|[\s(\[*])\.?(\d{1,2})\.?\s*[-–]?\s*$")
-_SINGLE_AFTER = re.compile(r"^\s*\.(\d{1,2})\.?(?:\s|$)")
+# a section number right before / after a title: "22. title", "title .22", Delek's "1.12 title"
+_SINGLE_BEFORE = re.compile(r"(?:^|[\s(\[*])\.?(\d{1,2}(?:\.\d{1,3})*)\.?\s*[-–]?\s*$")
+_SINGLE_AFTER = re.compile(r"^\s*\.(\d{1,2}(?:\.\d{1,3})*)\.?(?:\s|$)")
 _LETTER_BEFORE = re.compile(r"(?:^|[\s*])\.?([א-ת])['׳]?\.\s*$")
 _MULTI = re.compile(r"(?<![\d.,])\.?(\d{1,2}(?:\.\d{1,3}){1,4})\.?(?![\d,])")
 _LETTERED = re.compile(r"^\.?([א-ת])['׳]?\s*[.)]\s*(\S.*)$")
 _PART = re.compile(r"^חלק\s+([א-ת])['׳]?\s*[-–:.]?\s*(.*)$")
-_NOTE_PATTERNS = (
-    re.compile(r"^ביאור\s+(\d{1,2})\s*(?:[-–:]\s*(.*))?$"),
-    re.compile(r"^(\d{1,2})\s+ביאור\s*(?:[-–:]\s*(.*))?$"),
-    re.compile(r"^(.*?)\s*[-–]\s*(\d{1,2})\s+ביאור$"),
-)
-_AUDITOR = re.compile(r"^דוח(?:ות)?\s+(?:מיוחד\s+של\s+)?(?:רואה|רואי|ראי|רוא\"ח)\s+ה?חשבון")
-_STATEMENT = re.compile(
-    r"^(?:דוחות|דוח|נתונים)\s+(?:מאוחדים\s+|מאוחד\s+|כספיים\s+)?על\s+(?:ה)?(?:מצב\s+הכספי|רווח\s+(?:ו|או\s+)הפסד|רווח\s+הכולל|"
-    r"הרווח\s+הכולל|רווח\s+כולל|שינויים\s+בהון|השינויים\s+בהון|תזרימי\s+המזומנים|תזרימי\s+מזומנים)"
-)
-_SEPARATE = re.compile(r"^מידע\s+כספי\s+נפרד")
+_NOTE_PATTERNS = NOTE_PATTERNS
+_AUDITOR = AUDITOR
+_STATEMENT = STATEMENT
+_SEPARATE = SEPARATE
+_FS_SET = re.compile(r'^(?:דוחות|דו"חות)\s+כספיים\s+(?:מאוחדים\s+)?ליום')  # "דוחות כספיים ליום 31.12.2025"
 _CONTINUED = re.compile(r"\s*\(המשך\)\s*")
 _SENTENCE_END = re.compile(r"(?<!\d)[.:](?!\d)")
 _HEB_LETTERS = "אבגדהוזחטיכלמנסעפצקרשת"
@@ -201,27 +182,55 @@ class _Start:
 # ---------------------------------------------------------------- TOC
 
 
-def _toc_pages(paragraphs: list[Paragraph]) -> set[int]:
+def _is_toc_heading(text: str) -> bool:
+    t = normalize_title(text)
+    return any(t.startswith(h) for h in TOC_HEADINGS) and len(t) < 40
+
+
+def _toc_pages(report: ParsedReport) -> set[int]:
+    """Pages holding a table of contents: a TOC heading as a paragraph, among the page's first
+    head lines (Rami Levy: "פרק א' - …" then "תוכן עניינים מקוצר"), or as a cell of a table's
+    header row (Delek: "| עמוד | תוכן עניינים |")."""
     pages: set[int] = set()
-    for p in paragraphs:
+    for p in report.paragraphs:
         if p.in_table:
-            continue
-        t = normalize_title(p.text)
-        if any(t.startswith(h) for h in _TOC_HEADINGS) and len(t) < 40:
+            header = p.raw.split("\n", 1)[0]
+            if any(_is_toc_heading(cell) for cell in header.strip().strip("|").split("|")):
+                pages.add(p.page_index)
+        elif _is_toc_heading(p.text):
             pages.add(p.page_index)
+    for page in report.pages:
+        if any(_is_toc_heading(line) for line in page.head[:3]):
+            pages.add(page.index)
     return pages
 
 
-def _parse_toc_line(line: str) -> TocEntry | None:
+_BARE_SECTION = re.compile(r"\.?(\d{1,2}(?:\.\d{1,3})*)\.?")
+_TOC_NUMBER = re.compile(r"^\.?(\d{1,2}(?:\.\d{1,3})*)\.?$")
+_TOC_NUMBERED_TITLE = re.compile(r"^(\d{1,2}(?:\.\d{1,3})+)\.?\s+(\S.*)$")  # "1.12 הון אנושי" (Delek)
+
+
+_LEADER = re.compile(r"\s*(?:\.\s*){3,}.*$")  # dot leaders to the page number ("תחום הפעילות .....")
+
+
+def _toc_entry(number: str, title: str) -> TocEntry:
+    title = _LEADER.sub("", title)
+    return TocEntry(number=number, title=title.strip(" .-–"), level=number.count(".") + 1)
+
+
+def _parse_toc_line(line: str) -> tuple[TocEntry, str | None] | None:
+    """A TOC line, and its trailing number token if any. Usually the leading number is the
+    section and a trailing one is the page ("1. פעילות החברה 4"); some reports put the section
+    number last ("2. כללי. 1.1", the leading number being list numbering) — the caller decides."""
     t = normalize_title(line)
     if not t:
         return None
-    m = re.match(r"^\.?(\d{1,2})\s*\.?\s*(?=\D)(.+?)(?:\s+\d{1,3}(?:-\d{1,3})?)?$", t)
+    m = re.match(r"^\.?(\d{1,2})\s*\.?\s*(?=\D)(.+?)(?:\s+(\d{1,3}(?:[.-]\d{1,3})*))?$", t)
     if m and re.search(r"[א-ת]", m.group(2)):
-        return TocEntry(number=m.group(1), title=m.group(2).strip(" .-–"))
+        return _toc_entry(m.group(1), m.group(2)), m.group(3)
     m = re.match(r"^(.+?[א-ת].*?)\s+\.?(\d{1,2})\.?$", t)
     if m and not re.match(r"^[א-ת]['׳]?\.", t):
-        return TocEntry(number=m.group(2), title=m.group(1).strip(" .-–"))
+        return _toc_entry(m.group(2), m.group(1)), None
     return None
 
 
@@ -232,25 +241,39 @@ def _parse_toc_row(row: str) -> TocEntry | None:
     texts = [c for c in cells if len(re.findall(r"[א-ת]", c)) >= 3]
     if not texts:
         return None
-    nums = [re.sub(r"[\s.]", "", c) for c in cells]
-    numeric = [n for n in nums if re.fullmatch(r"\d{1,3}", n)]
+    title = max(texts, key=len)
+    if m := _TOC_NUMBERED_TITLE.match(title):
+        return _toc_entry(m.group(1), m.group(2))
+    numbers = [(c, n.group(1)) for c in cells if (n := _TOC_NUMBER.match(re.sub(r"\s", "", c)))]
     lettered = [c for c in cells if re.fullmatch(r"\.?\s*[א-ת]['׳]?\s*\.?", c)]
-    if lettered and not numeric[1:]:
+    if lettered and len(numbers) <= 1:
         return None  # a lettered part row (".א"), not a numbered section
-    if not numeric:
+    if not numbers:
         return None
-    number = numeric[-1] if len(numeric) > 1 else numeric[0]
-    return TocEntry(number=number, title=max(texts, key=len).strip(" .-–"))
+    dotted = [n for c, n in numbers if "." in c]  # the section cell is written with a dot (".1", "2.1")
+    if dotted:
+        number = dotted[-1]
+    else:
+        number = numbers[-1][1] if len(numbers) > 1 else numbers[0][1]
+    return _toc_entry(number, title)
+
+
+def _section_tuple(number: str) -> tuple[int, ...]:
+    return tuple(int(x) for x in number.split("."))
 
 
 def parse_business_toc(
     paragraphs: list[Paragraph], toc_pages: set[int], business_start_seq: int | None
 ) -> list[TocEntry]:
-    """The business chapter's TOC: the TOC page whose entries precede/open the business chapter."""
+    """The business chapter's TOC entries at its top level: from the TOC page whose entries
+    precede/open the business chapter, keeping the shallowest numbering level present (sections
+    are "2", "3" in most reports, "1.1", "1.2" in Delek's), so a detailed TOC gives the same
+    anchors as a short one."""
     entries: list[TocEntry] = []
     for page in sorted(toc_pages):
         page_paras = [p for p in paragraphs if p.page_index == page]
         page_entries: list[TocEntry] = []
+        line_entries: list[tuple[TocEntry, str | None]] = []
         stop = False
         for p in page_paras:
             if p.in_table:
@@ -259,92 +282,245 @@ def parse_business_toc(
                 continue
             for line in p.raw.split("\n"):
                 t = normalize_title(line)
-                if (chapter_ordinal(t) or 0) > 1 and page_entries:
+                if (chapter_ordinal(t) or 0) > 1 and (page_entries or line_entries):
                     stop = True  # the next chapter's TOC begins
                     break
-                if e := _parse_toc_line(line):
-                    page_entries.append(e)
+                if parsed := _parse_toc_line(line):
+                    line_entries.append(parsed)
             if stop:
                 break
+        # several dotted trailing numbers: the section number comes last (El Al), the leading
+        # number is the provider's list numbering
+        if sum(1 for _, tr in line_entries if tr and "." in tr) >= 3:
+            line_entries = [
+                (_toc_entry(tr, e.title), None) if tr and "-" not in tr else (e, tr) for e, tr in line_entries
+            ]
+        page_entries += [e for e, _ in line_entries]
         if len(page_entries) >= 3:
             entries = page_entries
             if business_start_seq is None or page_paras[0].seq <= business_start_seq + 50:
                 break
-    return entries
+    numbered = [e for e in entries if e.number]
+    if not numbered:
+        return entries
+    top = min(e.level for e in numbered)
+    return [e for e in numbered if e.level == top]
 
 
 # ---------------------------------------------------------------- chapters
 
 
+_WORDS = "|".join(CHAPTER_WORDS)
+_LETTERS = "".join(ORDINAL_LETTERS)
+_ORD_WORD = "|".join(ORDINAL_WORDS_LONGEST_FIRST)
+# "פרק א' - title", "פרק ב | title", "פרק שני", "פרק 1: title", "פרק" alone
+_OPENER = re.compile(
+    rf"^(?P<word>{_WORDS})(?![א-ת])\s*"
+    rf"(?:(?P<wordord>{_ORD_WORD})(?![א-ת])|(?P<letter>[{_LETTERS}])[{GERESH}]?(?![א-ת])|(?P<digit>\d{{1,2}})(?!\d))?"
+    r"\s*['׳]?\s*[-–|:.]?\s*(?P<title>.*)$"
+)
+# bidi-reversed: "ב' פרק דוח הדירקטוריון…", "ג ' פרק" (geresh required)
+_OPENER_REVERSED = re.compile(
+    rf"^(?P<letter>[{_LETTERS}])\s*['׳]\s*(?P<word>{_WORDS})(?![א-ת])\s*(?P<title>.*)$"
+)
+_TITLE_LINE_MAX = 60
+
+
+@dataclass
+class _Opener:
+    word: str
+    ordinal: int | None
+    digit: bool
+    title: str  # the opener line's own title (may be empty)
+    continuation: str  # the following short head lines, joined
+
+    def candidates(self) -> list[str]:
+        """Titles to classify: the line's own title, then with the following lines appended
+        ("פרק רביעי לדוח תקופתי" / "פרטים נוספים על החברה")."""
+        return [t for t in (self.title, f"{self.title} {self.continuation}".strip()) if t]
+
+
+def parse_opener(line: str, following: list[str]) -> _Opener | None:
+    """A chapter opener in a page-head line, with its title taken from the same line or, when the
+    line holds only the opener, from up to three following short head lines."""
+    t = line.strip(" .:-–|")
+    m = _OPENER.match(t) or _OPENER_REVERSED.match(t)
+    ordinal: int | None = None
+    digit = False
+    if m is not None and not (
+        m.groupdict().get("wordord") or m.group("letter") or m.groupdict().get("digit")
+    ):
+        if chapter_ordinal(t) is not None:
+            m = None  # "פרק ש לישי ..." (a stray space inside the ordinal word)
+    if m is None:
+        if (n := chapter_ordinal(t)) is None:
+            return None
+        word, ordinal = "פרק", n
+        ordinal_word = next(w for w in ORDINAL_WORDS if ORDINAL_WORDS[w] == n)
+        # skip past "פרק" + the ordinal's letters, ignoring the stray spaces between them
+        consumed, i = 0, 0
+        while i < len(t) and consumed < 3 + len(ordinal_word):
+            consumed += not t[i].isspace()
+            i += 1
+        title = t[i:].strip(" -–|:.")
+    else:
+        groups = m.groupdict()
+        word, title = m.group("word"), m.group("title").strip(" -–|:.")
+        if groups.get("wordord"):
+            ordinal = ORDINAL_WORDS[groups["wordord"]]
+        elif groups.get("letter"):
+            ordinal = ORDINAL_LETTERS[groups["letter"]]
+        elif groups.get("digit"):
+            ordinal, digit = int(groups["digit"]), True
+        if ordinal is None and title:
+            return None  # "חלק מחברות הביטוח", "פרק המונופולין": prose, not an opener
+    parts: list[str] = []
+    for nxt in following[:3]:
+        if len(nxt) > _TITLE_LINE_MAX or _OPENER.match(nxt) or _OPENER_REVERSED.match(nxt):
+            break
+        if re.search(r"\||www\.|https?:", nxt):
+            continue  # brand and footer-like lines ("www.x.com | חברה | 3")
+        parts.append(nxt)
+    return _Opener(word=word, ordinal=ordinal, digit=digit, title=title, continuation=" ".join(parts))
+
+
+def _first_seq_of_pages(paragraphs: list[Paragraph]) -> dict[int, int]:
+    first: dict[int, int] = {}
+    for p in paragraphs:
+        first.setdefault(p.page_index, p.seq)
+    return first
+
+
 def find_chapters(
-    paragraphs: list[Paragraph], toc_pages: set[int], warnings: list[str]
+    report: ParsedReport, toc_pages: set[int], settings: Settings, warnings: list[str]
 ) -> tuple[list[_Start], list[str]]:
+    """Chapters from openers in page heads (design D2/D3). A chapter starts at the first paragraph
+    of its opener's page. Rules, in order: a digit ordinal is an inner part; once a classified
+    opener has fixed the report's chapter word (פרק or חלק), openers with the other word are inner
+    parts; a classified title starts that chapter (a repeat right after itself is a cover/first
+    page; after another chapter it is a duplicate); an unclassified title starts an "other" chapter
+    only with an ordinal above the last one; a page's first head line that starts with a chapter
+    title can start a chapter not found yet."""
+    threshold = settings.chapter_match_threshold
+    first_seq = _first_seq_of_pages(report.paragraphs)
+    seqs = sorted(first_seq.items())
+
+    def page_start(page: int) -> int | None:
+        return next((seq for idx, seq in seqs if idx >= page), None)
+
     starts: list[_Start] = []
-    seen: dict[str, int] = {}
+    found: dict[str, int] = {}
     duplicated: list[str] = []
+    chapter_word: str | None = None
+    last_key: str | None = None
     last_ordinal = 0
-    for i, p in enumerate(paragraphs):
-        if p.page_index in toc_pages or p.in_table or not _is_heading_like(p, max_len=90):
-            continue
-        t = _first_line(p)
-        ordinal = chapter_ordinal(t)
-        title_hint = t
-        if ordinal is not None:
-            # the chapter title is usually on the same line or the next short paragraph(s)
-            hints: list[str] = []
-            for q in paragraphs[i + 1 : i + 3]:
-                if (
-                    q.page_index != p.page_index
-                    or q.in_table
-                    or not (q.heading_level or len(_first_line(q)) <= 60)
-                ):
-                    break
-                line = _first_line(q)
-                # skip brand and footer-like lines ("MalamTeam", "www.x.com | חברה | 3")
-                if re.search(r"[א-ת]", line) and not re.search(r"\||www\.|https?:", line):
-                    hints.append(line)
-            nxt = " ".join(hints)
-            title_hint = f"{t} {nxt}"
-        else:
-            # a title marker alone starts a chapter only if it is a real heading
-            if not p.heading_level or not any(t.startswith(mk) for mk, _ in _CHAPTER_TITLE_MARKERS):
+
+    def start(kind: Chapter, page: PageInfo, ordinal: int | None, title: str) -> None:
+        nonlocal last_key, last_ordinal
+        seq = page_start(page.index)
+        if seq is None:
+            return
+        key = kind if kind != "other" else f"other:{ordinal}"
+        found[key] = seq
+        last_key = key
+        if ordinal:
+            last_ordinal = max(last_ordinal, ordinal)
+        node_title = CHAPTER_TITLES_HE[kind] if kind != "other" else normalize_title(title)[:80]
+        node_id = kind if kind != "other" else f"chapter-{ordinal}"
+        starts.append(_Start(node_id, "chapter", kind, str(ordinal) if ordinal else None, node_title, 1, seq))
+
+    pages = [p for p in report.pages if p.index not in toc_pages and p.head]
+
+    def openers(page: PageInfo) -> list[tuple[str, _Opener]]:
+        return [
+            (line, op) for i, line in enumerate(page.head) if (op := parse_opener(line, page.head[i + 1 :]))
+        ]
+
+    def classify(op: _Opener) -> Chapter | None:
+        return next((k for k in (classify_chapter_title(t, threshold) for t in op.candidates()) if k), None)
+
+    # First pass: the ordinals the main chapters use. An opener whose title names no chapter
+    # becomes an "other" chapter only on a free ordinal: Rami Levy numbers its business parts
+    # "חלק ב'", "חלק ד'" with the same word as its chapters, Malam has unnamed chapters 5 and 7.
+    main_ordinals: set[int] = set()
+    for page in pages:
+        for _, op in openers(page):
+            if not op.digit and op.ordinal and classify(op) is not None:
+                chapter_word = chapter_word or op.word
+                if op.word == chapter_word:
+                    main_ordinals.add(op.ordinal)
+    chapter_word = None
+
+    for page in pages:
+        started = False
+        for line, op in openers(page):
+            if op.digit:
                 continue
-        kind: Chapter | None = next((ch for mk, ch in _CHAPTER_TITLE_MARKERS if mk in title_hint), None)
-        if kind is None and ordinal is not None:
-            kind = _ORDINAL_DEFAULT.get(ordinal, "other")
-        if kind is None:
+            if chapter_word is not None and op.word != chapter_word:
+                continue
+            titles = op.candidates()
+            kind = classify(op)
+            if kind is not None:
+                chapter_word = chapter_word or op.word
+                if kind in found:
+                    if last_key != kind:
+                        duplicated.append(kind)
+                        warnings.append(f"chapter {kind!r} found again on page {page.index}")
+                    continue
+                start(kind, page, op.ordinal, titles[0])
+                started = True
+                break
+            if (
+                chapter_word is not None
+                and op.ordinal
+                and op.ordinal > last_ordinal
+                and op.ordinal not in main_ordinals
+            ):
+                start("other", page, op.ordinal, f"{line} {op.continuation}" if not op.title else line)
+                started = True
+                break
+        if started:
             continue
-        if ordinal is not None and ordinal < last_ordinal:
-            continue  # a cross-reference to an earlier chapter
-        key = f"{kind}:{ordinal}" if kind == "other" else kind
-        if key in seen:
-            # the same chapter again: a cover page followed by its first page is normal;
-            # after another chapter started it is a real duplicate
-            if starts and starts[-1].chapter != kind:
-                duplicated.append(kind)
-                warnings.append(f"chapter {kind!r} found again on page {p.page_index}")
+        kind = chapter_title_prefix(page.head[0], threshold)
+        if kind is not None and kind not in found:
+            start(kind, page, None, page.head[0])
+
+    # Fallback for main chapters still missing: the first page, in the chapter's canonical place,
+    # whose page-edge chapter header names it (a running header, or a header at the page's foot
+    # such as "פרק ו | דוח שנתי בדבר אפקטיביות הבקרה הפנימית" when the cover is garbled).
+    for idx, kind in enumerate(MAIN_CHAPTERS):
+        if kind in found:
             continue
-        seen[key] = p.seq
-        last_ordinal = ordinal or last_ordinal
-        title = CHAPTER_TITLES_HE[kind] if kind != "other" else normalize_title(title_hint)[:80]
-        node_id = kind if kind != "other" else f"chapter-{ordinal or len(starts) + 1}"
-        starts.append(_Start(node_id, "chapter", kind, str(ordinal) if ordinal else None, title, 1, p.seq))
+        lo = max((found[k] for k in MAIN_CHAPTERS[:idx] if k in found), default=-1)
+        hi = min((found[k] for k in MAIN_CHAPTERS[idx + 1 :] if k in found), default=10**9)
+        for page in pages:
+            seq = page_start(page.index)
+            if seq is None or not lo < seq < hi:
+                continue
+            edge = ([page.running_header] if page.running_header else []) + page.foot
+            if any(_edge_kind(line, chapter_word, threshold) == kind for line in edge):
+                start(kind, page, None, CHAPTER_TITLES_HE[kind])
+                warnings.append(f"chapter {kind!r} located from a page-edge header on page {page.index}")
+                break
+    starts.sort(key=lambda s: s.seq)
     return starts, duplicated
+
+
+def _edge_kind(line: str, chapter_word: str | None, threshold: int) -> Chapter | None:
+    """The chapter a page-edge header names: "פרק ו | <title>" or a bare chapter title."""
+    op = parse_opener(line, [])
+    if op is not None:
+        if op.digit or (chapter_word is not None and op.word != chapter_word) or not op.title:
+            return None
+        return classify_chapter_title(op.title, threshold)
+    return chapter_title_prefix(line, threshold)
 
 
 # ---------------------------------------------------------------- business sections
 
 
-_MATRES = re.compile(r"(?<=[א-ת])[וי]+")
 _EDGE_PREFIX = re.compile(r"^(?:\.?\d{1,2}(?:\.\d{1,3})*\.?|[א-ת]['׳]?\.)\s*")
 _EDGE_SUFFIX = re.compile(r"\s*\.?\d{1,2}(?:\.\d{1,3})*\.?$")
-
-
-def match_key(text: str) -> str:
-    """Spelling-insensitive key for fuzzy title matching: Hebrew plene/defective spellings
-    (שירותי/שרותי, חיסכון/חסכון) agree once vav/yod inside a word are dropped.
-    Same length class as the input is not preserved, so match on keys of both sides."""
-    return _MATRES.sub("", text)
 
 
 def _match_title_in(text: str, title: str, threshold: int) -> tuple[int, int, int] | None:
@@ -372,6 +548,21 @@ def _match_title_in(text: str, title: str, threshold: int) -> tuple[int, int, in
     return (int(score), start, end) if score >= threshold else None
 
 
+def _adjacent_number(body: list[Paragraph], p: Paragraph, level: int, last: tuple[int, ...]) -> str | None:
+    """A section number standing alone in the paragraph just before or after ``p``, at the
+    section level and above the last section number."""
+    i = next((k for k, x in enumerate(body) if x.seq == p.seq), None)
+    if i is None:
+        return None
+    for q in (body[i + 1] if i + 1 < len(body) else None, body[i - 1] if i > 0 else None):
+        if q is None:
+            continue
+        m = _BARE_SECTION.fullmatch(normalize_title(q.text))
+        if m and m.group(1).count(".") + 1 == level and _section_tuple(m.group(1)) > last:
+            return m.group(1)
+    return None
+
+
 def find_business_sections(
     paragraphs: list[Paragraph],
     toc: list[TocEntry],
@@ -385,10 +576,12 @@ def find_business_sections(
         for p in paragraphs
         if first_seq <= p.seq <= last_seq and p.page_index not in toc_pages and not p.in_table
     ]
-    texts = {p.seq: match_key(normalize(p.raw)) for p in body}
+    # heading markers stripped: a title right after "###### " still starts its paragraph
+    texts = {p.seq: match_key(re.sub(r"^#+\s*", "", normalize(p.raw))) for p in body}
     starts: list[_Start] = []
     cursor = (first_seq, 0)
-    last_number = 0
+    level = toc[0].level if toc else 1  # sections are numbered at the TOC's top level
+    last: tuple[int, ...] = ()
     used_ids: set[str] = set()
     for idx, entry in enumerate(toc):
         found: tuple[Paragraph, int, str | None, str] | None = None
@@ -413,8 +606,12 @@ def find_business_sections(
                     number, kind = m.group(1), "num"
                 elif m := _LETTER_BEFORE.search(before):
                     number, kind = m.group(1), "letter"
+                elif s <= 3 and _is_heading_like(p) and (adj := _adjacent_number(body, p, level, last)):
+                    # the number alone in the paragraph before/after the title (El Al: "###### title"
+                    # then "**6.**"; Delek: "1.1" then "כללי") confirms a heading worded unlike the TOC
+                    number, kind = adj, "num"
                 ok = False
-                if kind == "num" and int(number) > last_number:
+                if kind == "num" and number.count(".") + 1 == level and _section_tuple(number) > last:
                     ok = True
                 elif kind == "letter":
                     ok = True
@@ -432,7 +629,7 @@ def find_business_sections(
             continue
         p, pos, number, kind = found
         if kind == "num":
-            last_number = int(number)
+            last = _section_tuple(number)
         display = number
         if kind == "num":
             node_id = f"business-{number}"
@@ -441,12 +638,26 @@ def find_business_sections(
         else:
             node_id = f"business-t{idx + 1}"
         if kind == "none":
+            # the number sits alone in the paragraph before the title (Delek: "1.1" / "כללי")
+            prev = next((x for x in reversed(body) if x.seq < p.seq), None)
+            pm = _BARE_SECTION.fullmatch(normalize_title(prev.text)) if prev is not None else None
+            if pm and pm.group(1).count(".") + 1 == level and _section_tuple(pm.group(1)) > last:
+                display = pm.group(1)
+                last = _section_tuple(display)
+                node_id = f"business-{display}"
+        if kind == "none" and display is None:
             # the body heading lost its number: infer it from the first subsection ("10.1 ...")
             for q in [x for x in body if x.seq >= p.seq][:4]:
                 m = _MULTI.search(normalize_title(q.raw.split("\n", 1)[0]))
-                if m and int(m.group(1).split(".")[0]) == last_number + 1:
-                    display = m.group(1).split(".")[0]
-                    last_number = int(display)
+                if not m or m.group(1).count(".") + 1 < level:
+                    continue
+                cand = _section_tuple(m.group(1))[:level]
+                expected = (last[:-1] + (last[-1] + 1,)) if last else None
+                if (level == 1 and cand == (last[0] + 1 if last else 1,)) or (
+                    level > 1 and cand > last and (expected is None or cand[:-1] == expected[:-1])
+                ):
+                    display = ".".join(str(x) for x in cand)
+                    last = cand
                     node_id = f"business-{display}"
                     break
         while node_id in used_ids:
@@ -458,14 +669,46 @@ def find_business_sections(
     return starts
 
 
+_BODY_SECTION = re.compile(r"^\.?(\d{1,2})\.?\s*(?=[א-ת\"'(])(.+)$")
+
+
+def find_sections_by_body_numbering(
+    paragraphs: list[Paragraph], first_seq: int, last_seq: int, toc_pages: set[int], settings: Settings
+) -> list[_Start]:
+    """Business sections from top-level numbered headings in the chapter body ("1. title",
+    ".2 title", "3.title"), ascending by steps of 1 to 3 (design D8). Used when the TOC is
+    missing or matches too few sections."""
+    starts: list[_Start] = []
+    last = 0
+    for p in paragraphs:
+        if not (first_seq <= p.seq <= last_seq) or p.in_table or p.page_index in toc_pages:
+            continue
+        if not _is_heading_like(p, 120):
+            continue
+        first = _first_line(p)
+        if not (m := _BODY_SECTION.match(first)):
+            continue
+        number, title = int(m.group(1)), m.group(2).strip(" .:-–*")
+        if not (last < number <= last + 3) or _REF_AFTER.match(title) or len(title) < 2:
+            continue
+        cut = _SENTENCE_END.search(title[: settings.glued_title_max_chars])
+        title = title[: cut.start()] if cut else title[: settings.glued_title_max_chars]
+        last = number
+        starts.append(
+            _Start(f"business-{number}", "section", "business", str(number), title.strip(), 2, p.seq)
+        )
+    return starts
+
+
 def find_subsections(
     paragraphs: list[Paragraph], section: _Start, end_seq: int, settings: Settings
 ) -> list[_Start]:
-    if not section.number or not section.number.isdigit():
+    if not section.number or not re.fullmatch(r"\d{1,2}(?:\.\d{1,3})*", section.number):
         return []
     root = section.number
+    root_parts = root.split(".")
     starts: list[_Start] = []
-    last: tuple[int, ...] = (int(root),)
+    last: tuple[int, ...] = _section_tuple(root)
     seen: set[str] = set()
     body = [p for p in paragraphs if section.seq <= p.seq <= end_seq and not p.in_table]
     for bi, p in enumerate(body):
@@ -477,7 +720,7 @@ def find_subsections(
             for m in _MULTI.finditer(line):
                 num = m.group(1)
                 parts = num.split(".")
-                if parts[0] != root or num in seen:
+                if parts[: len(root_parts)] != root_parts or len(parts) <= len(root_parts) or num in seen:
                     continue
                 tup = tuple(int(x) for x in parts)
                 if tup <= last:
@@ -508,7 +751,7 @@ def find_subsections(
                             continue
                     rest = after.strip(" .:-–")
                     nxt_num = _MULTI.search(rest)
-                    if nxt_num and nxt_num.group(1).split(".")[0] == root:
+                    if nxt_num and nxt_num.group(1).split(".")[: len(root_parts)] == root_parts:
                         rest = rest[: nxt_num.start()].strip()
                     if (
                         len(rest) <= settings.glued_title_max_chars
@@ -536,7 +779,7 @@ def find_subsections(
                         "business",
                         num,
                         title.strip(" .:-–*") or num,
-                        2 + len(parts) - 1,
+                        2 + len(parts) - len(root_parts),
                         p.seq,
                         base + m.start(),
                     )
@@ -602,7 +845,10 @@ def _note_heading(t: str) -> tuple[int, str] | None:
                 num, title = int(m.group(2)), m.group(1)
             else:
                 num, title = int(m.group(1)), m.group(2) or ""
-            return num, _CONTINUED.sub(" ", title).strip(" -–:")
+            title = _CONTINUED.sub(" ", title).strip(" -–:")
+            if re.fullmatch(r"[א-ת]['׳]?\.?", title):
+                title = ""  # "באור 1: א." — the note's first lettered paragraph, not its title
+            return num, title
     return None
 
 
@@ -617,14 +863,23 @@ def find_financials_parts(
     auditor_n = statement_n = 0
     last_statement = ""
     separate = False
+    attached_n = 0
+    # a statement-set heading seen after the notes began; it opens an attached set (a subsidiary's
+    # statements, Delek) only if note numbering then restarts at 1
+    pending: tuple[int, str] | None = None
     for p in paragraphs:
         if not (first_seq < p.seq <= last_seq) or p.in_table or p.page_index in toc_pages:
             continue
-        for line in p.raw.split("\n")[:3]:
+        for i, line in enumerate(p.raw.split("\n")):
             t = normalize_title(line)
             if not t:
                 continue
-            if _SEPARATE.match(t) and not separate and len(t) < 60:
+            if i >= 3:
+                # beyond a paragraph's first lines only note headings count (Rami Levy's note 26
+                # sits mid-paragraph); statements and auditor headings never do
+                if _note_heading(t) is None:
+                    continue
+            if _SEPARATE.match(t) and not separate and len(t) < 90:
                 separate = True
                 group, group_started, last_note = "separate", False, 0
                 starts.append(_Start("financials-separate", "other", "financials", None, t, 2, p.seq))
@@ -632,7 +887,14 @@ def find_financials_parts(
             if (note := _note_heading(t)) is not None:
                 num, title = note
                 if num <= last_note:
-                    break  # continuation page "(המשך)" or a repeat
+                    if num != 1 or pending is None:
+                        break  # continuation page "(המשך)" or a repeat
+                    attached_n += 1  # a further statement set restarts its note numbering
+                    group, last_note = f"attached-{attached_n}", 0
+                    starts.append(
+                        _Start(f"financials-{group}", "other", "financials", None, pending[1], 2, pending[0])
+                    )
+                pending = None
                 if not group_started:
                     group_started = True
                     if group == "notes":
@@ -649,7 +911,7 @@ def find_financials_parts(
                         )
                 last_note = num
                 note_numbers.setdefault(group, set()).add(num)
-                prefix = "financials-note" if group == "notes" else "financials-separate-note"
+                prefix = "financials-note" if group == "notes" else f"financials-{group}-note"
                 level = 3
                 starts.append(
                     _Start(
@@ -664,7 +926,11 @@ def find_financials_parts(
                 )
                 break
             if group_started:
-                continue  # inside the notes: statements/auditor headings no longer start nodes
+                # inside the notes: statements/auditor headings no longer start nodes, but one may
+                # open a further statement set
+                if len(t) <= 90 and (_STATEMENT.match(t) or _AUDITOR.search(t) or _FS_SET.match(t)):
+                    pending = pending or (p.seq, t)
+                continue
             if (
                 _AUDITOR.search(t)
                 and len(t) <= 140
@@ -753,9 +1019,9 @@ def build_structure(report: ParsedReport, settings: Settings | None = None) -> S
     settings = settings or Settings()
     paras = report.paragraphs
     warnings: list[str] = []
-    toc_pages = _toc_pages(paras)
+    toc_pages = _toc_pages(report)
 
-    chapter_starts, duplicated = find_chapters(paras, toc_pages, warnings)
+    chapter_starts, duplicated = find_chapters(report, toc_pages, settings, warnings)
     found = [s.chapter for s in chapter_starts if s.chapter != "other"]
     missing = [c for c in MAIN_CHAPTERS if c not in found]
     for c in missing:
@@ -775,10 +1041,18 @@ def build_structure(report: ParsedReport, settings: Settings | None = None) -> S
     toc: list[TocEntry] = []
     sections: list[_Start] = []
     subsections: list[_Start] = []
+    source: Literal["toc", "body_numbering"] = "toc"
     if "business" in bounds:
         b0, b1 = bounds["business"]
         toc = parse_business_toc(paras, toc_pages, b0)
         sections = find_business_sections(paras, toc, b0, b1, toc_pages, settings)
+        if len(sections) < settings.min_business_sections:
+            by_body = find_sections_by_body_numbering(paras, b0, b1, toc_pages, settings)
+            if len(by_body) > len(sections):
+                sections, source = by_body, "body_numbering"
+                for e in toc:
+                    e.matched_node = None
+                warnings.append(f"business sections taken from body numbering ({len(by_body)} headings)")
         for i, sec in enumerate(sections):
             end = sections[i + 1].seq if i + 1 < len(sections) else b1
             subsections += find_subsections(paras, sec, end, settings)
@@ -815,6 +1089,7 @@ def build_structure(report: ParsedReport, settings: Settings | None = None) -> S
         business_toc_entries=len(toc),
         business_sections=len(sections),
         business_sections_matched_from_toc=sum(e.matched_node is not None for e in toc),
+        business_sections_source=source,
         subsections=len(subsections),
         directors_headings=len(directors),
         notes=sum(1 for s in fin if s.kind == "note"),

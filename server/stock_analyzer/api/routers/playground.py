@@ -59,7 +59,6 @@ def ask(request: Request, body: PlaygroundRequest) -> EventSourceResponse:
                             usage=PlaygroundUsage(**event.usage.model_dump()),
                             latency_ms=event.latency_ms,
                             paragraph_ids=[p.pid for p in prepared.paragraphs],
-                            citations=playground.citations(prepared),
                         ),
                     )
         except Exception as exc:  # report the failure in-band; the HTTP status is already 200

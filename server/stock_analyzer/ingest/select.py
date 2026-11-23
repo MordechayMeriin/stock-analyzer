@@ -1,8 +1,10 @@
 """Pick the full annual report among a year's 10-K filings (plan.md §1.3).
 
 Rule: fiscal year from ``fiscal_year`` or the first ``20\\d\\d`` in the title →
-candidates are PDF filings without "iXBRL" in the title → the largest ``file_size`` wins.
-No candidate is a loud failure naming the company and year.
+candidates are PDF filings without "iXBRL" in the title whose title names a periodic report
+(``תקופתי``, or ``periodic`` in any case; a bond-trustee "annual report" is not one) → the largest
+``file_size`` wins. PDF only describes the provider filing whose Markdown is fetched; nothing links
+to it. No candidate is a loud failure naming the company and year.
 """
 
 from __future__ import annotations
@@ -14,6 +16,7 @@ from stock_analyzer.errors import ReportSelectionError
 from stock_analyzer.ingest.fr_client import Filing
 
 _YEAR = re.compile(r"20\d\d")
+_PERIODIC = re.compile(r"תקופתי|periodic", re.IGNORECASE)
 
 
 def filing_fiscal_year(filing: Filing) -> int | None:
@@ -24,7 +27,12 @@ def filing_fiscal_year(filing: Filing) -> int | None:
 
 
 def is_candidate(filing: Filing) -> bool:
-    return (filing.file_extension or "").upper() == "PDF" and "ixbrl" not in (filing.title or "").lower()
+    title = filing.title or ""
+    return (
+        (filing.file_extension or "").upper() == "PDF"
+        and "ixbrl" not in title.lower()
+        and bool(_PERIODIC.search(title))
+    )
 
 
 def select_report(filings: Iterable[Filing], fiscal_year: int, *, ticker: str = "?") -> Filing:
@@ -33,8 +41,8 @@ def select_report(filings: Iterable[Filing], fiscal_year: int, *, ticker: str = 
     if not candidates:
         seen = ", ".join(f"{f.id} ({f.file_extension or '?'}: {f.title!r})" for f in in_year) or "none"
         raise ReportSelectionError(
-            f"no full annual report for {ticker} FY{fiscal_year}: no PDF filing without 'iXBRL' in the title "
-            f"among that year's filings [{seen}]"
+            f"no full annual report for {ticker} FY{fiscal_year}: no PDF filing titled as a periodic report "
+            f"(תקופתי / periodic) without 'iXBRL' among that year's filings [{seen}]"
         )
     return max(candidates, key=lambda f: (f.file_size or 0, f.id))
 

@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { ExternalLink, FileText, MessageSquare, Table2 } from 'lucide-react'
+import { FileText, MessageSquare, Table2 } from 'lucide-react'
 import { Link, useParams } from 'react-router-dom'
 
 import { api, type FiscalYearFilings } from '@/api/client'
@@ -48,11 +48,6 @@ function YearCard({ ticker, year }: { ticker: string; year: FiscalYearFilings })
                 <bdi className="font-mono">#{f.filing_id}</bdi> · <bdi>{f.file_extension}</bdi> ·{' '}
                 <bdi>{formatBytes(f.file_size)}</bdi> · <bdi>{formatDate(f.release_datetime)}</bdi>
               </span>
-              {f.document_url && (
-                <a href={f.document_url} target="_blank" rel="noreferrer" className="text-primary inline-flex items-center gap-0.5 text-xs underline">
-                  מסמך <ExternalLink className="size-3" aria-hidden />
-                </a>
-              )}
             </li>
           ))}
         </ul>
