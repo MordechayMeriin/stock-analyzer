@@ -28,13 +28,13 @@
 
 - [x] 4.1 Keep dotted TOC numbers and add `TocEntry.level`, so only level-1 entries anchor sections (design D7). Verify a fixture with Rami Levy's short and detailed TOCs yields `כללי` as section 2 and no section 21/22, and the existing Malam TOC tests pass
 - [x] 4.2 Add the body-numbering fallback and `Coverage.business_sections_source` (design D8). Show the source in `parse-check` and the CLI structure summary. Verify a synthetic test with no TOC and body headings 1–12 yields twelve sections with source `body_numbering`, and a Malam test asserts source `toc`
-- [ ] 4.3 Verify `parse-check` shows at least 10 business sections for every reference report, record the rows, and add any new TOC quirks to `server/docs/parsing_notes.md`
+- [x] 4.3 Verify `parse-check` shows at least 80% of each reference report's top-level TOC entries matched to business sections, record the rows, and add any new TOC quirks to `server/docs/parsing_notes.md`
 
 ## 5. Financial statements
 
 - [ ] 5.1 Make one note-heading pattern over `ביאור`/`באור` with `-`/`–`/`:` separators (design D9). Verify unit tests for `באור 2: עיקרי המדיניות החשבונאית`, `ביאור 1 – כללי`, the existing five Malam layouts, and continuation `(המשך)` lines
 - [ ] 5.2 Add attached statement groups: a statement-set heading after the main notes, followed by a note numbered 1, opens `attached-K` with `financials-attached-K-…` ids (design D9). Verify a fixture from Delek's attached-set boundary yields a separate group while the main group's note ids and `note_numbers_missing` are unchanged, and Malam's financial node ids are identical to before
-- [ ] 5.3 Verify `parse-check` shows at least 20 main-group notes and at least four statements for every reference report, record the rows, and add the note/statement variants to `server/docs/parsing_notes.md`
+- [ ] 5.3 Verify that at least 90% of the main-group note numbers with a note heading in the text are note nodes, and at least four statements, for every reference report; record the rows, and add the note/statement variants to `server/docs/parsing_notes.md`
 
 ## 6. Filing selection
 
@@ -50,7 +50,7 @@
 
 ## 8. Integration checks
 
-- [ ] 8.1 Add the reference-report minimums test (all five chapters once, ≥10 business sections, ≥20 main-group notes, ≥4 statements) parametrized over `REFERENCE_REPORTS` as `live_data`. Verify `pytest -m live_data -rs` passes for all six reports with the reports available
+- [ ] 8.1 Add the reference-report test (all five chapters once, ≥80% of top-level TOC entries matched, ≥90% of main-group note numbers with a heading in the text found as notes, ≥4 statements) parametrized over `REFERENCE_REPORTS` as `live_data`. Verify `pytest -m live_data -rs` passes for all six reports with the reports available
 - [ ] 8.2 Run the full server checks (`uv run ruff check .`, `uv run ruff format --check .`, `uv run pytest -rs`) and the web checks (`npm run lint`, `npm run build`, `npm run check:api`). Verify all pass, and that `parse-check` over the store prints six rows with no errors, recorded in `server/docs/parsing_notes.md`
 
 ## Workflow follow-up

@@ -65,6 +65,23 @@ Titles are matched word-aligned on spelling-insensitive keys:
 
 A chapter still missing after all that is located from a chapter header at a page edge: El Al FY2024's garbled governance cover (`ו' ו' דוח שנתי בדבר אפקטיביות ה פ ב ר פ ק …`), with `פרק ו | דוח שנתי בדבר אפקטיביות…` at the foot of the next pages.
 
+## Business TOC and sections across issuers (structure 2)
+
+| Quirk | Where | Handling |
+|---|---|---|
+| Multi-level TOC numbers (`2.1`, `2.2.1`) were flattened to `21`, `221` | Rami Levy (detailed TOC) | Numbers keep their dots and a level; sections anchor on the shallowest level present |
+| A short and a detailed TOC | Rami Levy | Both give the same top-level anchors |
+| Every business section numbered under chapter 1: `1.1` … `1.22`, the number inside the title cell (`\| א-279 \| 1.12 הון אנושי \|`) | Delek | Dotted numbers at the TOC's top level; dotted subsections (`1.2.1`) hang under them |
+| The section number trails the title and the leading number is the provider's list numbering (`2. כללי. 1.1`) | El Al FY2025 | When several lines carry dotted trailing numbers, the trailing number is the section |
+| Dot leaders to the page number (`תחום הפעילות ..........`) | El Al FY2024 | Stripped from TOC titles |
+| TOC heading inside another paragraph (`פרק א' - …` / `תוכן עניינים מקוצר`) or in a table's header row (`\| עמוד \| תוכן עניינים \|`) | Rami Levy, Delek | Found through page heads and table header cells |
+| Section number alone in the paragraph before the title (`1.1` / `כללי`) or after it (`###### title` / `**6.**`) | Delek, El Al FY2024 | The adjacent number gives the section number and confirms a heading worded unlike its TOC entry (`פרטים שונים` vs `פרטים נוספים`) |
+| A Markdown heading marker before the title (`###### title`) | El Al FY2024 | Ignored when matching |
+| A generic subsection title at the top of scattered pages (`כללי`) | Delek | Not a running line: running lines also cover 3 consecutive pages |
+| Only 8–9 top-level business sections | El Al | Reference check is ≥80% of the report's own top-level TOC entries, not a fixed 10 |
+
+When the TOC matches fewer than `MIN_BUSINESS_SECTIONS` sections and the chapter body has more top-level numbered headings, sections come from body numbering (`business_sections_source` in the coverage).
+
 ## Reference reports
 
 The parser is checked against six full reports (the `REFERENCE_REPORTS` list in `tests/conftest.py`):
@@ -107,4 +124,16 @@ ELAL   2025     275     167  5/5             11   11/40     21     9     1
 MLTM   2024     180     163  5/5             22   22/22     40     6     1
 MLTM   2025     188     147  5/5             25   25/25     31     8     1
 RMLI   2025     250     123  5/5              5    5/29     30     7     3
+```
+
+### After business sections (parser 2 / structure 2)
+
+```
+TICKER FY     PAGES PRINTED  CHAPTERS  SECTIONS     TOC  NOTES STMTS  WARN  MISSING / ERROR
+DLEKG  2025     843     197  5/5             21   21/22      0     4     1
+ELAL   2024     266     137  5/5              8     8/8     21     4     2
+ELAL   2025     275     167  5/5              8     8/9     21     9     2
+MLTM   2024     180     163  5/5             22   22/22     40     6     1
+MLTM   2025     188     147  5/5             25   25/25     31     8     1
+RMLI   2025     250     123  5/5             29   29/29     30     7     1
 ```

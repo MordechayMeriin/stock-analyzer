@@ -550,6 +550,21 @@ def _match_title_in(text: str, title: str, threshold: int) -> tuple[int, int, in
     return (int(score), start, end) if score >= threshold else None
 
 
+def _adjacent_number(body: list[Paragraph], p: Paragraph, level: int, last: tuple[int, ...]) -> str | None:
+    """A section number standing alone in the paragraph just before or after ``p``, at the
+    section level and above the last section number."""
+    i = next((k for k, x in enumerate(body) if x.seq == p.seq), None)
+    if i is None:
+        return None
+    for q in (body[i + 1] if i + 1 < len(body) else None, body[i - 1] if i > 0 else None):
+        if q is None:
+            continue
+        m = _BARE_SECTION.fullmatch(normalize_title(q.text))
+        if m and m.group(1).count(".") + 1 == level and _section_tuple(m.group(1)) > last:
+            return m.group(1)
+    return None
+
+
 def find_business_sections(
     paragraphs: list[Paragraph],
     toc: list[TocEntry],
@@ -593,6 +608,10 @@ def find_business_sections(
                     number, kind = m.group(1), "num"
                 elif m := _LETTER_BEFORE.search(before):
                     number, kind = m.group(1), "letter"
+                elif s <= 3 and _is_heading_like(p) and (adj := _adjacent_number(body, p, level, last)):
+                    # the number alone in the paragraph before/after the title (El Al: "###### title"
+                    # then "**6.**"; Delek: "1.1" then "כללי") confirms a heading worded unlike the TOC
+                    number, kind = adj, "num"
                 ok = False
                 if kind == "num" and number.count(".") + 1 == level and _section_tuple(number) > last:
                     ok = True

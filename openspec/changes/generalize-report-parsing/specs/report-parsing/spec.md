@@ -135,11 +135,19 @@ Unexpected Markdown shapes SHALL NOT make parsing fail; they SHALL be treated as
 - **THEN** the block becomes an ordinary paragraph and the rest of the report is parsed (Delek FY2025 parses without error)
 
 ### Requirement: Reference reports
-The parser SHALL meet these minimums on every reference report: Malam FY2024 and FY2025, El Al FY2024 and FY2025, Rami Levy FY2025, Delek FY2025. The minimums are: each of the five main chapters found exactly once, at least 10 business sections, at least 20 notes in the main statement set, and at least four primary statements. These checks SHALL run as opt-in tests against the stored reports.
+On every reference report (Malam FY2024 and FY2025, El Al FY2024 and FY2025, Rami Levy FY2025, Delek FY2025) the parser SHALL find each of the five main chapters exactly once and at least four primary statements. Section and note coverage SHALL be measured against what each report contains (see scenarios), not fixed counts. These checks SHALL run as opt-in tests against the stored reports.
 
 #### Scenario: All reference reports pass
 - **WHEN** the reference-report tests run with the six reports available
-- **THEN** every report meets the minimums
+- **THEN** every report meets the chapter, statement, section-coverage and note-coverage checks
+
+#### Scenario: Section coverage relative to the report's own TOC
+- **WHEN** a reference report's business sections come from its table of contents
+- **THEN** at least 80% of its top-level TOC entries are matched to sections (El Al FY2025 has only 9 top-level sections, so a fixed minimum of 10 cannot apply)
+
+#### Scenario: Note coverage relative to the headings in the text
+- **WHEN** the note numbers of the main statement set are counted from lines in the text that open with the note word and a number (`ביאור 3 -`, `באור 2:`)
+- **THEN** at least 90% of those numbers are note nodes (Delek FY2025's text has a heading for only some of its notes, so a fixed minimum of 20 cannot apply)
 
 #### Scenario: Reports not available
 - **WHEN** the reference-report tests run without the stored reports

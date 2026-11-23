@@ -545,3 +545,27 @@ def test_body_numbering_skips_cross_references_and_jumps():
 
 def test_malam_sections_come_from_the_toc(fixture_b):
     assert fixture_b.coverage.business_sections_source == "toc"
+
+
+def test_heading_worded_unlike_the_toc_confirmed_by_its_number():
+    """El Al FY2024: TOC "פרטים שונים לגבי פעילות החברה", body "###### פרטים נוספים לגבי פעילות
+    החברה" followed by "**8.**" alone; without the number the wording alone is not enough."""
+    toc = "# תוכן עניינים\n\n1. כללי\n2. פרטים שונים לגבי פעילות החברה\n3. מימון"
+    s = structure_of(
+        doc(
+            "# פרק א' - תיאור עסקי התאגיד",
+            toc,
+            "1. כללי\n\nגוף.\n\n###### פרטים נוספים לגבי פעילות החברה\n\n**2.**\n\nגוף.\n\n3. מימון",
+        ),
+        settings=Settings(repeated_line_min_pages=999, min_business_sections=1),
+    )
+    assert [(n.node_id, n.title) for n in s.nodes if n.kind == "section"] == [
+        ("business-1", "כללי"),
+        ("business-2", "פרטים שונים לגבי פעילות החברה"),
+        ("business-3", "מימון"),
+    ]
+    unconfirmed = structure_of(
+        doc("# פרק א' - תיאור עסקי התאגיד", toc, "1. כללי\n\n###### פרטים נוספים לגבי פעילות החברה\n\nגוף."),
+        settings=Settings(repeated_line_min_pages=999, min_business_sections=1),
+    )
+    assert unconfirmed.node("business-2") is None

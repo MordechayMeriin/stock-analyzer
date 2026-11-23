@@ -42,7 +42,7 @@ Other constraints:
 
 **Non-Goals:**
 - Per-issuer profiles or configuration files.
-- Splitting directors' reports that use neither lettered headings nor `חלק` parts (not in the reference minimums; reported via coverage only).
+- Splitting directors' reports that use neither lettered headings nor `חלק` parts (not in the reference checks; reported via coverage only).
 - Parsing English-language headings, including notes inside an attached English statement set.
 - Merging provider page fragments. With the PDF dropped, a fragment is just a short page.
 
@@ -201,6 +201,7 @@ New CLI command `stock-analyzer parse-check [TICKER [FY]]`:
 ### D12. Tests: trimmed fixtures plus store-backed reference tests
 
 - `scripts/make_fixtures.py` cuts small slices from each reference report: El Al covers and running-header pages, Rami Levy `חלק` covers and both TOCs, Delek's `פרק`-alone cover, its `באור` notes, its attached-set boundary and the unterminated table block. They go in `tests/fixtures/` next to Malam's, and unit tests assert each scenario in the specs.
+- The reference checks are relative to each report, not fixed counts (decided during implementation). El Al has only 8–9 top-level business sections, and Delek's provider text has a note heading for only about 14 of its 32 notes. So sections must cover ≥80% of the report's own top-level TOC entries, and notes ≥90% of the note numbers whose heading line (`ביאור N -`, `באור N:`) appears in the main statement set's text. A section heading worded unlike its TOC entry counts when its number stands alone in the adjacent paragraph.
 - `live_data` tests read reports through `get_store(settings)`. They run against a local fs `DATA_DIR` or, with `DATABASE_URL`, against the hosted store, which already holds all six reference reports, so running them costs no credits. They are parametrized over the six reference reports and skip the reports that are absent.
 
 ### D13. Versions and filing selection
@@ -227,4 +228,4 @@ New CLI command `stock-analyzer parse-check [TICKER [FY]]`:
 ## Open Questions
 
 - Whether to show the running header (D4) in the reader as a page caption. It is cosmetic and can be decided after the scorecard is green.
-- Directors'-report splitting for issuers whose directors' report uses numbered rather than lettered headings (El Al). It is not in the reference minimums. Decide after seeing scorecard coverage, possibly as a follow-up change.
+- Directors'-report splitting for issuers whose directors' report uses numbered rather than lettered headings (El Al). It is not in the reference checks. Decide after seeing scorecard coverage, possibly as a follow-up change.
