@@ -19,6 +19,18 @@ class CompanyNotFound(AnalyzerError):
     code = "company_not_found"
 
 
+class CompanyAlreadyTracked(AnalyzerError):
+    """The ticker or provider company id is already in the tracked companies."""
+
+    code = "company_already_tracked"
+
+
+class CompanyNotRemovable(AnalyzerError):
+    """Companies from the version-controlled registry cannot be removed at runtime."""
+
+    code = "company_not_removable"
+
+
 class FilingNotFound(AnalyzerError):
     code = "filing_not_found"
 
@@ -43,6 +55,12 @@ class NotCached(AnalyzerError):
 
 class LiveModeDisabled(AnalyzerError):
     code = "live_disabled"
+
+
+class LiveModeRequired(AnalyzerError):
+    """The operation only runs in live mode, and the request was in cached mode."""
+
+    code = "live_required"
 
 
 class ReportSelectionError(AnalyzerError):

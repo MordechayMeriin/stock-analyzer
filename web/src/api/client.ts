@@ -8,6 +8,7 @@ import type { components } from './schema'
 export type Schemas = components['schemas']
 export type Mode = 'cached' | 'live'
 export type Company = Schemas['CompanyOut']
+export type AddCompanyInput = Schemas['AddCompanyIn']
 export type CompanySearchHit = Schemas['CompanySearchHit']
 export type Filings = Schemas['FilingsOut']
 export type FiscalYearFilings = Schemas['FiscalYearFilings']
@@ -54,17 +55,34 @@ export async function errorFrom(res: Response): Promise<ApiError> {
   return new ApiError('http_error', `${res.status} ${res.statusText}`, res.status)
 }
 
-async function get<T>(path: string, query?: Query, signal?: AbortSignal): Promise<T> {
+/** One request with the shared error mapping. Resolves to undefined for 204 No Content. */
+async function send<T>(
+  method: 'GET' | 'POST' | 'DELETE',
+  path: string,
+  query?: Query,
+  body?: unknown,
+  signal?: AbortSignal,
+): Promise<T> {
+  const headers: Record<string, string> = { Accept: 'application/json' }
+  if (body !== undefined) headers['Content-Type'] = 'application/json'
   let res: Response
   try {
-    res = await fetch(url(path, query), { headers: { Accept: 'application/json' }, signal })
+    res = await fetch(url(path, query), {
+      method,
+      headers,
+      body: body === undefined ? undefined : JSON.stringify(body),
+      signal,
+    })
   } catch (e) {
     if ((e as Error).name === 'AbortError') throw e
     throw new ApiError('network_error', 'השרת אינו זמין. בדקו שהשרת פועל ושכתובת ה-API נכונה.', 0)
   }
   if (!res.ok) throw await errorFrom(res)
+  if (res.status === 204) return undefined as T
   return (await res.json()) as T
 }
+
+const get = <T>(path: string, query?: Query, signal?: AbortSignal) => send<T>('GET', path, query, undefined, signal)
 
 const enc = encodeURIComponent
 
@@ -73,6 +91,10 @@ export const api = {
   companies: (mode: Mode, signal?: AbortSignal) => get<Company[]>('/api/companies', { mode }, signal),
   searchCompanies: (q: string, mode: Mode, signal?: AbortSignal) =>
     get<CompanySearchHit[]>('/api/companies/search', { q, mode }, signal),
+  /** Start tracking a company. Live mode only (the server refuses it in cached mode). */
+  addCompany: (input: AddCompanyInput, mode: Mode) => send<Company>('POST', '/api/companies', { mode }, input),
+  /** Stop tracking a runtime-added company. Live mode only. */
+  removeCompany: (ticker: string, mode: Mode) => send<void>('DELETE', `/api/companies/${enc(ticker)}`, { mode }),
   company: (ticker: string, mode: Mode, signal?: AbortSignal) =>
     get<Company>(`/api/companies/${enc(ticker)}`, { mode }, signal),
   filings: (ticker: string, mode: Mode, signal?: AbortSignal) =>

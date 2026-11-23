@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 
-from stock_analyzer.companies import resolve_ticker
 from stock_analyzer.errors import ReportSelectionError
 from stock_analyzer.ingest.fr_client import Filing, load_report, save_report
 from stock_analyzer.ingest.select import filing_fiscal_year, select_report
+from stock_analyzer.services.companies import resolve_company
 from stock_analyzer.services.context import Ctx
 from stock_analyzer.services.models import FetchedReport, FetchOut, FilingOut, FilingsOut, FiscalYearFilings
 
@@ -17,12 +17,12 @@ def cached_filing_id(ctx: Ctx, ticker: str, fiscal_year: int) -> int | None:
 
 
 def company_filings(ctx: Ctx, ticker: str) -> list[Filing]:
-    company = resolve_ticker(ctx.settings.companies_file, ticker)
+    company = resolve_company(ctx, ticker)
     return ctx.fr.list_filings(company.fr_company_id)
 
 
 def list_filings(ctx: Ctx, ticker: str) -> FilingsOut:
-    company = resolve_ticker(ctx.settings.companies_file, ticker)
+    company = resolve_company(ctx, ticker)
     filings = ctx.fr.list_filings(company.fr_company_id)
     years = sorted({y for f in filings if (y := filing_fiscal_year(f)) is not None}, reverse=True)
     out: list[FiscalYearFilings] = []
@@ -62,7 +62,7 @@ def list_filings(ctx: Ctx, ticker: str) -> FilingsOut:
 
 def fetch(ctx: Ctx, ticker: str, years: Iterable[int], *, financials: bool = True) -> FetchOut:
     """Fetch and save the selected report of each year (and the financials). Live mode."""
-    company = resolve_ticker(ctx.settings.companies_file, ticker)
+    company = resolve_company(ctx, ticker)
     filings = ctx.fr.list_filings(company.fr_company_id)
     reports: list[FetchedReport] = []
     for year in years:

@@ -1,6 +1,60 @@
 {
   "components": {
     "schemas": {
+      "AddCompanyIn": {
+        "description": "A company to start tracking, usually taken from a provider search hit.",
+        "properties": {
+          "fr_company_id": {
+            "description": "Provider company id (from search)",
+            "exclusiveMinimum": 0.0,
+            "title": "Fr Company Id",
+            "type": "integer"
+          },
+          "isin": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Za-z]{2}[A-Za-z0-9]{9}[0-9]$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Isin"
+          },
+          "name_en": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name En"
+          },
+          "name_he": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Name He",
+            "type": "string"
+          },
+          "ticker": {
+            "description": "1-15 Latin letters, digits, dots or hyphens; stored upper-case",
+            "pattern": "^[A-Za-z0-9.\\-]{1,15}$",
+            "title": "Ticker",
+            "type": "string"
+          }
+        },
+        "required": [
+          "fr_company_id",
+          "ticker",
+          "name_he"
+        ],
+        "title": "AddCompanyIn",
+        "type": "object"
+      },
       "CompanyOut": {
         "properties": {
           "fr_company_id": {
@@ -33,6 +87,15 @@
             "title": "Name He",
             "type": "string"
           },
+          "source": {
+            "description": "registry: data/companies.yaml; added: added at runtime (removable)",
+            "enum": [
+              "registry",
+              "added"
+            ],
+            "title": "Source",
+            "type": "string"
+          },
           "ticker": {
             "title": "Ticker",
             "type": "string"
@@ -41,7 +104,8 @@
         "required": [
           "ticker",
           "name_he",
-          "fr_company_id"
+          "fr_company_id",
+          "source"
         ],
         "title": "CompanyOut",
         "type": "object"
@@ -1344,6 +1408,64 @@
         "tags": [
           "companies"
         ]
+      },
+      "post": {
+        "description": "Adds a provider company to the tracked companies. Refused in cached mode (`live_required`), on a cached-only server (`live_disabled`) and when the ticker or provider id is already tracked (`company_already_tracked`). Nothing is fetched from the provider.",
+        "operationId": "add_company_api_companies_post",
+        "parameters": [
+          {
+            "description": "cached: local data only, no provider calls. live: fetch what is missing (if the server allows).",
+            "in": "query",
+            "name": "mode",
+            "required": false,
+            "schema": {
+              "default": "cached",
+              "description": "cached: local data only, no provider calls. live: fetch what is missing (if the server allows).",
+              "enum": [
+                "cached",
+                "live"
+              ],
+              "title": "Mode",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddCompanyIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompanyOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Start tracking a company (live mode only)",
+        "tags": [
+          "companies"
+        ]
       }
     },
     "/api/companies/search": {
@@ -1411,6 +1533,56 @@
       }
     },
     "/api/companies/{ticker}": {
+      "delete": {
+        "description": "Companies from data/companies.yaml cannot be removed (`company_not_removable`). Cached reports, financials and usage records are kept.",
+        "operationId": "remove_company_api_companies__ticker__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ticker",
+            "required": true,
+            "schema": {
+              "title": "Ticker",
+              "type": "string"
+            }
+          },
+          {
+            "description": "cached: local data only, no provider calls. live: fetch what is missing (if the server allows).",
+            "in": "query",
+            "name": "mode",
+            "required": false,
+            "schema": {
+              "default": "cached",
+              "description": "cached: local data only, no provider calls. live: fetch what is missing (if the server allows).",
+              "enum": [
+                "cached",
+                "live"
+              ],
+              "title": "Mode",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Stop tracking a runtime-added company (live mode only)",
+        "tags": [
+          "companies"
+        ]
+      },
       "get": {
         "operationId": "get_company_api_companies__ticker__get",
         "parameters": [

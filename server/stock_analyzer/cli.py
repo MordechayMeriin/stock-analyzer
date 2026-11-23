@@ -1,6 +1,6 @@
 """Command-line interface (typer). Thin adapter over ``services`` (design D4).
 
-Commands: fetch, usage, structure, fin-raw, db init.
+Commands: fetch, usage, structure, fin-raw, companies list|add|remove, db init.
 """
 
 from __future__ import annotations
@@ -72,6 +72,66 @@ def usage(mode: ModeOpt = "live") -> None:
     typer.echo()
 
 
+companies_app = typer.Typer(no_args_is_help=True, help="Tracked companies (companies.yaml plus added ones)")
+app.add_typer(companies_app, name="companies")
+
+
+@companies_app.command("list")
+def companies_list() -> None:
+    """Tracked companies with their source: registry (companies.yaml) or added (state store)."""
+    from stock_analyzer.services import companies
+
+    try:
+        rows = companies.list_tracked(_ctx())
+    except AnalyzerError as exc:
+        _fail(exc)
+        return
+    for c in rows:
+        typer.echo(
+            f"{c.ticker:<10} {c.fr_company_id:>8}  {c.source:<8}  {c.name_he}  {c.name_en or ''}".rstrip()
+        )
+
+
+@companies_app.command("add")
+def companies_add(
+    fr_id: Annotated[int, typer.Option("--fr-id", help="Provider company id (from search)")],
+    ticker: Annotated[str, typer.Option("--ticker", help="Exchange ticker, stored upper-case")],
+    name_he: Annotated[str, typer.Option("--name-he", help="Hebrew name")],
+    name_en: Annotated[str | None, typer.Option("--name-en", help="English name")] = None,
+    isin: Annotated[str | None, typer.Option("--isin", help="ISIN")] = None,
+) -> None:
+    """Start tracking a company (live mode; writes to the active state store). Nothing is fetched."""
+    from pydantic import ValidationError
+
+    from stock_analyzer.services import companies
+    from stock_analyzer.services.models import AddCompanyIn
+
+    try:
+        body = AddCompanyIn(fr_company_id=fr_id, ticker=ticker, name_he=name_he, name_en=name_en, isin=isin)
+        out = companies.add(_ctx("live"), body)
+    except ValidationError as exc:
+        fields = ", ".join(str(e["loc"][0]) for e in exc.errors())
+        typer.secho(f"error [validation_error]: invalid {fields}", fg=typer.colors.RED, err=True)
+        raise typer.Exit(1) from None
+    except (AnalyzerError, ValueError) as exc:
+        _fail(exc)
+        return
+    typer.echo(f"now tracking {out.ticker} (provider company {out.fr_company_id}, {out.name_he})")
+
+
+@companies_app.command("remove")
+def companies_remove(ticker: str) -> None:
+    """Stop tracking a company added at runtime (live mode). Cached data is kept."""
+    from stock_analyzer.services import companies
+
+    try:
+        companies.remove(_ctx("live"), ticker)
+    except (AnalyzerError, ValueError) as exc:
+        _fail(exc)
+        return
+    typer.echo(f"stopped tracking {ticker.strip().upper()}; its cached data is kept")
+
+
 db_app = typer.Typer(no_args_is_help=True, help="State store database (Postgres backend)")
 app.add_typer(db_app, name="db")
 
@@ -102,7 +162,10 @@ def db_init() -> None:
     if existed:
         typer.echo(f"schema {store.schema!r} is already present; checked, existing data kept")
     else:
-        typer.echo(f"created schema {store.schema!r}: kv_cache, reports, financials_snapshots, usage_log")
+        typer.echo(
+            f"created schema {store.schema!r}: kv_cache, reports, financials_snapshots, usage_log, "
+            "tracked_companies"
+        )
 
 
 def render_structure(out) -> list[str]:

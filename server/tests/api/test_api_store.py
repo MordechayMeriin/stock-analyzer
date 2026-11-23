@@ -12,6 +12,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from stock_analyzer.api.main import create_app
+from stock_analyzer.errors import StorageNotInitialized
 from stock_analyzer.store.pg import PgStore
 from tests.conftest import TEST_DATABASE_URL, seed_fr_cache, seed_malam
 
@@ -90,3 +91,18 @@ def test_unreachable_database_is_storage_unavailable(monkeypatch, settings):
     assert health.json()["storage"] == {"backend": "postgres", "ok": False}
     for leak in ("secret_user", "secret_pw", "secret_db", "127.0.0.1"):
         assert leak not in r.text and leak not in health.text
+
+
+def test_missing_tracked_companies_table_asks_for_db_init(monkeypatch, settings, pg_schema):
+    """A database set up before tracked companies existed: clear error, not an empty list."""
+    with psycopg.connect(TEST_DATABASE_URL, autocommit=True) as conn:
+        conn.execute(f'drop table "{pg_schema.schema}".tracked_companies')
+    with pytest.raises(StorageNotInitialized, match="stock-analyzer db init"):
+        pg_schema.list_tracked()
+    use_store(monkeypatch, pg_schema)
+    with TestClient(create_app(settings)) as c:
+        r = c.get("/api/companies")
+    assert r.status_code == 503 and r.json()["code"] == "configuration_error"
+    assert "stock-analyzer db init" in r.json()["message"]
+    pg_schema.init_schema()  # re-running db init creates the missing table, keeping other rows
+    assert pg_schema.list_tracked() == []

@@ -5,6 +5,7 @@ raw/<TICKER>/<year>.md        report Markdown, exact bytes (no newline translati
 raw/<TICKER>/<year>.meta.json ReportMeta
 raw/<TICKER>/financials[_revisions].json
 logs/fr.jsonl, logs/llm.jsonl append-only usage logs
+companies_added.json          companies added at runtime (JSON array)
 """
 
 from __future__ import annotations
@@ -18,7 +19,9 @@ from typing import Any, Literal
 
 import diskcache
 
+from stock_analyzer.companies import TrackedCompany, find_duplicate
 from stock_analyzer.config import Settings
+from stock_analyzer.errors import CompanyAlreadyTracked
 from stock_analyzer.store.base import Namespace, ReportMeta, Source, fr_totals, llm_totals
 
 _LOCKS: dict[Path, threading.Lock] = {}
@@ -148,6 +151,49 @@ class FsStore:
     def totals(self, source: Source) -> dict[str, Any]:
         records = read_jsonl(self._log_path(source))
         return fr_totals(records) if source == "fr" else llm_totals(records)
+
+    # -- companies added at runtime
+
+    @property
+    def _tracked_path(self) -> Path:
+        return self.settings.data_dir / "companies_added.json"
+
+    def _read_tracked(self) -> list[TrackedCompany]:
+        path = self._tracked_path
+        if not path.exists():
+            return []
+        rows = json.loads(path.read_text(encoding="utf-8"))
+        return [TrackedCompany.model_validate({**row, "source": "added"}) for row in rows]
+
+    def _write_tracked(self, companies: list[TrackedCompany]) -> None:
+        path = self._tracked_path
+        path.parent.mkdir(parents=True, exist_ok=True)
+        rows = [c.model_dump(exclude={"source"}) for c in companies]
+        tmp = path.with_suffix(".json.tmp")
+        tmp.write_text(json.dumps(rows, ensure_ascii=False, indent=1), encoding="utf-8")
+        tmp.replace(path)
+
+    def list_tracked(self) -> list[TrackedCompany]:
+        with _lock_for(self._tracked_path):
+            return self._read_tracked()
+
+    def add_tracked(self, company: TrackedCompany) -> None:
+        company = company.model_copy(update={"ticker": company.ticker.upper(), "source": "added"})
+        with _lock_for(self._tracked_path):
+            existing = self._read_tracked()
+            if (dup := find_duplicate(existing, company)) is not None:
+                raise CompanyAlreadyTracked(f"already tracked as {dup.ticker}")
+            self._write_tracked([*existing, company])
+
+    def remove_tracked(self, ticker: str) -> bool:
+        wanted = ticker.strip().upper()
+        with _lock_for(self._tracked_path):
+            existing = self._read_tracked()
+            kept = [c for c in existing if c.ticker.upper() != wanted]
+            if len(kept) == len(existing):
+                return False
+            self._write_tracked(kept)
+            return True
 
     # -- lifecycle
 
