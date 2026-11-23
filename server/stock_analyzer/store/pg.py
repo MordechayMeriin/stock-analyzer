@@ -133,6 +133,7 @@ class PgStore:
             ),
             "report_load": q("select text, meta from {s}.reports where ticker = %s and fiscal_year = %s"),
             "report_filing": q("select filing_id from {s}.reports where ticker = %s and fiscal_year = %s"),
+            "report_list": q("select ticker, fiscal_year from {s}.reports order by ticker, fiscal_year"),
             "fin_save": q(
                 "insert into {s}.financials_snapshots (ticker, revisions, data) values (%s, %s, %s) "
                 "on conflict (ticker, revisions) do update set data = excluded.data, fetched_at = now()"
@@ -231,6 +232,10 @@ class PgStore:
 
     def report_location(self, ticker: str, fiscal_year: int) -> str:
         return f"postgres:{self.schema}.reports/{ticker.upper()}/{fiscal_year}"
+
+    def list_reports(self) -> list[tuple[str, int]]:
+        rows = self._run(lambda c: c.execute(self._q["report_list"]).fetchall())
+        return sorted((str(t).upper(), int(y)) for t, y in rows)
 
     def save_financials(self, ticker: str, revisions: bool, data: Any) -> None:
         self._exec("fin_save", (ticker, revisions, Jsonb(data)))

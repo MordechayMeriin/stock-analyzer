@@ -5,7 +5,7 @@ import pytest
 from stock_analyzer.config import Settings
 from stock_analyzer.ingest.parse_md import parse_report
 from stock_analyzer.ingest.structure import build_structure, chapter_ordinal
-from tests.conftest import LIVE_FILINGS, fixture_text, live_report
+from tests.conftest import fixture_text, live_report
 
 
 def structure_of(text, fy=2025, settings=None):
@@ -279,9 +279,8 @@ def test_stable_structure_across_runs():
 @pytest.mark.live_data
 @pytest.mark.parametrize("fy", [2024, 2025])
 def test_live_chapters_once_and_sections(fy):
-    s = build_structure(
-        parse_report(live_report(fy), ticker="MLTM", fiscal_year=fy, filing_id=LIVE_FILINGS[fy])
-    )
+    text, filing_id = live_report("MLTM", fy)
+    s = build_structure(parse_report(text, ticker="MLTM", fiscal_year=fy, filing_id=filing_id))
     c = s.coverage
     assert c.chapters_found == ["business", "directors", "financials", "additional", "governance"]
     assert c.chapters_duplicated == [] and c.chapters_missing == []
@@ -293,9 +292,8 @@ def test_live_chapters_once_and_sections(fy):
 
 @pytest.mark.live_data
 def test_live_fy2025_risk_and_notes():
-    s = build_structure(
-        parse_report(live_report(2025), ticker="MLTM", fiscal_year=2025, filing_id=LIVE_FILINGS[2025])
-    )
+    text, filing_id = live_report("MLTM", 2025)
+    s = build_structure(parse_report(text, ticker="MLTM", fiscal_year=2025, filing_id=filing_id))
     assert next(e for e in s.toc if e.matched_node == "business-22").number == "25"
     ai = s.node("business-22.2.3")
     assert ai.title.startswith("סיכונים הנובעים משימוש ופיתוח טכנולוגיות בינה מלאכותית")

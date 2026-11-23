@@ -20,3 +20,23 @@ in `tests/fixtures/`, "synthetic" a test built from the real line.
 | Note headings in five layouts (plain, bold+underline, list item, `N ביאור`, reversed `title - N ביאור`); some notes have no heading at all | FY2024 / FY2025 | All five patterns; gaps reported as `note_numbers_missing` | synthetic + live |
 | An auditor-report sentence mentioning "דוח רואה החשבון" | FY2025 | Auditor headings must start with `דוח` | synthetic |
 | Brand/footer lines after chapter headings (`MalamTeam`, `www… | … | 0`) | both | Excluded from chapter title hints | synthetic |
+
+## Reference reports
+
+The parser is checked against six full reports (the `REFERENCE_REPORTS` list in `tests/conftest.py`):
+Malam FY2024 and FY2025, El Al FY2024 and FY2025, Rami Levy FY2025 and Delek Group FY2025.
+`stock-analyzer parse-check` prints one coverage row per stored report; it reads stored data only
+and spends no provider credits. `pytest -m live_data` runs the full-report tests against the same
+store (`DATA_DIR`, or the Postgres store named by `DATABASE_URL`).
+
+### Baseline (before generalizing, parser 1 / structure 1)
+
+```
+TICKER FY     PAGES PRINTED  CHAPTERS  SECTIONS     TOC  NOTES STMTS  WARN  MISSING / ERROR
+DLEKG  2025                                                             ERROR ValueError: max() iterable argument is empty
+ELAL   2024     266      48  1/5              0     0/0      0     0     4  missing: business, directors, financials, governance
+ELAL   2025     275     157  0/5              0     0/0      0     0    68  missing: business, directors, financials, additional, governance
+MLTM   2024     180     163  5/5             22   22/22     40     6     1
+MLTM   2025     188     147  5/5             25   25/25     31     8     1
+RMLI   2025     250      78  1/5              5    5/29      0     0    50  missing: directors, financials, additional, governance
+```

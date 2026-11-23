@@ -134,6 +134,15 @@ class FsStore:
     def report_location(self, ticker: str, fiscal_year: int) -> str:
         return str(raw_paths(self.settings, ticker, fiscal_year)[0])
 
+    def list_reports(self) -> list[tuple[str, int]]:
+        found: list[tuple[str, int]] = []
+        if not self.settings.raw_dir.is_dir():
+            return found
+        for md in self.settings.raw_dir.glob("*/*.md"):
+            if md.stem.isdigit() and md.with_suffix(".meta.json").exists():
+                found.append((md.parent.name.upper(), int(md.stem)))
+        return sorted(found)
+
     def save_financials(self, ticker: str, revisions: bool, data: Any) -> None:
         name = "financials_revisions.json" if revisions else "financials.json"
         path = self.settings.raw_dir / ticker.upper() / name

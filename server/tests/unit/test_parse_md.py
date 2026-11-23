@@ -3,7 +3,7 @@ import pytest
 from stock_analyzer.config import Settings
 from stock_analyzer.errors import ParseError
 from stock_analyzer.ingest.parse_md import detect_style, parse_report
-from tests.conftest import LIVE_FILINGS, fixture_text, live_report
+from tests.conftest import fixture_text, live_report
 
 
 def parse(text, fy=2025, fid=1, **kw):
@@ -161,7 +161,8 @@ def test_split_on_blank_lines_and_headings():
 
 @pytest.mark.live_data
 def test_live_fy2024_offset_one_no_issues():
-    r = parse(live_report(2024), 2024, LIVE_FILINGS[2024])
+    text, filing_id = live_report("MLTM", 2024)
+    r = parse(text, 2024, filing_id)
     assert r.style == "A" and r.page_count == 180  # the PDF has 180 pages
     assert (r.offset_runs[0].first_page, r.offset_runs[0].last_page, r.offset_runs[0].offset) == (1, 62, 1)
     assert r.offset_issues == []
@@ -169,6 +170,7 @@ def test_live_fy2024_offset_one_no_issues():
 
 @pytest.mark.live_data
 def test_live_fy2025_matches_pdf_pages():
-    r = parse(live_report(2025), 2025, LIVE_FILINGS[2025])
+    text, filing_id = live_report("MLTM", 2025)
+    r = parse(text, 2025, filing_id)
     assert r.style == "B" and r.page_count == 188  # the PDF has 188 pages
     assert r.offset_runs[0].offset == 1 and r.offset_issues == []
