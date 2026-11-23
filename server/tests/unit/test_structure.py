@@ -128,7 +128,8 @@ def test_sections_numbers_glued_spelling_and_references():
 def test_toc_threshold_from_config():
     text = doc("# פרק ראשון - תיאור עסקי התאגיד", TOC, "1. פעילות החבר\n\n2. תחומי הפעילות")
     assert structure_of(text).coverage.business_sections == 2
-    strict = Settings(repeated_line_min_pages=999, toc_match_threshold=100)
+    # min_business_sections=1 keeps the body-numbering fallback out of this TOC-threshold check
+    strict = Settings(repeated_line_min_pages=999, toc_match_threshold=100, min_business_sections=1)
     assert structure_of(text, settings=strict).coverage.business_sections == 1
 
 
@@ -465,3 +466,82 @@ def test_edge_header_fallback_respects_chapter_order():
     ]
     s = structure_of(doc(*pages))
     assert chapter_pages(s)["governance"] == 4
+
+
+# ---------------------------------------------------------------- business TOC levels (D7)
+
+
+def test_multi_level_toc_keeps_levels_and_anchors_on_top_level():
+    """Rami Levy FY2025 has a short and a detailed TOC; "כללי .2" is section 2 and the detailed
+    TOC's "2.1"/"2.2" entries never become sections 21/22."""
+    s = issuer_structure("rmli_2025_style_b.md", "RMLI")
+    numbers = [e.number for e in s.toc]
+    assert ("2", "כללי") in [(e.number, e.title) for e in s.toc]
+    assert {e.level for e in s.toc} == {1}
+    titles = {e.number: e.title for e in s.toc}
+    assert "2.1" not in numbers and "שנת התאגדות וצורת התאגדות" not in titles.values()
+    assert titles["21"] == "תשקיף מדף" and titles["22"] == "מיסוי"  # the real sections 21 and 22
+    assert numbers == [str(i) for i in range(1, 30)]
+
+
+def test_toc_row_number_cells_and_numbered_titles():
+    from stock_analyzer.ingest.structure import _parse_toc_row
+
+    assert _parse_toc_row("|  12 | שנת התאגדות וצורת התאגדות | 2.1 |   |").model_dump(
+        exclude={"matched_node"}
+    ) == {
+        "number": "2.1",
+        "title": "שנת התאגדות וצורת התאגדות",
+        "level": 2,
+    }
+    assert _parse_toc_row("|  9 | הגדרות | .1  |").number == "1"  # page 9, section 1
+    delek = _parse_toc_row("|  א-279 | 1.12 הון אנושי  |")  # Delek: number inside the title cell
+    assert (delek.number, delek.title, delek.level) == ("1.12", "הון אנושי", 2)
+    assert _parse_toc_row("|  א-9 | חלק שני - מידע אחר  |") is None  # a part row
+
+
+def test_section_numbers_at_a_deeper_top_level():
+    """Delek numbers its business sections 1.1, 1.2 …; the number may sit alone on the line
+    before the title."""
+    toc = "# תוכן עניינים\n\n|  עמוד | נושא |\n| --- | --- |\n" + "\n".join(
+        f"|  א-{i} | 1.{i} {t}  |" for i, t in enumerate(["כללי", "תחומי הפעילות", "דיבידנדים", "מימון"], 1)
+    )
+    s = structure_of(
+        doc(
+            "# פרק א - תיאור עסקי התאגיד",
+            toc,
+            "1.1\n\nכללי\n\nגוף.",
+            "תחומי הפעילות\n\n.1.2 הקבוצה פועלת בשני תחומים: 1.2.1 תחום אחד.",
+            "1.3 דיבידנדים\n\nגוף.\n\n1.4 מימון\n\nגוף.",
+        )
+    )
+    assert [(n.node_id, n.title) for n in s.nodes if n.kind == "section"] == [
+        ("business-1.1", "כללי"),
+        ("business-1.2", "תחומי הפעילות"),
+        ("business-1.3", "דיבידנדים"),
+        ("business-1.4", "מימון"),
+    ]
+    assert s.node("business-1.2.1").parent == "business-1.2"
+
+
+# ---------------------------------------------------------------- body-numbering fallback (D8)
+
+
+def test_sections_from_body_numbering_without_a_toc():
+    titles = [f"נושא מספר {w}" for w in "אבגדהוזחטיכל"]
+    body = "\n\n".join(f"{i}. {t}\n\nגוף הסעיף {i}." for i, t in enumerate(titles, 1))
+    s = structure_of(doc("# פרק ראשון - תיאור עסקי התאגיד", body, "# פרק שני - דוח הדירקטוריון"))
+    sections = [n for n in s.nodes if n.kind == "section" and n.chapter == "business"]
+    assert [(n.node_id, n.title) for n in sections] == [(f"business-{i}", t) for i, t in enumerate(titles, 1)]
+    assert s.coverage.business_sections == 12 and s.coverage.business_sections_source == "body_numbering"
+    assert any("body numbering" in w for w in s.warnings)
+
+
+def test_body_numbering_skips_cross_references_and_jumps():
+    body = "1. כללי\n\nגוף.\n\n2. תחומים\n\n9. קפיצה גדולה מדי\n\n3. להלן פירוט\n\n3. מימון\n\n4. מיסוי"
+    s = structure_of(doc("# פרק ראשון - תיאור עסקי התאגיד", body))
+    assert [n.title for n in s.nodes if n.kind == "section"] == ["כללי", "תחומים", "מימון", "מיסוי"]
+
+
+def test_malam_sections_come_from_the_toc(fixture_b):
+    assert fixture_b.coverage.business_sections_source == "toc"

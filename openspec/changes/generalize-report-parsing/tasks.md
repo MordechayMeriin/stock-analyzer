@@ -26,8 +26,8 @@
 
 ## 4. Business sections
 
-- [ ] 4.1 Keep dotted TOC numbers and add `TocEntry.level`, so only level-1 entries anchor sections (design D7). Verify a fixture with Rami Levy's short and detailed TOCs yields `כללי` as section 2 and no section 21/22, and the existing Malam TOC tests pass
-- [ ] 4.2 Add the body-numbering fallback and `Coverage.business_sections_source` (design D8). Show the source in `parse-check` and the CLI structure summary. Verify a synthetic test with no TOC and body headings 1–12 yields twelve sections with source `body_numbering`, and a Malam test asserts source `toc`
+- [x] 4.1 Keep dotted TOC numbers and add `TocEntry.level`, so only level-1 entries anchor sections (design D7). Verify a fixture with Rami Levy's short and detailed TOCs yields `כללי` as section 2 and no section 21/22, and the existing Malam TOC tests pass
+- [x] 4.2 Add the body-numbering fallback and `Coverage.business_sections_source` (design D8). Show the source in `parse-check` and the CLI structure summary. Verify a synthetic test with no TOC and body headings 1–12 yields twelve sections with source `body_numbering`, and a Malam test asserts source `toc`
 - [ ] 4.3 Verify `parse-check` shows at least 10 business sections for every reference report, record the rows, and add any new TOC quirks to `server/docs/parsing_notes.md`
 
 ## 5. Financial statements

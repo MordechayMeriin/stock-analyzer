@@ -63,8 +63,9 @@ class Node(BaseModel):
 
 
 class TocEntry(BaseModel):
-    number: str | None
+    number: str | None  # dotted ("2", "2.1", "1.12"); display only
     title: str
+    level: int = 1  # number of parts in ``number``
     matched_node: str | None = None
 
 
@@ -77,6 +78,7 @@ class Coverage(BaseModel):
     business_toc_entries: int
     business_sections: int
     business_sections_matched_from_toc: int
+    business_sections_source: Literal["toc", "body_numbering"] = "toc"
     subsections: int
     directors_headings: int
     notes: int
@@ -122,8 +124,9 @@ def chapter_ordinal(text: str) -> int | None:
 
 _REF_BEFORE = re.compile(r"(?:סעיפים|סעיף|ס'|תקנה|תקנות|ביאור|ביאורים|ר'|ראה|ראו|בפרק|פרק)\s*[-–]?\s*$")
 _REF_AFTER = re.compile(r"^\s*(?:לעיל|להלן|לדוח|לחוק|לתקנות)")
-_SINGLE_BEFORE = re.compile(r"(?:^|[\s(\[*])\.?(\d{1,2})\.?\s*[-–]?\s*$")
-_SINGLE_AFTER = re.compile(r"^\s*\.(\d{1,2})\.?(?:\s|$)")
+# a section number right before / after a title: "22. title", "title .22", Delek's "1.12 title"
+_SINGLE_BEFORE = re.compile(r"(?:^|[\s(\[*])\.?(\d{1,2}(?:\.\d{1,3})*)\.?\s*[-–]?\s*$")
+_SINGLE_AFTER = re.compile(r"^\s*\.(\d{1,2}(?:\.\d{1,3})*)\.?(?:\s|$)")
 _LETTER_BEFORE = re.compile(r"(?:^|[\s*])\.?([א-ת])['׳]?\.\s*$")
 _MULTI = re.compile(r"(?<![\d.,])\.?(\d{1,2}(?:\.\d{1,3}){1,4})\.?(?![\d,])")
 _LETTERED = re.compile(r"^\.?([א-ת])['׳]?\s*[.)]\s*(\S.*)$")
@@ -181,27 +184,55 @@ class _Start:
 # ---------------------------------------------------------------- TOC
 
 
-def _toc_pages(paragraphs: list[Paragraph]) -> set[int]:
+def _is_toc_heading(text: str) -> bool:
+    t = normalize_title(text)
+    return any(t.startswith(h) for h in TOC_HEADINGS) and len(t) < 40
+
+
+def _toc_pages(report: ParsedReport) -> set[int]:
+    """Pages holding a table of contents: a TOC heading as a paragraph, among the page's first
+    head lines (Rami Levy: "פרק א' - …" then "תוכן עניינים מקוצר"), or as a cell of a table's
+    header row (Delek: "| עמוד | תוכן עניינים |")."""
     pages: set[int] = set()
-    for p in paragraphs:
+    for p in report.paragraphs:
         if p.in_table:
-            continue
-        t = normalize_title(p.text)
-        if any(t.startswith(h) for h in TOC_HEADINGS) and len(t) < 40:
+            header = p.raw.split("\n", 1)[0]
+            if any(_is_toc_heading(cell) for cell in header.strip().strip("|").split("|")):
+                pages.add(p.page_index)
+        elif _is_toc_heading(p.text):
             pages.add(p.page_index)
+    for page in report.pages:
+        if any(_is_toc_heading(line) for line in page.head[:3]):
+            pages.add(page.index)
     return pages
 
 
-def _parse_toc_line(line: str) -> TocEntry | None:
+_BARE_SECTION = re.compile(r"\.?(\d{1,2}(?:\.\d{1,3})*)\.?")
+_TOC_NUMBER = re.compile(r"^\.?(\d{1,2}(?:\.\d{1,3})*)\.?$")
+_TOC_NUMBERED_TITLE = re.compile(r"^(\d{1,2}(?:\.\d{1,3})+)\.?\s+(\S.*)$")  # "1.12 הון אנושי" (Delek)
+
+
+_LEADER = re.compile(r"\s*(?:\.\s*){3,}.*$")  # dot leaders to the page number ("תחום הפעילות .....")
+
+
+def _toc_entry(number: str, title: str) -> TocEntry:
+    title = _LEADER.sub("", title)
+    return TocEntry(number=number, title=title.strip(" .-–"), level=number.count(".") + 1)
+
+
+def _parse_toc_line(line: str) -> tuple[TocEntry, str | None] | None:
+    """A TOC line, and its trailing number token if any. Usually the leading number is the
+    section and a trailing one is the page ("1. פעילות החברה 4"); some reports put the section
+    number last ("2. כללי. 1.1", the leading number being list numbering) — the caller decides."""
     t = normalize_title(line)
     if not t:
         return None
-    m = re.match(r"^\.?(\d{1,2})\s*\.?\s*(?=\D)(.+?)(?:\s+\d{1,3}(?:-\d{1,3})?)?$", t)
+    m = re.match(r"^\.?(\d{1,2})\s*\.?\s*(?=\D)(.+?)(?:\s+(\d{1,3}(?:[.-]\d{1,3})*))?$", t)
     if m and re.search(r"[א-ת]", m.group(2)):
-        return TocEntry(number=m.group(1), title=m.group(2).strip(" .-–"))
+        return _toc_entry(m.group(1), m.group(2)), m.group(3)
     m = re.match(r"^(.+?[א-ת].*?)\s+\.?(\d{1,2})\.?$", t)
     if m and not re.match(r"^[א-ת]['׳]?\.", t):
-        return TocEntry(number=m.group(2), title=m.group(1).strip(" .-–"))
+        return _toc_entry(m.group(2), m.group(1)), None
     return None
 
 
@@ -212,25 +243,39 @@ def _parse_toc_row(row: str) -> TocEntry | None:
     texts = [c for c in cells if len(re.findall(r"[א-ת]", c)) >= 3]
     if not texts:
         return None
-    nums = [re.sub(r"[\s.]", "", c) for c in cells]
-    numeric = [n for n in nums if re.fullmatch(r"\d{1,3}", n)]
+    title = max(texts, key=len)
+    if m := _TOC_NUMBERED_TITLE.match(title):
+        return _toc_entry(m.group(1), m.group(2))
+    numbers = [(c, n.group(1)) for c in cells if (n := _TOC_NUMBER.match(re.sub(r"\s", "", c)))]
     lettered = [c for c in cells if re.fullmatch(r"\.?\s*[א-ת]['׳]?\s*\.?", c)]
-    if lettered and not numeric[1:]:
+    if lettered and len(numbers) <= 1:
         return None  # a lettered part row (".א"), not a numbered section
-    if not numeric:
+    if not numbers:
         return None
-    number = numeric[-1] if len(numeric) > 1 else numeric[0]
-    return TocEntry(number=number, title=max(texts, key=len).strip(" .-–"))
+    dotted = [n for c, n in numbers if "." in c]  # the section cell is written with a dot (".1", "2.1")
+    if dotted:
+        number = dotted[-1]
+    else:
+        number = numbers[-1][1] if len(numbers) > 1 else numbers[0][1]
+    return _toc_entry(number, title)
+
+
+def _section_tuple(number: str) -> tuple[int, ...]:
+    return tuple(int(x) for x in number.split("."))
 
 
 def parse_business_toc(
     paragraphs: list[Paragraph], toc_pages: set[int], business_start_seq: int | None
 ) -> list[TocEntry]:
-    """The business chapter's TOC: the TOC page whose entries precede/open the business chapter."""
+    """The business chapter's TOC entries at its top level: from the TOC page whose entries
+    precede/open the business chapter, keeping the shallowest numbering level present (sections
+    are "2", "3" in most reports, "1.1", "1.2" in Delek's), so a detailed TOC gives the same
+    anchors as a short one."""
     entries: list[TocEntry] = []
     for page in sorted(toc_pages):
         page_paras = [p for p in paragraphs if p.page_index == page]
         page_entries: list[TocEntry] = []
+        line_entries: list[tuple[TocEntry, str | None]] = []
         stop = False
         for p in page_paras:
             if p.in_table:
@@ -239,18 +284,29 @@ def parse_business_toc(
                 continue
             for line in p.raw.split("\n"):
                 t = normalize_title(line)
-                if (chapter_ordinal(t) or 0) > 1 and page_entries:
+                if (chapter_ordinal(t) or 0) > 1 and (page_entries or line_entries):
                     stop = True  # the next chapter's TOC begins
                     break
-                if e := _parse_toc_line(line):
-                    page_entries.append(e)
+                if parsed := _parse_toc_line(line):
+                    line_entries.append(parsed)
             if stop:
                 break
+        # several dotted trailing numbers: the section number comes last (El Al), the leading
+        # number is the provider's list numbering
+        if sum(1 for _, tr in line_entries if tr and "." in tr) >= 3:
+            line_entries = [
+                (_toc_entry(tr, e.title), None) if tr and "-" not in tr else (e, tr) for e, tr in line_entries
+            ]
+        page_entries += [e for e, _ in line_entries]
         if len(page_entries) >= 3:
             entries = page_entries
             if business_start_seq is None or page_paras[0].seq <= business_start_seq + 50:
                 break
-    return entries
+    numbered = [e for e in entries if e.number]
+    if not numbered:
+        return entries
+    top = min(e.level for e in numbered)
+    return [e for e in numbered if e.level == top]
 
 
 # ---------------------------------------------------------------- chapters
@@ -507,10 +563,12 @@ def find_business_sections(
         for p in paragraphs
         if first_seq <= p.seq <= last_seq and p.page_index not in toc_pages and not p.in_table
     ]
-    texts = {p.seq: match_key(normalize(p.raw)) for p in body}
+    # heading markers stripped: a title right after "###### " still starts its paragraph
+    texts = {p.seq: match_key(re.sub(r"^#+\s*", "", normalize(p.raw))) for p in body}
     starts: list[_Start] = []
     cursor = (first_seq, 0)
-    last_number = 0
+    level = toc[0].level if toc else 1  # sections are numbered at the TOC's top level
+    last: tuple[int, ...] = ()
     used_ids: set[str] = set()
     for idx, entry in enumerate(toc):
         found: tuple[Paragraph, int, str | None, str] | None = None
@@ -536,7 +594,7 @@ def find_business_sections(
                 elif m := _LETTER_BEFORE.search(before):
                     number, kind = m.group(1), "letter"
                 ok = False
-                if kind == "num" and int(number) > last_number:
+                if kind == "num" and number.count(".") + 1 == level and _section_tuple(number) > last:
                     ok = True
                 elif kind == "letter":
                     ok = True
@@ -554,7 +612,7 @@ def find_business_sections(
             continue
         p, pos, number, kind = found
         if kind == "num":
-            last_number = int(number)
+            last = _section_tuple(number)
         display = number
         if kind == "num":
             node_id = f"business-{number}"
@@ -563,12 +621,26 @@ def find_business_sections(
         else:
             node_id = f"business-t{idx + 1}"
         if kind == "none":
+            # the number sits alone in the paragraph before the title (Delek: "1.1" / "כללי")
+            prev = next((x for x in reversed(body) if x.seq < p.seq), None)
+            pm = _BARE_SECTION.fullmatch(normalize_title(prev.text)) if prev is not None else None
+            if pm and pm.group(1).count(".") + 1 == level and _section_tuple(pm.group(1)) > last:
+                display = pm.group(1)
+                last = _section_tuple(display)
+                node_id = f"business-{display}"
+        if kind == "none" and display is None:
             # the body heading lost its number: infer it from the first subsection ("10.1 ...")
             for q in [x for x in body if x.seq >= p.seq][:4]:
                 m = _MULTI.search(normalize_title(q.raw.split("\n", 1)[0]))
-                if m and int(m.group(1).split(".")[0]) == last_number + 1:
-                    display = m.group(1).split(".")[0]
-                    last_number = int(display)
+                if not m or m.group(1).count(".") + 1 < level:
+                    continue
+                cand = _section_tuple(m.group(1))[:level]
+                expected = (last[:-1] + (last[-1] + 1,)) if last else None
+                if (level == 1 and cand == (last[0] + 1 if last else 1,)) or (
+                    level > 1 and cand > last and (expected is None or cand[:-1] == expected[:-1])
+                ):
+                    display = ".".join(str(x) for x in cand)
+                    last = cand
                     node_id = f"business-{display}"
                     break
         while node_id in used_ids:
@@ -580,14 +652,46 @@ def find_business_sections(
     return starts
 
 
+_BODY_SECTION = re.compile(r"^\.?(\d{1,2})\.?\s*(?=[א-ת\"'(])(.+)$")
+
+
+def find_sections_by_body_numbering(
+    paragraphs: list[Paragraph], first_seq: int, last_seq: int, toc_pages: set[int], settings: Settings
+) -> list[_Start]:
+    """Business sections from top-level numbered headings in the chapter body ("1. title",
+    ".2 title", "3.title"), ascending by steps of 1 to 3 (design D8). Used when the TOC is
+    missing or matches too few sections."""
+    starts: list[_Start] = []
+    last = 0
+    for p in paragraphs:
+        if not (first_seq <= p.seq <= last_seq) or p.in_table or p.page_index in toc_pages:
+            continue
+        if not _is_heading_like(p, 120):
+            continue
+        first = _first_line(p)
+        if not (m := _BODY_SECTION.match(first)):
+            continue
+        number, title = int(m.group(1)), m.group(2).strip(" .:-–*")
+        if not (last < number <= last + 3) or _REF_AFTER.match(title) or len(title) < 2:
+            continue
+        cut = _SENTENCE_END.search(title[: settings.glued_title_max_chars])
+        title = title[: cut.start()] if cut else title[: settings.glued_title_max_chars]
+        last = number
+        starts.append(
+            _Start(f"business-{number}", "section", "business", str(number), title.strip(), 2, p.seq)
+        )
+    return starts
+
+
 def find_subsections(
     paragraphs: list[Paragraph], section: _Start, end_seq: int, settings: Settings
 ) -> list[_Start]:
-    if not section.number or not section.number.isdigit():
+    if not section.number or not re.fullmatch(r"\d{1,2}(?:\.\d{1,3})*", section.number):
         return []
     root = section.number
+    root_parts = root.split(".")
     starts: list[_Start] = []
-    last: tuple[int, ...] = (int(root),)
+    last: tuple[int, ...] = _section_tuple(root)
     seen: set[str] = set()
     body = [p for p in paragraphs if section.seq <= p.seq <= end_seq and not p.in_table]
     for bi, p in enumerate(body):
@@ -599,7 +703,7 @@ def find_subsections(
             for m in _MULTI.finditer(line):
                 num = m.group(1)
                 parts = num.split(".")
-                if parts[0] != root or num in seen:
+                if parts[: len(root_parts)] != root_parts or len(parts) <= len(root_parts) or num in seen:
                     continue
                 tup = tuple(int(x) for x in parts)
                 if tup <= last:
@@ -630,7 +734,7 @@ def find_subsections(
                             continue
                     rest = after.strip(" .:-–")
                     nxt_num = _MULTI.search(rest)
-                    if nxt_num and nxt_num.group(1).split(".")[0] == root:
+                    if nxt_num and nxt_num.group(1).split(".")[: len(root_parts)] == root_parts:
                         rest = rest[: nxt_num.start()].strip()
                     if (
                         len(rest) <= settings.glued_title_max_chars
@@ -658,7 +762,7 @@ def find_subsections(
                         "business",
                         num,
                         title.strip(" .:-–*") or num,
-                        2 + len(parts) - 1,
+                        2 + len(parts) - len(root_parts),
                         p.seq,
                         base + m.start(),
                     )
@@ -875,7 +979,7 @@ def build_structure(report: ParsedReport, settings: Settings | None = None) -> S
     settings = settings or Settings()
     paras = report.paragraphs
     warnings: list[str] = []
-    toc_pages = _toc_pages(paras)
+    toc_pages = _toc_pages(report)
 
     chapter_starts, duplicated = find_chapters(report, toc_pages, settings, warnings)
     found = [s.chapter for s in chapter_starts if s.chapter != "other"]
@@ -897,10 +1001,18 @@ def build_structure(report: ParsedReport, settings: Settings | None = None) -> S
     toc: list[TocEntry] = []
     sections: list[_Start] = []
     subsections: list[_Start] = []
+    source: Literal["toc", "body_numbering"] = "toc"
     if "business" in bounds:
         b0, b1 = bounds["business"]
         toc = parse_business_toc(paras, toc_pages, b0)
         sections = find_business_sections(paras, toc, b0, b1, toc_pages, settings)
+        if len(sections) < settings.min_business_sections:
+            by_body = find_sections_by_body_numbering(paras, b0, b1, toc_pages, settings)
+            if len(by_body) > len(sections):
+                sections, source = by_body, "body_numbering"
+                for e in toc:
+                    e.matched_node = None
+                warnings.append(f"business sections taken from body numbering ({len(by_body)} headings)")
         for i, sec in enumerate(sections):
             end = sections[i + 1].seq if i + 1 < len(sections) else b1
             subsections += find_subsections(paras, sec, end, settings)
@@ -937,6 +1049,7 @@ def build_structure(report: ParsedReport, settings: Settings | None = None) -> S
         business_toc_entries=len(toc),
         business_sections=len(sections),
         business_sections_matched_from_toc=sum(e.matched_node is not None for e in toc),
+        business_sections_source=source,
         subsections=len(subsections),
         directors_headings=len(directors),
         notes=sum(1 for s in fin if s.kind == "note"),

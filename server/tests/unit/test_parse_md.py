@@ -277,3 +277,12 @@ def test_running_line_min_pages_from_config():
     assert any(p.text == "כותרת רצה" for p in parse(pages).paragraphs)  # 3 pages < default 4
     r = parse(pages, settings=Settings(running_line_min_pages=3))
     assert all(p.text != "כותרת רצה" for p in r.paragraphs)
+
+
+def test_scattered_generic_heading_is_not_a_running_line():
+    """Delek: "כללי" opens subsections at the top of five scattered pages; it is a heading, not a
+    running header (those cover runs of consecutive pages)."""
+    pages = [("כללי\n\n" if i in (2, 6, 10, 14, 18) else "") + f"טקסט עמוד {i}.\n" for i in range(1, 21)]
+    r = parse("\n---\n".join(pages))
+    assert sum(p.text == "כללי" for p in r.paragraphs) == 5
+    assert all(p.running_header is None for p in r.pages)

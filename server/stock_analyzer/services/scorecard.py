@@ -28,6 +28,7 @@ class ScoreRow(BaseModel):
     business_sections: int = 0
     business_toc_entries: int = 0
     business_toc_matched: int = 0
+    business_sections_source: str = "toc"
     notes: int = 0
     statements: int = 0
     warnings: int = 0
@@ -60,6 +61,7 @@ def score_report(ctx: Ctx, ticker: str, fiscal_year: int) -> ScoreRow:
     row.business_sections = c.business_sections
     row.business_toc_entries = c.business_toc_entries
     row.business_toc_matched = c.business_sections_matched_from_toc
+    row.business_sections_source = c.business_sections_source
     row.notes = c.notes
     row.statements = c.statements
     row.warnings = len(structure.warnings) + len(parsed.warnings)

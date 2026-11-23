@@ -288,6 +288,17 @@ def _page_foot(lines: list[_Line]) -> list[str]:
 
 RUNNING_EDGE = 3  # lines at each edge of a page that can be running headers/footers
 RUNNING_MAX_CHARS = 90
+RUNNING_MIN_RUN = 3  # consecutive pages a running line must cover at least once
+
+
+def _longest_run(indices: list[int]) -> int:
+    best = cur = 1 if indices else 0
+    for a, b in zip(indices, indices[1:], strict=False):
+        cur = cur + 1 if b == a + 1 else 1
+        best = max(best, cur)
+    return best
+
+
 _EDGE_NUMBERS = re.compile(r"^(?:\d{1,4}\s+)+|(?:\s+\d{1,4})+\s*\|?$")
 
 
@@ -316,15 +327,19 @@ def _strip_running_lines(pages: list[_Page], min_pages: int) -> None:
     """Remove running headers/footers: short lines at a page edge on at least ``min_pages`` pages.
     Each page records the (first) running line removed from it."""
     edges = {p.index: _edge_positions(p.lines) for p in pages}
-    counts: Counter[str] = Counter()
+    on_pages: dict[str, list[int]] = {}
     for p in pages:
         keys = set()
         # footer lines sat at the page edge too ("פרק א | תיאור עסקי התאגיד 46" read as a footer)
         for text in [normalize(p.lines[i].text) for i in edges[p.index]] + p.footer_lines:
             if _running_candidate(text):
                 keys.add(_running_key(text))
-        counts.update(keys)
-    running = {k for k, n in counts.items() if n >= min_pages}
+        for key in keys:
+            on_pages.setdefault(key, []).append(p.index)
+    # a running line also covers consecutive pages; a generic heading at the top of scattered
+    # pages ("כללי", "(א)") does not
+    min_run = min(RUNNING_MIN_RUN, min_pages)
+    running = {k for k, idx in on_pages.items() if len(idx) >= min_pages and _longest_run(idx) >= min_run}
     if not running:
         return
     for p in pages:

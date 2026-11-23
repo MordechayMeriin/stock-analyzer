@@ -220,7 +220,8 @@ def structure(
     )
     typer.echo(
         f"business sections: {c['business_sections']} (TOC entries {c['business_toc_entries']}, matched "
-        f"{c['business_sections_matched_from_toc']}), subsections: {c['subsections']}"
+        f"{c['business_sections_matched_from_toc']}; source: {c['business_sections_source']}), "
+        f"subsections: {c['subsections']}"
     )
     typer.echo(
         f"directors' headings: {c['directors_headings']}, auditor's reports: {c['auditor_reports']}, "
@@ -246,6 +247,8 @@ def render_score_row(row) -> str:
     chapters = f"{len(row.chapters_found)}/{len(row.chapters_found) + len(row.chapters_missing)}"
     toc = f"{row.business_toc_matched}/{row.business_toc_entries}"
     notes = []
+    if row.business_sections_source != "toc":
+        notes.append(f"sections from {row.business_sections_source.replace('_', ' ')}")
     if row.chapters_missing:
         notes.append("missing: " + ", ".join(row.chapters_missing))
     if row.chapters_duplicated:
