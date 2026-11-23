@@ -14,7 +14,11 @@ export interface paths {
         /** Tracked companies */
         get: operations["list_companies_api_companies_get"];
         put?: never;
-        post?: never;
+        /**
+         * Start tracking a company (live mode only)
+         * @description Adds a provider company to the tracked companies. Refused in cached mode (`live_required`), on a cached-only server (`live_disabled`) and when the ticker or provider id is already tracked (`company_already_tracked`). Nothing is fetched from the provider.
+         */
+        post: operations["add_company_api_companies_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -49,7 +53,11 @@ export interface paths {
         get: operations["get_company_api_companies__ticker__get"];
         put?: never;
         post?: never;
-        delete?: never;
+        /**
+         * Stop tracking a runtime-added company (live mode only)
+         * @description Companies from data/companies.yaml cannot be removed (`company_not_removable`). Cached reports, financials and usage records are kept.
+         */
+        delete: operations["remove_company_api_companies__ticker__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -195,6 +203,28 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * AddCompanyIn
+         * @description A company to start tracking, usually taken from a provider search hit.
+         */
+        AddCompanyIn: {
+            /**
+             * Fr Company Id
+             * @description Provider company id (from search)
+             */
+            fr_company_id: number;
+            /** Isin */
+            isin?: string | null;
+            /** Name En */
+            name_en?: string | null;
+            /** Name He */
+            name_he: string;
+            /**
+             * Ticker
+             * @description 1-15 Latin letters, digits, dots or hyphens; stored upper-case
+             */
+            ticker: string;
+        };
         /** CompanyOut */
         CompanyOut: {
             /** Fr Company Id */
@@ -205,6 +235,12 @@ export interface components {
             name_en?: string | null;
             /** Name He */
             name_he: string;
+            /**
+             * Source
+             * @description registry: data/companies.yaml; added: added at runtime (removable)
+             * @enum {string}
+             */
+            source: "registry" | "added";
             /** Ticker */
             ticker: string;
         };
@@ -633,6 +669,42 @@ export interface operations {
             };
         };
     };
+    add_company_api_companies_post: {
+        parameters: {
+            query?: {
+                /** @description cached: local data only, no provider calls. live: fetch what is missing (if the server allows). */
+                mode?: "cached" | "live";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddCompanyIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CompanyOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     search_companies_api_companies_search_get: {
         parameters: {
             query: {
@@ -688,6 +760,38 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["CompanyOut"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_company_api_companies__ticker__delete: {
+        parameters: {
+            query?: {
+                /** @description cached: local data only, no provider calls. live: fetch what is missing (if the server allows). */
+                mode?: "cached" | "live";
+            };
+            header?: never;
+            path: {
+                ticker: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

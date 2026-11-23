@@ -10,12 +10,12 @@ import hashlib
 import threading
 from collections import OrderedDict
 
-from stock_analyzer.companies import resolve_ticker
 from stock_analyzer.errors import NodeNotFound, NotCached, PageNotFound
 from stock_analyzer.ingest.fr_client import ReportMeta, load_report, save_report
 from stock_analyzer.ingest.parse_md import PARSER_VERSION, Paragraph, ParsedReport, parse_report
 from stock_analyzer.ingest.select import select_report
 from stock_analyzer.ingest.structure import STRUCTURE_VERSION, Node, Structure, build_structure
+from stock_analyzer.services.companies import resolve_company
 from stock_analyzer.services.context import Ctx
 from stock_analyzer.services.models import (
     NodeOut,
@@ -44,7 +44,7 @@ def _ensure_raw(ctx: Ctx, ticker: str, fiscal_year: int) -> tuple[str, ReportMet
             f"report {ticker.upper()} FY{fiscal_year} is not cached; fetch it in live mode "
             f"(stock-analyzer fetch {ticker.upper()} {fiscal_year})"
         )
-    company = resolve_ticker(ctx.settings.companies_file, ticker)
+    company = resolve_company(ctx, ticker)
     filing = select_report(ctx.fr.list_filings(company.fr_company_id), fiscal_year, ticker=company.ticker)
     text = ctx.fr.get_markdown(filing.id)
     meta = save_report(ctx.settings, company.ticker, fiscal_year, filing, text, store=ctx.store)
@@ -52,7 +52,7 @@ def _ensure_raw(ctx: Ctx, ticker: str, fiscal_year: int) -> tuple[str, ReportMet
 
 
 def load_parsed(ctx: Ctx, ticker: str, fiscal_year: int) -> tuple[ParsedReport, Structure, ReportMeta]:
-    company = resolve_ticker(ctx.settings.companies_file, ticker)
+    company = resolve_company(ctx, ticker)
     text, meta = _ensure_raw(ctx, company.ticker, fiscal_year)
     key = "|".join(
         [

@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any
+from typing import Annotated, Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, StringConstraints, field_validator
 
+from stock_analyzer.companies import CompanySource
 from stock_analyzer.ingest.structure import Coverage
 
 
@@ -16,6 +17,33 @@ class CompanyOut(BaseModel):
     name_en: str | None = None
     fr_company_id: int
     isin: str | None = None
+    source: CompanySource = Field(
+        description="registry: data/companies.yaml; added: added at runtime (removable)"
+    )
+
+
+_Ticker = Annotated[
+    str, StringConstraints(strip_whitespace=True, to_upper=True, pattern=r"^[A-Za-z0-9.\-]{1,15}$")
+]
+_NameHe = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
+_Isin = Annotated[
+    str, StringConstraints(strip_whitespace=True, to_upper=True, pattern=r"^[A-Za-z]{2}[A-Za-z0-9]{9}[0-9]$")
+]
+
+
+class AddCompanyIn(BaseModel):
+    """A company to start tracking, usually taken from a provider search hit."""
+
+    fr_company_id: int = Field(gt=0, description="Provider company id (from search)")
+    ticker: _Ticker = Field(description="1-15 Latin letters, digits, dots or hyphens; stored upper-case")
+    name_he: _NameHe
+    name_en: str | None = Field(default=None, max_length=200)
+    isin: _Isin | None = None
+
+    @field_validator("name_en", "isin", mode="before")
+    @classmethod
+    def _blank_is_none(cls, v: Any) -> Any:
+        return v.strip() or None if isinstance(v, str) else v
 
 
 class CompanySearchHit(BaseModel):

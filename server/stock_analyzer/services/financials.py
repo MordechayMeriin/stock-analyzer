@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from datetime import date
 
-from stock_analyzer.companies import resolve_ticker
 from stock_analyzer.fin.normalize import (
     STATEMENT_LABELS_HE,
     STATEMENT_ORDER,
@@ -16,12 +15,13 @@ from stock_analyzer.fin.normalize import (
 from stock_analyzer.fin.normalize import (
     as_of as filter_as_of,
 )
+from stock_analyzer.services.companies import resolve_company
 from stock_analyzer.services.context import Ctx
 from stock_analyzer.services.models import FinancialsOut, FinItemOut, FinStatementOut
 
 
 def fin_values(ctx: Ctx, ticker: str, *, as_of: date | None = None) -> list[FinValue]:
-    company = resolve_ticker(ctx.settings.companies_file, ticker)
+    company = resolve_company(ctx, ticker)
     values = normalize_financials(ctx.fr.get_financials(company.fr_company_id))
     return filter_as_of(values, as_of) if as_of else values
 
@@ -29,7 +29,7 @@ def fin_values(ctx: Ctx, ticker: str, *, as_of: date | None = None) -> list[FinV
 def financials(
     ctx: Ctx, ticker: str, *, as_of: date | None = None, max_years: int | None = None
 ) -> FinancialsOut:
-    company = resolve_ticker(ctx.settings.companies_file, ticker)
+    company = resolve_company(ctx, ticker)
     values = fin_values(ctx, company.ticker, as_of=as_of)
     currency = check_currency(values)
     limit = max_years or ctx.settings.fin_max_years

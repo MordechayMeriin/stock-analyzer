@@ -20,7 +20,7 @@ Data (cache, fetched reports, logs) lives in the state store: files under `DATA_
 ## State store
 
 Everything the server persists — the FinancialFilings and LLM response caches, fetched report text
-and metadata, financials snapshots, and the usage logs — goes through one store
+and metadata, financials snapshots, the usage logs, and companies added at runtime — goes through one store
 (`stock_analyzer/store/`). The backend is chosen by configuration:
 
 | `DATABASE_URL` | Backend | Setup |
@@ -54,6 +54,22 @@ uv run stock-analyzer usage                        # provider credits + LLM spen
 ```
 
 `--mode cached` (default for reading commands) never calls the provider; `fetch` is always live.
+
+### Tracked companies
+
+The tracked companies are the version-controlled list in `data/companies.yaml` plus companies
+added at runtime, which are kept in the state store (`DATA_DIR/companies_added.json`, or the
+`tracked_companies` table on Postgres). Added companies can be removed again; YAML ones cannot.
+The web client adds them from a search result; the CLI does the same:
+
+```bash
+uv run stock-analyzer companies list                 # ticker, provider id, source (registry/added), names
+uv run stock-analyzer companies add --fr-id 1234 --ticker ABC --name-he "חברה לדוגמה" [--name-en "Example Ltd."] [--isin IL0011234567]
+uv run stock-analyzer companies remove ABC          # cached reports and financials are kept
+```
+
+`add` and `remove` run in live mode (refused when `ALLOW_LIVE=false`), and nothing is fetched on
+add. Get the provider id from `GET /api/companies/search?q=<name>` or the client's search.
 
 ## API
 

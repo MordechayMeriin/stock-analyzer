@@ -102,6 +102,18 @@ client shows it in cached mode:
 cd server && uv run --env-file ../.env stock-analyzer fetch MLTM 2024 2025
 ```
 
+**Add a company** to the hosted app while it stays cached-only: from your machine, against the
+hosted store, add it and fetch its reports (live, spends provider credits). It then shows in the
+hosted client's tracked list:
+
+```bash
+cd server && uv run --env-file ../.env stock-analyzer companies add --fr-id <id> --ticker <TICKER> --name-he "<שם>"
+uv run --env-file ../.env stock-analyzer fetch <TICKER> 2024 2025
+```
+
+After upgrading to a version that adds tables (such as `tracked_companies`), re-run
+`stock-analyzer db init` against the hosted `DATABASE_URL` once; it is idempotent and keeps the data.
+
 **Pitch runbook**
 
 1. The day before: open the client once (wakes the API and touches the database).

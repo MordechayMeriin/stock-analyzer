@@ -12,9 +12,10 @@ import httpx
 import pytest
 import respx
 
-from stock_analyzer.errors import NotCached
+from stock_analyzer.companies import TrackedCompany
+from stock_analyzer.errors import CompanyAlreadyTracked, NotCached
 from stock_analyzer.ingest.fr_client import FRClient
-from stock_analyzer.store import ReportMeta, fr_totals, llm_totals
+from stock_analyzer.store import FsStore, ReportMeta, fr_totals, llm_totals
 
 BASE = "https://api.financialreports.eu"
 HEBREW_CRLF = "# דוח תקופתי לשנת 2025\r\nפרק א׳ – תיאור עסקי התאגיד\r\n\r\n| ש״ח | 1,234 |\n‏סוף\n"
@@ -142,3 +143,49 @@ def test_fr_client_cache_hit_then_cached_mode(store, settings):
 
 def test_ping(store):
     assert store.ping() is True
+
+
+# ---------------------------------------------------------------- companies added at runtime
+
+
+def _company(ticker: str = "abc", fr_id: int = 1234, **extra) -> TrackedCompany:
+    return TrackedCompany(ticker=ticker, fr_company_id=fr_id, name_he="חברה לדוגמה", **extra)
+
+
+def test_tracked_add_list_remove(store):
+    assert store.list_tracked() == []
+    store.add_tracked(_company(name_en="Example Ltd.", isin="IL0011234567"))
+    store.add_tracked(_company("XYZ", 5678))
+    listed = store.list_tracked()
+    assert [c.ticker for c in listed] == ["ABC", "XYZ"]  # upper-cased, in insertion order
+    assert listed[0] == TrackedCompany(
+        ticker="ABC",
+        fr_company_id=1234,
+        name_he="חברה לדוגמה",
+        name_en="Example Ltd.",
+        isin="IL0011234567",
+        source="added",
+    )
+    assert store.remove_tracked("abc") is True
+    assert [c.ticker for c in store.list_tracked()] == ["XYZ"]
+    assert store.remove_tracked("ABC") is False
+
+
+@pytest.mark.parametrize(
+    "dup", [_company("ABC", 9999), _company("other", 1234)], ids=["ticker", "provider_id"]
+)
+def test_tracked_duplicates_refused(store, dup):
+    store.add_tracked(_company())
+    with pytest.raises(CompanyAlreadyTracked, match="ABC"):
+        store.add_tracked(dup)
+    assert [c.ticker for c in store.list_tracked()] == ["ABC"]
+
+
+def test_tracked_survives_a_new_store_instance(store, settings):
+    store.add_tracked(_company())
+    if store.backend == "fs":
+        fresh = FsStore(settings)
+        assert [c.ticker for c in fresh.list_tracked()] == ["ABC"]
+        fresh.close()
+    else:
+        assert [c.ticker for c in store.list_tracked()] == ["ABC"]

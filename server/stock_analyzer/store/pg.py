@@ -23,7 +23,8 @@ from psycopg import sql
 from psycopg.pq import TransactionStatus
 from psycopg.types.json import Jsonb
 
-from stock_analyzer.errors import StorageNotInitialized, StorageUnavailable
+from stock_analyzer.companies import TrackedCompany
+from stock_analyzer.errors import CompanyAlreadyTracked, StorageNotInitialized, StorageUnavailable
 from stock_analyzer.store.base import Namespace, ReportMeta, Source
 
 T = TypeVar("T")
@@ -137,6 +138,18 @@ class PgStore:
                 "on conflict (ticker, revisions) do update set data = excluded.data, fetched_at = now()"
             ),
             "log": q("insert into {s}.usage_log (source, record) values (%s, %s)"),
+            "tracked_list": q(
+                "select ticker, fr_company_id, name_he, name_en, isin from {s}.tracked_companies "
+                "order by added_at, ticker"
+            ),
+            "tracked_dup": q(
+                "select ticker from {s}.tracked_companies where ticker = %s or fr_company_id = %s limit 1"
+            ),
+            "tracked_add": q(
+                "insert into {s}.tracked_companies (ticker, fr_company_id, name_he, name_en, isin) "
+                "values (%s, %s, %s, %s, %s)"
+            ),
+            "tracked_del": q("delete from {s}.tracked_companies where ticker = %s"),
             # same semantics as store.base.fr_totals / llm_totals
             "totals_fr": q(
                 "select count(*), count(*) filter (where record->>'cache' = 'hit'), "
@@ -243,6 +256,42 @@ class PgStore:
             "failures": failures,
             "total_cost_usd": round(float(cost), 6),
         }
+
+    # -- companies added at runtime
+
+    def list_tracked(self) -> list[TrackedCompany]:
+        rows = self._run(lambda c: c.execute(self._q["tracked_list"]).fetchall())
+        return [
+            TrackedCompany(
+                ticker=t, fr_company_id=int(fid), name_he=he, name_en=en, isin=isin, source="added"
+            )
+            for t, fid, he, en, isin in rows
+        ]
+
+    def add_tracked(self, company: TrackedCompany) -> None:
+        ticker = company.ticker.upper()
+
+        def add(conn: psycopg.Connection) -> None:
+            with conn.transaction():
+                dup = conn.execute(self._q["tracked_dup"], (ticker, company.fr_company_id)).fetchone()
+                if dup is not None:
+                    raise CompanyAlreadyTracked(f"already tracked as {dup[0]}")
+                conn.execute(
+                    self._q["tracked_add"],
+                    (ticker, company.fr_company_id, company.name_he, company.name_en, company.isin),
+                )
+
+        try:
+            self._run(add)
+        except psycopg.errors.UniqueViolation:  # a concurrent add won the race
+            raise CompanyAlreadyTracked(
+                f"{ticker} or provider company {company.fr_company_id} is already tracked"
+            ) from None
+
+    def remove_tracked(self, ticker: str) -> bool:
+        wanted = ticker.strip().upper()
+        cur = self._run(lambda c: c.execute(self._q["tracked_del"], (wanted,)))
+        return cur.rowcount > 0
 
     # -- schema and lifecycle
 

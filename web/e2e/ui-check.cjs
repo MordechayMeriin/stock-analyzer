@@ -1,4 +1,4 @@
-// Browser checks for tasks 7.2-7.6 against the running dev server + API.
+// Browser checks for tasks 7.2-7.6 (and tracking companies) against the running dev server + API.
 const { chromium } = require('playwright')
 // Needs: API on :8000 (ALLOW_LIVE=false, LLM_FAKE=true) and on :8001 (ALLOW_LIVE=true) with cached
 // Malam data, and the dev server on :5173. Run: SHOTS=/tmp/shots node e2e/ui-check.cjs
@@ -31,6 +31,19 @@ const check = (name, ok, detail = '') => {
       (await page.getByRole('radio', { name: 'חי' }).isDisabled()))
   check('7.2 lock explanation shown', await page.getByText('השרת מוגדר למצב מטמון בלבד').first().isVisible())
   await page.screenshot({ path: `${SHOTS}/1-home.png` })
+
+  // ---- tracking companies: add/remove need live mode (search answer mocked: no cached provider data needed)
+  const untrackedHit = [{ fr_company_id: 1234, name: 'Example Holdings Ltd.', ticker: 'EXMP', isin: null, country_code: 'IL', tracked_ticker: null }]
+  await page.route('**/api/companies/search?*', (r) => r.fulfill({ contentType: 'application/json', body: JSON.stringify(untrackedHit) }))
+  await page.getByRole('textbox', { name: 'חיפוש חברה' }).fill('דוגמה')
+  await page.getByRole('button', { name: 'חיפוש' }).click()
+  await page.waitForSelector('[data-testid="hit-1234"]')
+  const addBtn = page.locator('[data-testid="hit-1234"]').getByRole('button', { name: 'הוסף למעקב' })
+  const gateNote = await page.locator('[data-testid="tracking-gate"]').innerText()
+  check('tracking: add action disabled on a cached-only server, with the server reason',
+    (await addBtn.isDisabled()) && gateNote.includes('ALLOW_LIVE=false'), gateNote)
+  check('tracking: no remove action on the version-controlled MLTM', (await page.locator('[data-testid="remove-MLTM"]').count()) === 0)
+  await page.unroute('**/api/companies/search?*')
 
   // same app pointed at the live-allowed server via runtime /config.js
   const ctx2 = await browser.newContext({ viewport: { width: 1400, height: 1000 } })

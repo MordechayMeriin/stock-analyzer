@@ -5,6 +5,7 @@ import { ApiError } from '@/api/client'
 import { useMode } from '@/app/mode'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
+import { errorHeadline } from '@/lib/errors'
 
 export function Loading({ label = 'טוען…', rows = 4 }: { label?: string; rows?: number }) {
   return (
@@ -27,12 +28,6 @@ export function Empty({ title, children }: { title: string; children?: ReactNode
   )
 }
 
-const MESSAGES: Record<string, string> = {
-  not_cached: 'הנתונים המבוקשים אינם שמורים במטמון המקומי.',
-  live_disabled: 'הפעולה דורשת מצב חי.',
-  network_error: 'השרת אינו זמין.',
-  selection_too_large: 'הקטע שנבחר גדול מדי.',
-}
 
 /** The API's error message with a retry action; "not cached" offers a live fetch when allowed. */
 export function ErrorState({ error, onRetry }: { error: unknown; onRetry?: () => void }) {
@@ -45,7 +40,7 @@ export function ErrorState({ error, onRetry }: { error: unknown; onRetry?: () =>
       <div className="flex items-start gap-2">
         <AlertTriangle className="text-destructive mt-0.5 size-5 shrink-0" aria-hidden />
         <div className="space-y-1">
-          <p className="font-medium">{MESSAGES[code] ?? 'הבקשה נכשלה.'}</p>
+          <p className="font-medium">{errorHeadline(error)}</p>
           <p className="text-muted-foreground text-sm" dir="auto">
             {apiError?.message ?? String((error as Error)?.message ?? error)}
           </p>

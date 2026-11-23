@@ -14,6 +14,8 @@ from typing import Any, Literal, Protocol
 
 from pydantic import BaseModel
 
+from stock_analyzer.companies import TrackedCompany
+
 Namespace = Literal["fr", "llm"]
 Source = Literal["fr", "llm"]
 NAMESPACES: tuple[Namespace, ...] = ("fr", "llm")
@@ -63,6 +65,16 @@ class Store(Protocol):
     def log(self, source: Source, record: Mapping[str, Any]) -> None: ...
 
     def totals(self, source: Source) -> dict[str, Any]: ...
+
+    # Companies added at runtime (the version-controlled list stays in companies.yaml).
+    # Tickers are stored upper-case. ``add_tracked`` raises CompanyAlreadyTracked when the
+    # ticker or provider id is already stored; ``remove_tracked`` returns False if absent.
+
+    def list_tracked(self) -> list[TrackedCompany]: ...
+
+    def add_tracked(self, company: TrackedCompany) -> None: ...
+
+    def remove_tracked(self, ticker: str) -> bool: ...
 
     def ping(self) -> bool: ...
 

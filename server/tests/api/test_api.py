@@ -164,6 +164,7 @@ def test_openapi_lists_every_endpoint(client):
         "/api/playground",
     ):
         assert path in paths, path
+    assert "post" in paths["/api/companies"] and "delete" in paths["/api/companies/{ticker}"]
     schemas = client.get("/openapi.json").json()["components"]["schemas"]
     assert {"PlaygroundDone", "PlaygroundDelta", "ErrorOut", "StructureOut"} <= set(schemas)
 
@@ -278,3 +279,82 @@ def test_usage_totals_come_from_the_store(client, settings):
     assert body["llm"] == {"calls": 2, "cache_hits": 1, "failures": 0, "total_cost_usd": 0.125}
     # the logged miss, plus the usage request itself served from cache
     assert body["fr_log"] == {"calls": 2, "cache_hits": 1, "network_calls": 1, "credits_logged": 6}
+
+
+# ---------------------------------------------------------------- tracking companies at runtime
+
+ABC = {"fr_company_id": 1234, "ticker": "abc", "name_he": "חברה לדוגמה", "name_en": "Example Ltd."}
+
+
+@pytest.fixture
+def live_client(settings):
+    seed_malam(settings)
+    with TestClient(create_app(settings.model_copy(update={"allow_live": True}))) as c:
+        yield c
+
+
+def test_companies_list_reports_source(live_client):
+    assert [(c["ticker"], c["source"]) for c in live_client.get("/api/companies").json()] == [
+        ("MLTM", "registry")
+    ]
+
+
+def test_add_then_remove_company_in_live_mode(live_client):
+    r = live_client.post("/api/companies", params={"mode": "live"}, json=ABC)
+    assert r.status_code == 201
+    assert r.json() == {**ABC, "ticker": "ABC", "isin": None, "source": "added"}
+    listed = live_client.get("/api/companies").json()  # cached mode reads it too
+    assert [(c["ticker"], c["source"]) for c in listed] == [("MLTM", "registry"), ("ABC", "added")]
+    assert live_client.get("/api/companies/abc").json()["fr_company_id"] == 1234
+
+    r = live_client.delete("/api/companies/abc", params={"mode": "live"})
+    assert r.status_code == 204 and r.content == b""
+    assert [c["ticker"] for c in live_client.get("/api/companies").json()] == ["MLTM"]
+    assert live_client.get("/api/companies/ABC").json()["code"] == "company_not_found"
+
+
+def test_add_and_remove_refused_in_cached_mode(live_client):
+    r = live_client.post("/api/companies", json=ABC)
+    assert r.status_code == 403 and r.json()["code"] == "live_required"
+    r = live_client.delete("/api/companies/MLTM")
+    assert r.status_code == 403 and r.json()["code"] == "live_required"
+    assert len(live_client.get("/api/companies").json()) == 1
+
+
+def test_add_refused_on_cached_only_server(settings):
+    with TestClient(create_app(settings.model_copy(update={"allow_live": False}))) as c:
+        r = c.post("/api/companies", params={"mode": "live"}, json=ABC)
+        assert r.status_code == 403 and r.json()["code"] == "live_disabled"
+        assert [x["ticker"] for x in c.get("/api/companies").json()] == ["MLTM"]
+
+
+@pytest.mark.parametrize(
+    "change", [{"ticker": "mltm"}, {"fr_company_id": 6901}], ids=["ticker", "provider_id"]
+)
+def test_add_already_tracked_is_409(live_client, change):
+    r = live_client.post("/api/companies", params={"mode": "live"}, json={**ABC, **change})
+    assert r.status_code == 409 and r.json()["code"] == "company_already_tracked"
+    assert "MLTM" in r.json()["message"]
+
+
+def test_add_invalid_ticker_is_422(live_client):
+    r = live_client.post("/api/companies", params={"mode": "live"}, json={**ABC, "ticker": "A B/C"})
+    assert r.status_code == 422 and r.json()["code"] == "validation_error"
+
+
+def test_remove_registry_company_is_409_and_unknown_is_404(live_client):
+    r = live_client.delete("/api/companies/MLTM", params={"mode": "live"})
+    assert r.status_code == 409 and r.json()["code"] == "company_not_removable"
+    r = live_client.delete("/api/companies/NOPE", params={"mode": "live"})
+    assert r.status_code == 404 and r.json()["code"] == "company_not_found"
+
+
+def test_cors_preflight_allows_delete(settings):
+    app = create_app(settings.model_copy(update={"cors_origins": ("https://ui.example",)}))
+    with TestClient(app) as c:
+        r = c.options(
+            "/api/companies/ABC",
+            headers={"Origin": "https://ui.example", "Access-Control-Request-Method": "DELETE"},
+        )
+    assert r.status_code == 200
+    assert "DELETE" in r.headers["access-control-allow-methods"]
