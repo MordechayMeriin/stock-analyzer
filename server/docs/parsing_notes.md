@@ -82,6 +82,17 @@ A chapter still missing after all that is located from a chapter header at a pag
 
 When the TOC matches fewer than `MIN_BUSINESS_SECTIONS` sections and the chapter body has more top-level numbered headings, sections come from body numbering (`business_sections_source` in the coverage).
 
+## Notes and statement sets across issuers (structure 2)
+
+| Quirk | Where | Handling |
+|---|---|---|
+| Note headings spelled `באור` (defective) with a colon: `באור 2: עיקרי המדיניות החשבונאיות` | Delek | One note pattern over `ביאור`/`באור` with `-`, `–` or `:` (`ingest/vocab.py`) |
+| `באור 1: א.` — the note number followed by its first lettered paragraph | Delek | Not taken as the note's title |
+| A note heading on a later line of a paragraph (`ביאור 26 - …`) | Rami Levy | Note headings count on every line; statements and auditor headings only on a paragraph's first lines |
+| Separate financial information under its standard title `נתונים כספיים מתוך הדוחות הכספיים המאוחדים המיוחסים לחברה` | Delek, El Al | Opens the separate group, like Malam's `מידע כספי נפרד`; its notes restart at 1 |
+| Delek's provider text has a heading for only some of its notes (others are merged or garbled, e.g. `### לקוחות - 6: באור 6 - …`) | Delek | Reference check is ≥90% of the note numbers whose heading line appears in the text |
+| A further statement set after the notes whose notes restart at 1 | (synthetic; Delek's attached subsidiary statements have English notes) | Becomes `financials-attached-K`; a statement heading followed by a higher note is just a mention |
+
 ## Reference reports
 
 The parser is checked against six full reports (the `REFERENCE_REPORTS` list in `tests/conftest.py`):
@@ -137,3 +148,19 @@ MLTM   2024     180     163  5/5             22   22/22     40     6     1
 MLTM   2025     188     147  5/5             25   25/25     31     8     1
 RMLI   2025     250     123  5/5             29   29/29     30     7     1
 ```
+
+### After notes and statement sets (parser 2 / structure 2)
+
+```
+TICKER FY     PAGES PRINTED  CHAPTERS  SECTIONS     TOC  NOTES STMTS  WARN  MISSING / ERROR
+DLEKG  2025     843     197  5/5             21   21/22     17     4     2
+ELAL   2024     266     137  5/5              8     8/8     21     5     2
+ELAL   2025     275     167  5/5              8     8/9     21     9     2
+MLTM   2024     180     163  5/5             22   22/22     40     6     1
+MLTM   2025     188     147  5/5             25   25/25     31     8     1
+RMLI   2025     250     123  5/5             29   29/29     31     7     1
+```
+
+Note coverage (main-set note numbers with a heading line in the text that became note nodes):
+Delek 12/12, El Al 21/21 and 19/19, Malam 31/31 and 22/22, Rami Levy 24/24 (NOTES above counts every
+note node, separate-set notes included).

@@ -3,6 +3,7 @@ import logging
 import pytest
 
 from stock_analyzer.config import Settings
+from stock_analyzer.ingest.normalize import normalize_title
 from stock_analyzer.ingest.parse_md import parse_report
 from stock_analyzer.ingest.structure import build_structure, chapter_ordinal
 from tests.conftest import fixture_text, live_report
@@ -363,13 +364,13 @@ def test_ordinal_lost_in_extraction():
     """Delek FY2025: covers hold "פרק" alone (the letter was an image), title below."""
     s = issuer_structure("dlekg_2025_style_b.md", "DLEKG")
     assert s.coverage.chapters_found == MAIN and s.coverage.chapters_duplicated == []
-    # fixture pages 2, 5, 6, 9, 10 = source covers 3, 465, 507, 818, 842
+    # fixture pages 2, 5, 6, 14, 15 = source covers 3, 465, 507, 818, 842
     assert chapter_pages(s) == {
         "business": 2,
         "directors": 5,
         "financials": 6,
-        "additional": 9,
-        "governance": 10,
+        "additional": 14,
+        "governance": 15,
     }
 
 
@@ -569,3 +570,75 @@ def test_heading_worded_unlike_the_toc_confirmed_by_its_number():
         settings=Settings(repeated_line_min_pages=999, min_business_sections=1),
     )
     assert unconfirmed.node("business-2") is None
+
+
+# ---------------------------------------------------------------- notes and statement sets (D9)
+
+
+@pytest.mark.parametrize(
+    ("line", "number", "title"),
+    [
+        ("באור 2: עיקרי המדיניות החשבונאית", 2, "עיקרי המדיניות החשבונאית"),
+        ("ביאור 1 – כללי", 1, "כללי"),
+        ("## באור 3: מזומנים ושווי מזומנים", 3, "מזומנים ושווי מזומנים"),
+        ("באור 1: - כללי (המשך)", 1, "כללי"),
+        ("#### באור 1: א.", 1, ""),  # the note's first lettered paragraph, not its title
+        ("עיקרי המדיניות החשבונאיות - 2 ביאור", 2, "עיקרי המדיניות החשבונאיות"),
+    ],
+)
+def test_note_heading_spellings_and_separators(line, number, title):
+    from stock_analyzer.ingest.structure import _note_heading
+
+    assert _note_heading(normalize_title(line)) == (number, title)
+
+
+def test_note_heading_mid_paragraph():
+    """Rami Levy FY2025: "ביאור 26 - …" sits on a later line of a paragraph."""
+    text = doc(
+        "# פרק שלישי\n\n## דוחות כספיים",
+        "ביאור 1 - כללי\n\nגוף",
+        "ה. הסכמי שכירות (המשך)\nשורה\nשורה\nשורה\nביאור 2 - אירועים לאחר תאריך המאזן\nגוף",
+    )
+    assert structure_of(text).node("financials-note-2").title == "אירועים לאחר תאריך המאזן"
+
+
+def test_delek_notes_and_separate_set_under_the_standard_title():
+    s = issuer_structure("dlekg_2025_style_b.md", "DLEKG")
+    main = [n.number for n in s.nodes if n.node_id.startswith("financials-note-")]
+    separate = [n.number for n in s.nodes if n.node_id.startswith("financials-separate-note-")]
+    assert main == ["1", "2", "3", "4"] and separate == ["1", "3", "5", "6"]
+    assert s.node("financials-separate").title.startswith("נתונים כספיים מתוך הדוחות הכספיים המאוחדים")
+    assert s.node("financials-note-1").title == "ביאור 1"  # "באור 1: א." has no title of its own
+    assert s.coverage.note_numbers_missing == []
+
+
+def test_attached_statement_set_restarting_notes():
+    text = doc(
+        "# פרק שלישי\n\n## דוחות כספיים",
+        "ביאור 1 - כללי\n\nגוף",
+        "ביאור 2 - מזומנים\n\nגוף",
+        "דוחות כספיים ליום 31.12.2025\n\nחברה כלולה מהותית",
+        "ביאור 1 - כללי\n\nגוף",
+        "ביאור 2 - רכוש קבוע\n\nגוף",
+    )
+    s = structure_of(text)
+    assert [n.node_id for n in s.nodes if n.kind == "note"] == [
+        "financials-note-1",
+        "financials-note-2",
+        "financials-attached-1-note-1",
+        "financials-attached-1-note-2",
+    ]
+    assert s.node("financials-attached-1").title == "דוחות כספיים ליום 31.12.2025"
+    assert s.coverage.note_numbers_missing == []
+
+
+def test_statement_mention_inside_notes_is_not_a_new_set():
+    """A statement heading inside the notes followed by a higher note is just a mention."""
+    text = doc(
+        "# פרק שלישי\n\n## דוחות כספיים",
+        "ביאור 1 - כללי\n\nגוף",
+        "דוחות מאוחדים על המצב הכספי\n\nביאור 2 - מזומנים",
+        "ביאור 1 - כללי (המשך)\n\nביאור 3 - לקוחות",
+    )
+    s = structure_of(text)
+    assert [n.node_id for n in s.nodes if n.kind == "note"] == [f"financials-note-{i}" for i in (1, 2, 3)]

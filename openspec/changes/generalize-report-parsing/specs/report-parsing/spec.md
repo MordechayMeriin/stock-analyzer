@@ -82,8 +82,12 @@ The directors' report SHALL be split by its lettered headings. The financial-sta
 - **THEN** each becomes a note node numbered N with its title
 
 #### Scenario: Attached statement set
-- **WHEN** the financial-statements chapter holds a second set of statements whose notes restart at 1 (Delek FY2025)
+- **WHEN** the financial-statements chapter holds, after the main notes, a further set of statements whose notes restart at 1
 - **THEN** that set becomes its own group with its own notes, and the first set's notes are unaffected
+
+#### Scenario: Separate financial information under its standard title
+- **WHEN** the separate financial information is titled `נתונים כספיים מתוך הדוחות הכספיים המאוחדים המיוחסים לחברה` instead of `מידע כספי נפרד` (Delek FY2025, El Al)
+- **THEN** it forms the separate group, and its notes (restarting at 1) are its own
 
 ## ADDED Requirements
 

@@ -178,6 +178,8 @@ Groups generalise from today's `notes` / `separate` pair:
 
 The main group's ids are unchanged, so Malam is unaffected. `note_numbers_missing` is computed for the main group only, as today.
 
+Found during implementation: Delek's second Hebrew note set is its separate financial information, not an attached set. Like El Al's, it uses the standard title `נתונים כספיים מתוך הדוחות הכספיים המאוחדים…`, which the separate-information pattern now accepts. Delek's actual attached set (a subsidiary's statements, `דוחות כספיים ליום 31.12.2025`) has English notes, which are out of scope. The attached-set rule is kept for Hebrew attached sets and tested synthetically. Note headings are also recognised beyond a paragraph's first lines (Rami Levy's note 26 sits mid-paragraph).
+
 ### D10. Malformed blocks
 
 In `_blocks`, a block whose table start has no later line ending in `|` is emitted as a plain block (no `max()` over an empty sequence). Any other per-page parsing exception is not caught. The page-style failure stays the only intended parse error, and the scorecard surfaces anything else.

@@ -160,6 +160,11 @@ ISSUER_SLICES: dict[str, tuple[str, int, list[int]]] = {
             6,  # inner part "חלק ראשון- תיאור ההתפתחות הכללית של עסקי החברה"
             465,  # directors' cover
             507,  # financial statements cover
+            528,  # main notes: "#### באור 1: א." (a lettered paragraph, not a title)
+            557,  # main notes: "## באור 3: מזומנים ושווי מזומנים", "## באור 4: …"
+            714,  # separate financial information under its standard title
+            723,  # its notes restart: "באור 1: - כללי"
+            727,  # "באור 3/5/6" of the separate set
             801,  # English auditor's report: a "|" table line whose block never closes the pipe
             802,
             818,  # additional details cover

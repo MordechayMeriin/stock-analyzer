@@ -28,13 +28,17 @@ from stock_analyzer.config import Settings
 from stock_analyzer.ingest.normalize import match_key, normalize, normalize_title
 from stock_analyzer.ingest.parse_md import PageInfo, Paragraph, ParsedReport
 from stock_analyzer.ingest.vocab import (
+    AUDITOR,
     CHAPTER_TITLES_HE,
     CHAPTER_WORDS,
     GERESH,
     MAIN_CHAPTERS,
+    NOTE_PATTERNS,
     ORDINAL_LETTERS,
     ORDINAL_WORDS,
     ORDINAL_WORDS_LONGEST_FIRST,
+    SEPARATE,
+    STATEMENT,
     TOC_HEADINGS,
     Chapter,
     chapter_title_prefix,
@@ -131,17 +135,11 @@ _LETTER_BEFORE = re.compile(r"(?:^|[\s*])\.?([א-ת])['׳]?\.\s*$")
 _MULTI = re.compile(r"(?<![\d.,])\.?(\d{1,2}(?:\.\d{1,3}){1,4})\.?(?![\d,])")
 _LETTERED = re.compile(r"^\.?([א-ת])['׳]?\s*[.)]\s*(\S.*)$")
 _PART = re.compile(r"^חלק\s+([א-ת])['׳]?\s*[-–:.]?\s*(.*)$")
-_NOTE_PATTERNS = (
-    re.compile(r"^ביאור\s+(\d{1,2})\s*(?:[-–:]\s*(.*))?$"),
-    re.compile(r"^(\d{1,2})\s+ביאור\s*(?:[-–:]\s*(.*))?$"),
-    re.compile(r"^(.*?)\s*[-–]\s*(\d{1,2})\s+ביאור$"),
-)
-_AUDITOR = re.compile(r"^דוח(?:ות)?\s+(?:מיוחד\s+של\s+)?(?:רואה|רואי|ראי|רוא\"ח)\s+ה?חשבון")
-_STATEMENT = re.compile(
-    r"^(?:דוחות|דוח|נתונים)\s+(?:מאוחדים\s+|מאוחד\s+|כספיים\s+)?על\s+(?:ה)?(?:מצב\s+הכספי|רווח\s+(?:ו|או\s+)הפסד|רווח\s+הכולל|"
-    r"הרווח\s+הכולל|רווח\s+כולל|שינויים\s+בהון|השינויים\s+בהון|תזרימי\s+המזומנים|תזרימי\s+מזומנים)"
-)
-_SEPARATE = re.compile(r"^מידע\s+כספי\s+נפרד")
+_NOTE_PATTERNS = NOTE_PATTERNS
+_AUDITOR = AUDITOR
+_STATEMENT = STATEMENT
+_SEPARATE = SEPARATE
+_FS_SET = re.compile(r'^(?:דוחות|דו"חות)\s+כספיים\s+(?:מאוחדים\s+)?ליום')  # "דוחות כספיים ליום 31.12.2025"
 _CONTINUED = re.compile(r"\s*\(המשך\)\s*")
 _SENTENCE_END = re.compile(r"(?<!\d)[.:](?!\d)")
 _HEB_LETTERS = "אבגדהוזחטיכלמנסעפצקרשת"
@@ -847,7 +845,10 @@ def _note_heading(t: str) -> tuple[int, str] | None:
                 num, title = int(m.group(2)), m.group(1)
             else:
                 num, title = int(m.group(1)), m.group(2) or ""
-            return num, _CONTINUED.sub(" ", title).strip(" -–:")
+            title = _CONTINUED.sub(" ", title).strip(" -–:")
+            if re.fullmatch(r"[א-ת]['׳]?\.?", title):
+                title = ""  # "באור 1: א." — the note's first lettered paragraph, not its title
+            return num, title
     return None
 
 
@@ -862,14 +863,23 @@ def find_financials_parts(
     auditor_n = statement_n = 0
     last_statement = ""
     separate = False
+    attached_n = 0
+    # a statement-set heading seen after the notes began; it opens an attached set (a subsidiary's
+    # statements, Delek) only if note numbering then restarts at 1
+    pending: tuple[int, str] | None = None
     for p in paragraphs:
         if not (first_seq < p.seq <= last_seq) or p.in_table or p.page_index in toc_pages:
             continue
-        for line in p.raw.split("\n")[:3]:
+        for i, line in enumerate(p.raw.split("\n")):
             t = normalize_title(line)
             if not t:
                 continue
-            if _SEPARATE.match(t) and not separate and len(t) < 60:
+            if i >= 3:
+                # beyond a paragraph's first lines only note headings count (Rami Levy's note 26
+                # sits mid-paragraph); statements and auditor headings never do
+                if _note_heading(t) is None:
+                    continue
+            if _SEPARATE.match(t) and not separate and len(t) < 90:
                 separate = True
                 group, group_started, last_note = "separate", False, 0
                 starts.append(_Start("financials-separate", "other", "financials", None, t, 2, p.seq))
@@ -877,7 +887,14 @@ def find_financials_parts(
             if (note := _note_heading(t)) is not None:
                 num, title = note
                 if num <= last_note:
-                    break  # continuation page "(המשך)" or a repeat
+                    if num != 1 or pending is None:
+                        break  # continuation page "(המשך)" or a repeat
+                    attached_n += 1  # a further statement set restarts its note numbering
+                    group, last_note = f"attached-{attached_n}", 0
+                    starts.append(
+                        _Start(f"financials-{group}", "other", "financials", None, pending[1], 2, pending[0])
+                    )
+                pending = None
                 if not group_started:
                     group_started = True
                     if group == "notes":
@@ -894,7 +911,7 @@ def find_financials_parts(
                         )
                 last_note = num
                 note_numbers.setdefault(group, set()).add(num)
-                prefix = "financials-note" if group == "notes" else "financials-separate-note"
+                prefix = "financials-note" if group == "notes" else f"financials-{group}-note"
                 level = 3
                 starts.append(
                     _Start(
@@ -909,7 +926,11 @@ def find_financials_parts(
                 )
                 break
             if group_started:
-                continue  # inside the notes: statements/auditor headings no longer start nodes
+                # inside the notes: statements/auditor headings no longer start nodes, but one may
+                # open a further statement set
+                if len(t) <= 90 and (_STATEMENT.match(t) or _AUDITOR.search(t) or _FS_SET.match(t)):
+                    pending = pending or (p.seq, t)
+                continue
             if (
                 _AUDITOR.search(t)
                 and len(t) <= 140

@@ -32,9 +32,9 @@
 
 ## 5. Financial statements
 
-- [ ] 5.1 Make one note-heading pattern over `ביאור`/`באור` with `-`/`–`/`:` separators (design D9). Verify unit tests for `באור 2: עיקרי המדיניות החשבונאית`, `ביאור 1 – כללי`, the existing five Malam layouts, and continuation `(המשך)` lines
-- [ ] 5.2 Add attached statement groups: a statement-set heading after the main notes, followed by a note numbered 1, opens `attached-K` with `financials-attached-K-…` ids (design D9). Verify a fixture from Delek's attached-set boundary yields a separate group while the main group's note ids and `note_numbers_missing` are unchanged, and Malam's financial node ids are identical to before
-- [ ] 5.3 Verify that at least 90% of the main-group note numbers with a note heading in the text are note nodes, and at least four statements, for every reference report; record the rows, and add the note/statement variants to `server/docs/parsing_notes.md`
+- [x] 5.1 Make one note-heading pattern over `ביאור`/`באור` with `-`/`–`/`:` separators (design D9). Verify unit tests for `באור 2: עיקרי המדיניות החשבונאית`, `ביאור 1 – כללי`, the existing five Malam layouts, and continuation `(המשך)` lines
+- [x] 5.2 Add attached statement groups: a statement-set heading after the main notes, followed by a note numbered 1, opens `attached-K` with `financials-attached-K-…` ids (design D9). Verify a fixture from Delek's attached-set boundary yields a separate group while the main group's note ids and `note_numbers_missing` are unchanged, and Malam's financial node ids are identical to before
+- [x] 5.3 Verify that at least 90% of the main-group note numbers with a note heading in the text are note nodes, and at least four statements, for every reference report; record the rows, and add the note/statement variants to `server/docs/parsing_notes.md`
 
 ## 6. Filing selection
 
