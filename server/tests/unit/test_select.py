@@ -39,9 +39,15 @@ def test_year_from_title_when_field_missing():
 
 def test_ixbrl_pdf_excluded_and_largest_wins():
     fs = [
-        Filing(id=1, title="Report 2025 iXBRL", fiscal_year=2025, file_extension="PDF", file_size=999_999),
-        Filing(id=2, title="Report 2025", fiscal_year=2025, file_extension="pdf", file_size=100),
-        Filing(id=3, title="Report 2025", fiscal_year=2025, file_extension="PDF", file_size=200),
+        Filing(
+            id=1,
+            title="Periodic report 2025 iXBRL",
+            fiscal_year=2025,
+            file_extension="PDF",
+            file_size=999_999,
+        ),
+        Filing(id=2, title="Periodic report 2025", fiscal_year=2025, file_extension="pdf", file_size=100),
+        Filing(id=3, title="Periodic report 2025", fiscal_year=2025, file_extension="PDF", file_size=200),
     ]
     assert select_report(fs, 2025).id == 3
 
@@ -60,3 +66,34 @@ def test_registry_resolves_mltm(settings):
     assert [x.ticker for x in load_companies(settings.companies_file)] == ["MLTM"]
     with pytest.raises(CompanyNotFound, match="NOPE"):
         resolve_ticker(settings.companies_file, "NOPE")
+
+
+def test_trustee_report_is_not_an_annual_report():
+    """Delek Group's only PDF for FY2026 is a bond trustee's annual report (Hermetic, series 37)."""
+    trustee = Filing(
+        id=61844613,
+        title="דו\"ח שנתי – נאמנות למחזיקי אגרות החוב (סדרה לז'), הרמטיק",
+        fiscal_year=2026,
+        file_extension="PDF",
+        file_size=132_318,
+    )
+    with pytest.raises(ReportSelectionError, match=r"DLEKG FY2026.*61844613") as exc:
+        select_report([trustee], 2026, ticker="DLEKG")
+    assert "periodic report" in exc.value.message
+    assert selected_by_year([trustee], ticker="DLEKG") == {}
+
+
+@pytest.mark.parametrize("title", ["Periodic and annual report for 2025", "דוח תקופתי ושנתי לשנת 2025"])
+def test_english_and_hebrew_periodic_titles(title):
+    f = Filing(id=7, title=title, fiscal_year=2025, file_extension="PDF", file_size=1)
+    assert select_report([f], 2025).id == 7
+
+
+def test_periodic_report_wins_over_a_larger_other_pdf():
+    fs = [
+        Filing(
+            id=1, title="דוח תקופתי ושנתי לשנת 2025", fiscal_year=2025, file_extension="PDF", file_size=100
+        ),
+        Filing(id=2, title="מצגת משקיעים 2025", fiscal_year=2025, file_extension="PDF", file_size=10_000),
+    ]
+    assert select_report(fs, 2025).id == 1

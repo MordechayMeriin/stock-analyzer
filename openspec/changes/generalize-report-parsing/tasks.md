@@ -38,7 +38,7 @@
 
 ## 6. Filing selection
 
-- [ ] 6.1 Require a periodic-report title (`תקופתי`, or case-insensitive `periodic`) in `select.is_candidate` and name the rule in the selection error (design D13). Verify `tests/unit/test_select.py` covers Delek's FY2026 trustee report (no selection; the error lists the filing), the English and Hebrew periodic titles, and the existing Malam cases
+- [x] 6.1 Require a periodic-report title (`תקופתי`, or case-insensitive `periodic`) in `select.is_candidate` and name the rule in the selection error (design D13). Verify `tests/unit/test_select.py` covers Delek's FY2026 trustee report (no selection; the error lists the filing), the English and Hebrew periodic titles, and the existing Malam cases
 
 ## 7. Drop the PDF
 
