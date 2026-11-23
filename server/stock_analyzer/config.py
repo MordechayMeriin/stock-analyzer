@@ -70,6 +70,7 @@ class Settings(BaseModel):
     chapter_match_threshold: int = 85
     repeated_line_ratio: float = 0.30  # lines on more than this share of pages are stripped
     repeated_line_min_pages: int = 4  # never strip "repeats" in very short documents
+    running_line_min_pages: int = 4  # a line at the edge of this many pages is a running header/footer
     min_business_sections: int = 10
     glued_title_max_chars: int = 120
     chars_per_token: float = 3.0  # conservative estimate for Hebrew text
@@ -144,6 +145,7 @@ class Settings(BaseModel):
             "CHAPTER_MATCH_THRESHOLD": ("chapter_match_threshold", int),
             "REPEATED_LINE_RATIO": ("repeated_line_ratio", float),
             "REPEATED_LINE_MIN_PAGES": ("repeated_line_min_pages", int),
+            "RUNNING_LINE_MIN_PAGES": ("running_line_min_pages", int),
             "MIN_BUSINESS_SECTIONS": ("min_business_sections", int),
             "GLUED_TITLE_MAX_CHARS": ("glued_title_max_chars", int),
             "CHARS_PER_TOKEN": ("chars_per_token", float),
