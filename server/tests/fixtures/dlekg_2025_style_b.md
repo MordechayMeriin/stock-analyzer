@@ -1,4 +1,105 @@
 
+# דוח תקופתי לשנת 2025
+
+## תוכן העניינים
+
+|  פרק אי
+תיאור עסקי התאגיד  |
+| --- |
+|  פרק בי
+דוח הדירקטוריון על מצב ענייני התאגיד  |
+|  פרק גי
+דוחות כספיים  |
+|  פרק די
+פרטים נוספים על התאגיד  |
+|  פרק הי
+דוח בדבר אפקטיביות הבקרה הפנימית על
+הדיווח הכספי ועל הגילוי  |
+
+![img-2.jpeg](img-2.jpeg)
+
+קבוצת דלק
+
+---
+
+פרק
+
+![img-3.jpeg](img-3.jpeg)
+
+תיאור עסקי התאגיד
+
+![img-4.jpeg](img-4.jpeg)
+
+---
+
+פרק א - תיאור עסקי התאגיד
+
+מקרא
+
+בדוח זה תהיה לקיצורים הבאים המשמעות הרשומה לצידם להלן:
+
+|  החברה | - קבוצת דלק בע"מ  |
+| --- | --- |
+|  אינפליציה | - InPlay Oil Corp  |
+|  איתקה | - Ithaca Energy PLC  |
+|  דלק אנרגיה | - דלק מערכות אנרגיה בע"מ  |
+|  דלק השקעות פיננסיות | - דלק השקעות פיננסיות, שותפות מוגבלת  |
+|  דלק ישראל | - "דלק" חברת הדלק הישראלית בע"מ  |
+|  דלק נכסים | - דלק ישראל נכסים (ד.פ) בע"מ  |
+|  דלק פטרוליום | - דלק פטרוליום בע"מ  |
+|  דלק תמלוג על לוויתן | - דלק תמלוג על לוויתן בע"מ  |
+|  דלק GOM | - Delek GOM Investments LLC  |
+|  ישראל כרט | - ישראל כרט בע"מ  |
+|  מהדרין | - מהדרין בע"מ  |
+|  ניו-מד אנרגי או השותפות | - ניו-מד אנרגי - שותפות מוגבלת  |
+|  DKL Investments Limited | - DKL Energy Limited  |
+|  DKL ENERGY | - Ithaca Oil ang Gas Limited  |
+|  IOGL | - IOGL  |
+
+א - 1
+
+---
+
+חלק ראשון- תיאור ההתפתחות הכללית של עסקי החברה
+
+1.1
+
+כללי
+
+החברה פועלת בתחום חיפוש, פיתוח, הפקה ושיווק של נפט וגז טבעי בישראל ובחו"ל, באמצעות תאגידים מוחזקים וכן פועלת בתחום הפיננסים, באמצעות החזקת גרעין השליטה בישראל. בנוסף לחברה פעילויות נוספות בתחומי החקלאות, בתי קירור, מים ונדל"ן, באמצעות החזקותיה במהדרין, ופעילויות נוספות של שיווק מוצרי דלק בישראל ונכסי נדל"ן של מתחמי תדלוק באמצעות החזקותיה בדלק ישראל ובדלק נכסים.
+
+האסטרטגיה העיקרית של החברה היא המשך פיתוח נכסי הליבה שלה, בתחום חיפוש והפקת גז ונפט (Upstream Energy), בין השאר על ידי השבחה ומיצוי הפוטנציאל של נכסי הקבוצה בים התיכון (East Med) ובים הצפוני (North Sea) וכן בתחום הפיננסים, וזאת לצד בחינה של הזדמנויות עסקיות חדשות שיש בהן כדי להציף ערך בפעילות החברה ולהוות מנוע צמיחה להמשך פעילותה של החברה.
+
+החברה והחברות בשליטתה ייקראו להלן לשם הנוחות: "הקבוצה" או "קבוצת דלק".
+
+החברה התאגדה ביום 26 באוקטובר 1999. בעל השליטה בחברה הינו מר יצחק שרון (תשובה) (להלן: "בעל השליטה"), אשר מחזיק נכון למועד פרסום הדוח, באמצעות תאגידים בשליטתו, בכ-50.44% מההון המונפק ומזכויות ההצבעה בחברה ובכ-50.40% מההון המונפק ומזכויות ההצבעה של החברה בדילול מלא.
+
+להלן תרשים המציג את מבנה האחזקות העיקריות של הקבוצה, נכון למועד אישור הדוח:
+
+2 - א
+
+---
+
+פרק
+
+![img-0.jpeg](img-0.jpeg)
+
+דוח הדירקטוריון על מצב ענייני התאגיד
+
+![img-1.jpeg](img-1.jpeg)
+
+---
+
+פרק
+
+![img-0.jpeg](img-0.jpeg)
+
+דוחות כספיים
+
+![img-1.jpeg](img-1.jpeg)
+
+---
+
 responsibilities in accordance with these requirements. The non-audit services provided to the group for the year are disclosed in note 7 to the financial statements. We confirm that we have not provided any non-audit services prohibited by the FRC's Ethical Standard to the group or the company.
 
 We believe that the audit evidence we have obtained is sufficient and appropriate to provide a basis for our opinion.
@@ -45,3 +146,24 @@ Based on the work we have performed, we have not identified any material uncerta
 In relation to the reporting on how the group has applied the UK Corporate Governance Code, we have nothing material to add or draw attention to in relation to the directors' statement in the financial statements about whether the directors considered it appropriate to adopt the going concern basis of accounting.
 
 Our responsibilities and the responsibilities of the directors with respect to going concern are described in the relevant sections of this report.
+
+---
+
+פרק
+
+![img-2.jpeg](img-2.jpeg)
+
+פרטים נוספים על התאגיד
+
+![img-3.jpeg](img-3.jpeg)
+
+---
+
+פרק
+
+![img-0.jpeg](img-0.jpeg)
+
+דוח בדבר אפקטיביות הבקרה הפנימית
+על הדיווח הכספי ועל הגילוי
+
+![img-1.jpeg](img-1.jpeg)

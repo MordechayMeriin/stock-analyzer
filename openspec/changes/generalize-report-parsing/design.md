@@ -94,7 +94,9 @@ Decision rules, in order:
    Otherwise it is an inner part. This covers Delek's `חלק ראשון …`, Rami Levy's `פרק א' …` and Malam's `חלק א'` directors' parts.
 4. A head line with no opener whose whole text matches a chapter title variant (full `ratio` ≥ threshold, not partial) starts that chapter. This catches Delek's directors' report, which opens with a plain `דוח הדירקטוריון על מצב ענייני התאגיד` line. Full ratio rejects `### דוח הדירקטוריון וההנהלה` inside Delek's business chapter (≈77).
 
-**Fallback:** for any main chapter still missing, the first page whose recorded running header (D4) classifies as that kind starts it, provided that page comes after the previous chapter found. Its use is reported in the warnings.
+**Fallback:** for any main chapter still missing, the first page whose page-edge chapter header names that kind starts it. The header is either the page's recorded running header (D4) or one of its last content lines (its foot, recorded like the head). The page must come after the start of every found chapter that precedes the kind in canonical order, and before every found chapter that follows it. Its use is reported in the warnings.
+
+Foot lines were added because El Al FY2024's governance cover is garbled (the letters of `פרק` are interleaved with other text). Its chapter header `פרק ו | דוח שנתי בדבר אפקטיביות…` sits at the foot of only three pages, too few to count as a running line.
 
 TOC pages stay excluded as today. Pages whose head contains a TOC heading (`תוכן עניינים`, `תוכן העניינים`, `תוכן עניינים מקוצר/מפורט`, `רשימת פרקים`) are TOC pages.
 
@@ -124,7 +126,11 @@ A footerless page keeps `printed = None`. There is no inference from neighbours.
 
 ### D6. Page meaning and removing the PDF
 
-`page_index` stays the Markdown page position, the same splitting as today. So Malam's page indices and paragraph ids are unchanged, and only its documentation changes.
+`page_index` stays the Markdown page position, the same splitting as today. So Malam's page indices are unchanged, and only their documentation changes.
+
+Paragraph ids are positional (`pNNNN-NNN`), so removing a running line (D4) would renumber the paragraphs below it. To prevent that, a stripped running-line block still takes its paragraph number. Checked against the previous parser:
+- Malam FY2024: all 1,534 remaining paragraphs keep their id and text.
+- Malam FY2025: ids are kept, except on six governance-questionnaire pages. There the old parser read a numbered table cell as the page number and dropped that row; keeping it, as the spec requires, shifts the paragraphs after it.
 
 Removed:
 - `_check_offsets`' consistency issues (`OffsetIssue`) and their warnings

@@ -38,6 +38,33 @@ PDF is not linked, so page splitting only has to serve noise stripping and displ
 | One printed page split into several Markdown pages (pages 79-81 have no footer, page 82 prints 13 after 12) | El Al FY2025 (+6 pages), Rami Levy (+2), Delek (~+17) | Accepted: a page is a Markdown page; no offset warnings | synthetic |
 | Chapter openers live on cover pages whose lines are also stripped as noise (`פרק` alone on Delek's five covers) | Delek FY2025 | Each page's head (first content lines) is recorded before any stripping | fixture |
 
+## Chapter openers across issuers (structure 2)
+
+Chapters are found from openers in page heads: each page's first content lines, recorded before
+any noise stripping. A chapter starts at the first paragraph of its opener's page. The vocabulary
+lives in `ingest/vocab.py`.
+
+| Issuer | Chapter opener on the cover | Inner parts that must not start chapters |
+|---|---|---|
+| Malam | `פרק ראשון` / `פרק שני` … `פרק שביעי` (word ordinals); title on the same or the next line; `פרק ש לישי` (stray space) | `חלק א'` … `חלק ד'` (directors' report parts); running `פרק רביעי לדו"ח תקופתי` on chapter-4 pages |
+| El Al | `# פרק א'` with the title on the next line (FY2025); `פרק א' דוח תיאור עסקי התאגיד…` on one line (FY2024); bidi-reversed `ב' פרק …`, `ג ' פרק` (FY2024) | `פרק 1: כללי`, `פרק 2: …`, `פרק 3: …` (digit ordinals); running `פרק א \| תיאור עסקי התאגיד` |
+| Rami Levy | `# חלק א'` / `## תיאור עסקי התאגיד` … `חלק ה'` (**חלק** is the chapter word) | `פרק א' - תיאור ההתפתחות…` (the other word); `חלק ב' - מידע אחר`, `חלק ד': …` (the chapter word, on ordinals the main chapters use) |
+| Delek | `פרק` alone, title on the next lines (the letter was an image) | `חלק ראשון- …` … `חלק רביעי - …` (the other word) |
+
+Rules:
+- A digit ordinal is an inner part.
+- The first opener whose title names a chapter fixes the report's chapter word (`פרק`/`חלק`); openers with the other word are inner parts.
+- An unnamed title (Malam's `שאלון ממשל תאגידי`, `מכתב הסכמה`) is an "other" chapter only on an ordinal that no main chapter uses and above the last one.
+- A page's first head line that starts with a chapter title starts that chapter if it is not found yet. El Al FY2024's additional details open with `פרטים נוספים על התאגיד שם חברה: …`; El Al p36's `פרטים נוספים על התאגיד .` is a sentence end, not a title.
+- Separate financial information (`מידע כספי נפרד`, El Al's `פרק ד'`) belongs to the financial statements.
+
+Titles are matched word-aligned on spelling-insensitive keys:
+- `דו"ח` = `דוח`, plene and defective spellings agree
+- small extraction errors are tolerated (Rami Levy's `פרסים נוספים` for `פרטים נוספים`)
+- `תיאור ההתפתחות הכללית של עסקי החברה` does not pass for `תיאור עסקי החברה`
+
+A chapter still missing after all that is located from a chapter header at a page edge: El Al FY2024's garbled governance cover (`ו' ו' דוח שנתי בדבר אפקטיביות ה פ ב ר פ ק …`), with `פרק ו | דוח שנתי בדבר אפקטיביות…` at the foot of the next pages.
+
 ## Reference reports
 
 The parser is checked against six full reports (the `REFERENCE_REPORTS` list in `tests/conftest.py`):
@@ -68,4 +95,16 @@ ELAL   2025     275     167  0/5              0     0/0      0     0     5  miss
 MLTM   2024     180     163  5/5             22   22/22     40     6     1
 MLTM   2025     188     147  5/5             25   25/25     31     8     1
 RMLI   2025     250     123  1/5              5    5/29      0     0     6  missing: directors, financials, additional, governance
+```
+
+### After chapter detection (parser 2 / structure 2)
+
+```
+TICKER FY     PAGES PRINTED  CHAPTERS  SECTIONS     TOC  NOTES STMTS  WARN  MISSING / ERROR
+DLEKG  2025     843     197  5/5              0     0/0      0     4     1
+ELAL   2024     266     137  5/5              2    2/42     21     4     3
+ELAL   2025     275     167  5/5             11   11/40     21     9     1
+MLTM   2024     180     163  5/5             22   22/22     40     6     1
+MLTM   2025     188     147  5/5             25   25/25     31     8     1
+RMLI   2025     250     123  5/5              5    5/29     30     7     3
 ```

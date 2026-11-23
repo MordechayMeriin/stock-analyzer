@@ -30,7 +30,7 @@ from pydantic import BaseModel
 
 from stock_analyzer.config import Settings
 from stock_analyzer.errors import ParseError
-from stock_analyzer.ingest.normalize import normalize, normalize_title
+from stock_analyzer.ingest.normalize import normalize
 
 log = logging.getLogger(__name__)
 
@@ -74,6 +74,7 @@ class PageInfo(BaseModel):
     # the page's first content lines before footer/running-line stripping (chapter openers are
     # read from here); images, comments, table rows and logo OCR (short Latin-only lines) excluded
     head: list[str] = []
+    foot: list[str] = []  # the page's last content lines before stripping, same filtering as head
     running_header: str | None = None  # running header/footer line removed from this page
 
 
@@ -115,8 +116,10 @@ class _Page:
     lines: list[_Line] = field(default_factory=list)
     printed: int | None = None
     head: list[str] = field(default_factory=list)
+    foot: list[str] = field(default_factory=list)
     running_header: str | None = None
     footer_lines: list[str] = field(default_factory=list)  # normalized lines the footer consumed
+    running: set[int] = field(default_factory=set)  # positions in ``lines`` of running lines
 
 
 def _lines(text: str, start: int, end: int) -> list[_Line]:
@@ -258,20 +261,29 @@ _LOGO_OCR = re.compile(r"^[A-Za-z][A-Za-z .\-]{0,24}$")
 HEAD_LINES = 6
 
 
-def _page_head(lines: list[_Line]) -> list[str]:
+FOOT_LINES = 3
+
+
+def _page_head(lines: list[_Line], limit: int = HEAD_LINES) -> list[str]:
     """First content lines of a page: no table rows, no logo OCR ("ELYAL", "EVALUATION") and no
     lines without letters."""
     head: list[str] = []
     for ln in lines:
         if not ln.text.strip() or _is_table_line(ln.text):
             continue
-        text = normalize_title(ln.text)
+        # like normalize_title, but trailing punctuation is kept: "title ." is a sentence end
+        text = re.sub(r"^(?:#+|[-*•]\s)\s*", "", normalize(ln.text)).strip()
         if not text or _LOGO_OCR.match(text) or not re.search(r"[A-Za-zא-ת]", text):
             continue
         head.append(text)
-        if len(head) == HEAD_LINES:
+        if len(head) == limit:
             break
     return head
+
+
+def _page_foot(lines: list[_Line]) -> list[str]:
+    """Last content lines of a page (in page order), filtered like the head."""
+    return list(reversed(_page_head(list(reversed(lines)), FOOT_LINES)))
 
 
 RUNNING_EDGE = 3  # lines at each edge of a page that can be running headers/footers
@@ -326,8 +338,9 @@ def _strip_running_lines(pages: list[_Page], min_pages: int) -> None:
                 drop.append(i)
                 if p.running_header is None:
                     p.running_header = _running_key(text).lstrip("#").strip()
-        if drop:
-            p.lines = [ln for k, ln in enumerate(p.lines) if k not in drop]
+        # kept in ``lines`` but marked: a stripped running-line block still takes its paragraph
+        # number, so the ids of the paragraphs after it do not shift (ids are positional)
+        p.running = set(drop)
 
 
 def _drop_pictures(lines: list[_Line]) -> list[_Line]:
@@ -435,6 +448,7 @@ def parse_report(
     for p in pages:
         lines = _drop_pictures(_lines(text, p.start, p.end))
         p.head = _page_head(lines)
+        p.foot = _page_foot(lines)
         footer, printed = _footer(lines)
         if footer:
             p.printed = printed
@@ -458,9 +472,15 @@ def parse_report(
 
     paragraphs: list[Paragraph] = []
     for p in pages:
+        running = {id(p.lines[i]) for i in p.running}
         lines = [ln for ln in p.lines if not (ln.text.strip() and normalize(ln.text) in repeated)]
         n = 0
         for block in _merge_tables_across_blanks(_blocks(lines)):
+            kept = [ln for ln in block if id(ln) not in running]
+            if not any(ln.text.strip() for ln in kept):
+                n += 1  # a running header/footer: stripped, but its number is used up
+                continue
+            block = kept
             raw = "\n".join(ln.text for ln in block)
             in_table = _is_table_block(block)
             norm = normalize(raw, keep_newlines=in_table)
@@ -501,6 +521,7 @@ def parse_report(
                 char_start=p.start,
                 char_end=p.end,
                 head=p.head,
+                foot=p.foot,
                 running_header=p.running_header,
             )
             for p in pages

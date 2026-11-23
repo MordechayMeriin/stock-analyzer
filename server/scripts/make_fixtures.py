@@ -132,12 +132,38 @@ ISSUER_SLICES: dict[str, tuple[str, int, list[int]]] = {
             272,  # governance cover
         ],
     ),
+    "rmli_2025_style_b.md": (
+        "RMLI",
+        2025,
+        [
+            2,  # chapter list
+            17,  # business cover: "# חלק א'" / "## תיאור עסקי התאגיד" (חלק is the chapter word)
+            19,  # short TOC (top-level entries and part rows)
+            20,  # detailed TOC (multi-level numbers 2.1, 2.2.1)
+            26,  # inner part "פרק א' - תיאור ההתפתחות הכללית של עסקי הקבוצה"
+            35,  # inner part "חלק ב' - מידע אחר" (same word as the chapters)
+            100,  # inner part "חלק ד': עניינים המשותפים…"
+            102,  # footer "- 83 -"
+            123,  # directors' cover: "חלק ב'" / 'דו"ח הדירקטוריון'
+            141,  # financial statements cover: 'דו"חות כספיים'
+            228,  # additional details cover: "פרסים נוספים" (extraction error)
+            247,  # governance cover
+        ],
+    ),
     "dlekg_2025_style_b.md": (
         "DLEKG",
         2025,
         [
+            2,  # chapter list
+            3,  # business cover: "פרק" alone (the letter was an image), title below
+            5,  # "פרק א - תיאור עסקי התאגיד"
+            6,  # inner part "חלק ראשון- תיאור ההתפתחות הכללית של עסקי החברה"
+            465,  # directors' cover
+            507,  # financial statements cover
             801,  # English auditor's report: a "|" table line whose block never closes the pipe
             802,
+            818,  # additional details cover
+            842,  # governance cover
         ],
     ),
 }

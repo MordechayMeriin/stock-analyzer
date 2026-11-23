@@ -25,25 +25,27 @@ from pydantic import BaseModel
 from rapidfuzz import fuzz
 
 from stock_analyzer.config import Settings
-from stock_analyzer.ingest.normalize import normalize, normalize_title
-from stock_analyzer.ingest.parse_md import Paragraph, ParsedReport
+from stock_analyzer.ingest.normalize import match_key, normalize, normalize_title
+from stock_analyzer.ingest.parse_md import PageInfo, Paragraph, ParsedReport
+from stock_analyzer.ingest.vocab import (
+    CHAPTER_TITLES_HE,
+    CHAPTER_WORDS,
+    GERESH,
+    MAIN_CHAPTERS,
+    ORDINAL_LETTERS,
+    ORDINAL_WORDS,
+    ORDINAL_WORDS_LONGEST_FIRST,
+    TOC_HEADINGS,
+    Chapter,
+    chapter_title_prefix,
+    classify_chapter_title,
+)
 
 log = logging.getLogger(__name__)
 
-STRUCTURE_VERSION = "1"
+STRUCTURE_VERSION = "2"
 
 NodeKind = Literal["chapter", "section", "subsection", "note", "auditor_report", "statement", "other"]
-Chapter = Literal["business", "directors", "financials", "additional", "governance", "other"]
-MAIN_CHAPTERS: tuple[Chapter, ...] = ("business", "directors", "financials", "additional", "governance")
-
-CHAPTER_TITLES_HE: dict[str, str] = {
-    "business": "תיאור עסקי התאגיד",
-    "directors": "דוח הדירקטוריון",
-    "financials": "דוחות כספיים",
-    "additional": "פרטים נוספים על התאגיד",
-    "governance": "אפקטיביות הבקרה הפנימית והצהרות מנהלים",
-    "other": "אחר",
-}
 
 
 class Node(BaseModel):
@@ -100,45 +102,23 @@ class Structure(BaseModel):
 
 # ---------------------------------------------------------------- patterns
 
-_ORDINALS = {
-    "ראשון": 1,
-    "שני": 2,
-    "שלישי": 3,
-    "רביעי": 4,
-    "חמישי": 5,
-    "שישי": 6,
-    "שביעי": 7,
-    "שמיני": 8,
-}
-_CHAPTER_ORDINAL = re.compile(r"^פרק\s+(ראשון|שני|שלישי|רביעי|חמישי|שישי|שביעי|שמיני)(?![א-ת])")
-_ORDINALS_LONGEST_FIRST = sorted(_ORDINALS, key=len, reverse=True)
+_CHAPTER_ORDINAL = re.compile(rf"^פרק\s+({'|'.join(ORDINAL_WORDS_LONGEST_FIRST)})(?![א-ת])")
 
 
 def chapter_ordinal(text: str) -> int | None:
     """The chapter ordinal of a heading like "פרק שלישי", tolerating a stray space inside
     the word ("פרק ש לישי"), which the provider's text extraction sometimes produces."""
     if m := _CHAPTER_ORDINAL.match(text):
-        return _ORDINALS[m.group(1)]
+        return ORDINAL_WORDS[m.group(1)]
     compact = re.sub(r"\s+", "", text[:24])
     if not compact.startswith("פרק"):
         return None
     rest = compact[3:]
-    for word in _ORDINALS_LONGEST_FIRST:
+    for word in ORDINAL_WORDS_LONGEST_FIRST:
         if rest.startswith(word):
-            return _ORDINALS[word]
+            return ORDINAL_WORDS[word]
     return None
 
-
-_CHAPTER_TITLE_MARKERS: tuple[tuple[str, Chapter], ...] = (
-    ("תיאור עסקי", "business"),
-    ("דוח הדירקטוריון", "directors"),
-    ("דוחות כספיים", "financials"),
-    ("פרטים נוספים", "additional"),
-    ("אפקטיביות הבקרה", "governance"),
-    ("הצהרות מנהלים", "governance"),
-)
-_ORDINAL_DEFAULT: dict[int, Chapter] = {1: "business", 2: "directors", 3: "financials", 4: "additional"}
-_TOC_HEADINGS = ("תוכן עניינים", "תוכן העניינים", "רשימת פרקים", "תוכן העניין")
 
 _REF_BEFORE = re.compile(r"(?:סעיפים|סעיף|ס'|תקנה|תקנות|ביאור|ביאורים|ר'|ראה|ראו|בפרק|פרק)\s*[-–]?\s*$")
 _REF_AFTER = re.compile(r"^\s*(?:לעיל|להלן|לדוח|לחוק|לתקנות)")
@@ -207,7 +187,7 @@ def _toc_pages(paragraphs: list[Paragraph]) -> set[int]:
         if p.in_table:
             continue
         t = normalize_title(p.text)
-        if any(t.startswith(h) for h in _TOC_HEADINGS) and len(t) < 40:
+        if any(t.startswith(h) for h in TOC_HEADINGS) and len(t) < 40:
             pages.add(p.page_index)
     return pages
 
@@ -276,75 +256,217 @@ def parse_business_toc(
 # ---------------------------------------------------------------- chapters
 
 
+_WORDS = "|".join(CHAPTER_WORDS)
+_LETTERS = "".join(ORDINAL_LETTERS)
+_ORD_WORD = "|".join(ORDINAL_WORDS_LONGEST_FIRST)
+# "פרק א' - title", "פרק ב | title", "פרק שני", "פרק 1: title", "פרק" alone
+_OPENER = re.compile(
+    rf"^(?P<word>{_WORDS})(?![א-ת])\s*"
+    rf"(?:(?P<wordord>{_ORD_WORD})(?![א-ת])|(?P<letter>[{_LETTERS}])[{GERESH}]?(?![א-ת])|(?P<digit>\d{{1,2}})(?!\d))?"
+    r"\s*['׳]?\s*[-–|:.]?\s*(?P<title>.*)$"
+)
+# bidi-reversed: "ב' פרק דוח הדירקטוריון…", "ג ' פרק" (geresh required)
+_OPENER_REVERSED = re.compile(
+    rf"^(?P<letter>[{_LETTERS}])\s*['׳]\s*(?P<word>{_WORDS})(?![א-ת])\s*(?P<title>.*)$"
+)
+_TITLE_LINE_MAX = 60
+
+
+@dataclass
+class _Opener:
+    word: str
+    ordinal: int | None
+    digit: bool
+    title: str  # the opener line's own title (may be empty)
+    continuation: str  # the following short head lines, joined
+
+    def candidates(self) -> list[str]:
+        """Titles to classify: the line's own title, then with the following lines appended
+        ("פרק רביעי לדוח תקופתי" / "פרטים נוספים על החברה")."""
+        return [t for t in (self.title, f"{self.title} {self.continuation}".strip()) if t]
+
+
+def parse_opener(line: str, following: list[str]) -> _Opener | None:
+    """A chapter opener in a page-head line, with its title taken from the same line or, when the
+    line holds only the opener, from up to three following short head lines."""
+    t = line.strip(" .:-–|")
+    m = _OPENER.match(t) or _OPENER_REVERSED.match(t)
+    ordinal: int | None = None
+    digit = False
+    if m is not None and not (
+        m.groupdict().get("wordord") or m.group("letter") or m.groupdict().get("digit")
+    ):
+        if chapter_ordinal(t) is not None:
+            m = None  # "פרק ש לישי ..." (a stray space inside the ordinal word)
+    if m is None:
+        if (n := chapter_ordinal(t)) is None:
+            return None
+        word, ordinal = "פרק", n
+        ordinal_word = next(w for w in ORDINAL_WORDS if ORDINAL_WORDS[w] == n)
+        # skip past "פרק" + the ordinal's letters, ignoring the stray spaces between them
+        consumed, i = 0, 0
+        while i < len(t) and consumed < 3 + len(ordinal_word):
+            consumed += not t[i].isspace()
+            i += 1
+        title = t[i:].strip(" -–|:.")
+    else:
+        groups = m.groupdict()
+        word, title = m.group("word"), m.group("title").strip(" -–|:.")
+        if groups.get("wordord"):
+            ordinal = ORDINAL_WORDS[groups["wordord"]]
+        elif groups.get("letter"):
+            ordinal = ORDINAL_LETTERS[groups["letter"]]
+        elif groups.get("digit"):
+            ordinal, digit = int(groups["digit"]), True
+        if ordinal is None and title:
+            return None  # "חלק מחברות הביטוח", "פרק המונופולין": prose, not an opener
+    parts: list[str] = []
+    for nxt in following[:3]:
+        if len(nxt) > _TITLE_LINE_MAX or _OPENER.match(nxt) or _OPENER_REVERSED.match(nxt):
+            break
+        if re.search(r"\||www\.|https?:", nxt):
+            continue  # brand and footer-like lines ("www.x.com | חברה | 3")
+        parts.append(nxt)
+    return _Opener(word=word, ordinal=ordinal, digit=digit, title=title, continuation=" ".join(parts))
+
+
+def _first_seq_of_pages(paragraphs: list[Paragraph]) -> dict[int, int]:
+    first: dict[int, int] = {}
+    for p in paragraphs:
+        first.setdefault(p.page_index, p.seq)
+    return first
+
+
 def find_chapters(
-    paragraphs: list[Paragraph], toc_pages: set[int], warnings: list[str]
+    report: ParsedReport, toc_pages: set[int], settings: Settings, warnings: list[str]
 ) -> tuple[list[_Start], list[str]]:
+    """Chapters from openers in page heads (design D2/D3). A chapter starts at the first paragraph
+    of its opener's page. Rules, in order: a digit ordinal is an inner part; once a classified
+    opener has fixed the report's chapter word (פרק or חלק), openers with the other word are inner
+    parts; a classified title starts that chapter (a repeat right after itself is a cover/first
+    page; after another chapter it is a duplicate); an unclassified title starts an "other" chapter
+    only with an ordinal above the last one; a page's first head line that starts with a chapter
+    title can start a chapter not found yet."""
+    threshold = settings.chapter_match_threshold
+    first_seq = _first_seq_of_pages(report.paragraphs)
+    seqs = sorted(first_seq.items())
+
+    def page_start(page: int) -> int | None:
+        return next((seq for idx, seq in seqs if idx >= page), None)
+
     starts: list[_Start] = []
-    seen: dict[str, int] = {}
+    found: dict[str, int] = {}
     duplicated: list[str] = []
+    chapter_word: str | None = None
+    last_key: str | None = None
     last_ordinal = 0
-    for i, p in enumerate(paragraphs):
-        if p.page_index in toc_pages or p.in_table or not _is_heading_like(p, max_len=90):
-            continue
-        t = _first_line(p)
-        ordinal = chapter_ordinal(t)
-        title_hint = t
-        if ordinal is not None:
-            # the chapter title is usually on the same line or the next short paragraph(s)
-            hints: list[str] = []
-            for q in paragraphs[i + 1 : i + 3]:
-                if (
-                    q.page_index != p.page_index
-                    or q.in_table
-                    or not (q.heading_level or len(_first_line(q)) <= 60)
-                ):
-                    break
-                line = _first_line(q)
-                # skip brand and footer-like lines ("MalamTeam", "www.x.com | חברה | 3")
-                if re.search(r"[א-ת]", line) and not re.search(r"\||www\.|https?:", line):
-                    hints.append(line)
-            nxt = " ".join(hints)
-            title_hint = f"{t} {nxt}"
-        else:
-            # a title marker alone starts a chapter only if it is a real heading
-            if not p.heading_level or not any(t.startswith(mk) for mk, _ in _CHAPTER_TITLE_MARKERS):
+
+    def start(kind: Chapter, page: PageInfo, ordinal: int | None, title: str) -> None:
+        nonlocal last_key, last_ordinal
+        seq = page_start(page.index)
+        if seq is None:
+            return
+        key = kind if kind != "other" else f"other:{ordinal}"
+        found[key] = seq
+        last_key = key
+        if ordinal:
+            last_ordinal = max(last_ordinal, ordinal)
+        node_title = CHAPTER_TITLES_HE[kind] if kind != "other" else normalize_title(title)[:80]
+        node_id = kind if kind != "other" else f"chapter-{ordinal}"
+        starts.append(_Start(node_id, "chapter", kind, str(ordinal) if ordinal else None, node_title, 1, seq))
+
+    pages = [p for p in report.pages if p.index not in toc_pages and p.head]
+
+    def openers(page: PageInfo) -> list[tuple[str, _Opener]]:
+        return [
+            (line, op) for i, line in enumerate(page.head) if (op := parse_opener(line, page.head[i + 1 :]))
+        ]
+
+    def classify(op: _Opener) -> Chapter | None:
+        return next((k for k in (classify_chapter_title(t, threshold) for t in op.candidates()) if k), None)
+
+    # First pass: the ordinals the main chapters use. An opener whose title names no chapter
+    # becomes an "other" chapter only on a free ordinal: Rami Levy numbers its business parts
+    # "חלק ב'", "חלק ד'" with the same word as its chapters, Malam has unnamed chapters 5 and 7.
+    main_ordinals: set[int] = set()
+    for page in pages:
+        for _, op in openers(page):
+            if not op.digit and op.ordinal and classify(op) is not None:
+                chapter_word = chapter_word or op.word
+                if op.word == chapter_word:
+                    main_ordinals.add(op.ordinal)
+    chapter_word = None
+
+    for page in pages:
+        started = False
+        for line, op in openers(page):
+            if op.digit:
                 continue
-        kind: Chapter | None = next((ch for mk, ch in _CHAPTER_TITLE_MARKERS if mk in title_hint), None)
-        if kind is None and ordinal is not None:
-            kind = _ORDINAL_DEFAULT.get(ordinal, "other")
-        if kind is None:
+            if chapter_word is not None and op.word != chapter_word:
+                continue
+            titles = op.candidates()
+            kind = classify(op)
+            if kind is not None:
+                chapter_word = chapter_word or op.word
+                if kind in found:
+                    if last_key != kind:
+                        duplicated.append(kind)
+                        warnings.append(f"chapter {kind!r} found again on page {page.index}")
+                    continue
+                start(kind, page, op.ordinal, titles[0])
+                started = True
+                break
+            if (
+                chapter_word is not None
+                and op.ordinal
+                and op.ordinal > last_ordinal
+                and op.ordinal not in main_ordinals
+            ):
+                start("other", page, op.ordinal, f"{line} {op.continuation}" if not op.title else line)
+                started = True
+                break
+        if started:
             continue
-        if ordinal is not None and ordinal < last_ordinal:
-            continue  # a cross-reference to an earlier chapter
-        key = f"{kind}:{ordinal}" if kind == "other" else kind
-        if key in seen:
-            # the same chapter again: a cover page followed by its first page is normal;
-            # after another chapter started it is a real duplicate
-            if starts and starts[-1].chapter != kind:
-                duplicated.append(kind)
-                warnings.append(f"chapter {kind!r} found again on page {p.page_index}")
+        kind = chapter_title_prefix(page.head[0], threshold)
+        if kind is not None and kind not in found:
+            start(kind, page, None, page.head[0])
+
+    # Fallback for main chapters still missing: the first page, in the chapter's canonical place,
+    # whose page-edge chapter header names it (a running header, or a header at the page's foot
+    # such as "פרק ו | דוח שנתי בדבר אפקטיביות הבקרה הפנימית" when the cover is garbled).
+    for idx, kind in enumerate(MAIN_CHAPTERS):
+        if kind in found:
             continue
-        seen[key] = p.seq
-        last_ordinal = ordinal or last_ordinal
-        title = CHAPTER_TITLES_HE[kind] if kind != "other" else normalize_title(title_hint)[:80]
-        node_id = kind if kind != "other" else f"chapter-{ordinal or len(starts) + 1}"
-        starts.append(_Start(node_id, "chapter", kind, str(ordinal) if ordinal else None, title, 1, p.seq))
+        lo = max((found[k] for k in MAIN_CHAPTERS[:idx] if k in found), default=-1)
+        hi = min((found[k] for k in MAIN_CHAPTERS[idx + 1 :] if k in found), default=10**9)
+        for page in pages:
+            seq = page_start(page.index)
+            if seq is None or not lo < seq < hi:
+                continue
+            edge = ([page.running_header] if page.running_header else []) + page.foot
+            if any(_edge_kind(line, chapter_word, threshold) == kind for line in edge):
+                start(kind, page, None, CHAPTER_TITLES_HE[kind])
+                warnings.append(f"chapter {kind!r} located from a page-edge header on page {page.index}")
+                break
+    starts.sort(key=lambda s: s.seq)
     return starts, duplicated
+
+
+def _edge_kind(line: str, chapter_word: str | None, threshold: int) -> Chapter | None:
+    """The chapter a page-edge header names: "פרק ו | <title>" or a bare chapter title."""
+    op = parse_opener(line, [])
+    if op is not None:
+        if op.digit or (chapter_word is not None and op.word != chapter_word) or not op.title:
+            return None
+        return classify_chapter_title(op.title, threshold)
+    return chapter_title_prefix(line, threshold)
 
 
 # ---------------------------------------------------------------- business sections
 
 
-_MATRES = re.compile(r"(?<=[א-ת])[וי]+")
 _EDGE_PREFIX = re.compile(r"^(?:\.?\d{1,2}(?:\.\d{1,3})*\.?|[א-ת]['׳]?\.)\s*")
 _EDGE_SUFFIX = re.compile(r"\s*\.?\d{1,2}(?:\.\d{1,3})*\.?$")
-
-
-def match_key(text: str) -> str:
-    """Spelling-insensitive key for fuzzy title matching: Hebrew plene/defective spellings
-    (שירותי/שרותי, חיסכון/חסכון) agree once vav/yod inside a word are dropped.
-    Same length class as the input is not preserved, so match on keys of both sides."""
-    return _MATRES.sub("", text)
 
 
 def _match_title_in(text: str, title: str, threshold: int) -> tuple[int, int, int] | None:
@@ -755,7 +877,7 @@ def build_structure(report: ParsedReport, settings: Settings | None = None) -> S
     warnings: list[str] = []
     toc_pages = _toc_pages(paras)
 
-    chapter_starts, duplicated = find_chapters(paras, toc_pages, warnings)
+    chapter_starts, duplicated = find_chapters(report, toc_pages, settings, warnings)
     found = [s.chapter for s in chapter_starts if s.chapter != "other"]
     missing = [c for c in MAIN_CHAPTERS if c not in found]
     for c in missing:
