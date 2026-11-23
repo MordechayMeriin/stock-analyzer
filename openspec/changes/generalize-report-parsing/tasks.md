@@ -50,8 +50,8 @@
 
 ## 8. Integration checks
 
-- [ ] 8.1 Add the reference-report test (all five chapters once, ≥80% of top-level TOC entries matched, ≥90% of main-group note numbers with a heading in the text found as notes, ≥4 statements) parametrized over `REFERENCE_REPORTS` as `live_data`. Verify `pytest -m live_data -rs` passes for all six reports with the reports available
-- [ ] 8.2 Run the full server checks (`uv run ruff check .`, `uv run ruff format --check .`, `uv run pytest -rs`) and the web checks (`npm run lint`, `npm run build`, `npm run check:api`). Verify all pass, and that `parse-check` over the store prints six rows with no errors, recorded in `server/docs/parsing_notes.md`
+- [x] 8.1 Add the reference-report test (all five chapters once, ≥80% of top-level TOC entries matched, ≥90% of main-group note numbers with a heading in the text found as notes, ≥4 statements) parametrized over `REFERENCE_REPORTS` as `live_data`. Verify `pytest -m live_data -rs` passes for all six reports with the reports available
+- [x] 8.2 Run the full server checks (`uv run ruff check .`, `uv run ruff format --check .`, `uv run pytest -rs`) and the web checks (`npm run lint`, `npm run build`, `npm run check:api`). Verify all pass, and that `parse-check` over the store prints six rows with no errors, recorded in `server/docs/parsing_notes.md`
 
 ## Workflow follow-up
 

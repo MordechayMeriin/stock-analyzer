@@ -164,3 +164,18 @@ RMLI   2025     250     123  5/5             29   29/29     31     7     1
 Note coverage (main-set note numbers with a heading line in the text that became note nodes):
 Delek 12/12, El Al 21/21 and 19/19, Malam 31/31 and 22/22, Rami Levy 24/24 (NOTES above counts every
 note node, separate-set notes included).
+
+### Final (parser 2 / structure 2) — all checks green
+
+```
+TICKER FY     PAGES PRINTED  CHAPTERS  SECTIONS     TOC  NOTES STMTS  WARN  MISSING / ERROR
+DLEKG  2025     843     197  5/5             21   21/22     17     4     2
+ELAL   2024     266     137  5/5              8     8/8     21     5     2
+ELAL   2025     275     167  5/5              8     8/9     21     9     2
+MLTM   2024     180     163  5/5             22   22/22     40     6     1
+MLTM   2025     188     147  5/5             25   25/25     31     8     1
+RMLI   2025     250     123  5/5             29   29/29     31     7     1
+```
+
+`pytest -m live_data` (tests/unit/test_reference_reports.py) passes for all six: every chapter once,
+≥80% of top-level TOC entries matched, ≥90% of note numbers with a heading line found, ≥4 statements.
