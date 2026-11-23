@@ -42,11 +42,11 @@
 
 ## 7. Drop the PDF
 
-- [ ] 7.1 Remove `citation_url` (paragraphs, pages), `document_url` (structure), `document_url`/`viewer_url` (filings) and the playground done event's `citations` from `services/models.py`, `api/schemas.py`, `services/reports.py`, `services/filings.py` and `services/playground.py`. Rename the page route summary to "Markdown page index". Verify the API tests assert the fields are absent and `pytest tests/api` passes
-- [ ] 7.2 Regenerate `server/openapi.json` (`scripts/export_openapi.py`) and `web/src/api/schema.d.ts` (`npm run gen:api`). Verify `uv run python scripts/export_openapi.py --check` and `npm run check:api` pass
-- [ ] 7.3 Remove PDF links from `ParagraphList.tsx` (page markers show `pageLabel` text only), `ReaderPage.tsx`, `CompanyPage.tsx` and `PlaygroundPage.tsx` (paragraph-id chips without links; keep the "open in reader" link). Update comments that mention citations. Verify `npm run lint` and `npm run build` pass
-- [ ] 7.4 Update `web/e2e/ui-check.cjs`: replace the 7.4 PDF-link checks with checks that page markers show printed page numbers and contain no `.pdf` links, and that the playground shows paragraph ids plus the reader link. Verify the script passes against the dev server with cached Malam data
-- [ ] 7.5 Remove PDF/citation wording from `README.md`, `server/README.md` and the `web-client` purpose in `openspec/specs/web-client/spec.md` ("reads reports with page citations" → "reads reports with printed page numbers"). Verify `grep -riE "pdf|citation|#page" README.md server/README.md web/src` finds only intended mentions (selection of PDF filings)
+- [x] 7.1 Remove `citation_url` (paragraphs, pages), `document_url` (structure), `document_url`/`viewer_url` (filings) and the playground done event's `citations` from `services/models.py`, `api/schemas.py`, `services/reports.py`, `services/filings.py` and `services/playground.py`. Rename the page route summary to "Markdown page index". Verify the API tests assert the fields are absent and `pytest tests/api` passes
+- [x] 7.2 Regenerate `server/openapi.json` (`scripts/export_openapi.py`) and `web/src/api/schema.d.ts` (`npm run gen:api`). Verify `uv run python scripts/export_openapi.py --check` and `npm run check:api` pass
+- [x] 7.3 Remove PDF links from `ParagraphList.tsx` (page markers show `pageLabel` text only), `ReaderPage.tsx`, `CompanyPage.tsx` and `PlaygroundPage.tsx` (paragraph-id chips without links; keep the "open in reader" link). Update comments that mention citations. Verify `npm run lint` and `npm run build` pass
+- [x] 7.4 Update `web/e2e/ui-check.cjs`: replace the 7.4 PDF-link checks with checks that page markers show printed page numbers and contain no `.pdf` links, and that the playground shows paragraph ids plus the reader link. Verify the script passes against the dev server with cached Malam data
+- [x] 7.5 Remove PDF/citation wording from `README.md`, `server/README.md` and the `web-client` purpose in `openspec/specs/web-client/spec.md` ("reads reports with page citations" → "reads reports with printed page numbers"). Verify `grep -riE "pdf|citation|#page" README.md server/README.md web/src` finds only intended mentions (selection of PDF filings)
 
 ## 8. Integration checks
 

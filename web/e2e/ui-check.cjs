@@ -72,6 +72,7 @@ const check = (name, ok, detail = '') => {
   const usageText = await page.locator('[data-testid="usage-panel"]').innerText()
   check('7.3 credit usage visible', /קרדיטים/.test(usageText) && /\d+ \/ 500/.test(usageText), usageText.replace(/\s+/g, ' ').slice(0, 120))
   check('7.3 company context in header', (await page.locator('[data-testid="company-context"]').innerText()).includes('מלם תים'))
+  check('7.3 filings shown without links to their PDFs', (await page.locator('a[href*=".pdf"]').count()) === 0)
   await page.screenshot({ path: `${SHOTS}/2-company.png`, fullPage: true })
 
   // ---- 7.4 reader via deep link to the risk section
@@ -80,11 +81,12 @@ const check = (name, ok, detail = '') => {
   const title = await page.locator('[data-testid="node-title"]').innerText()
   check('7.4 deep link opens the risk section', title.includes('דיון בגורמי סיכון') && title.includes('22'), title)
   check('7.4 tree highlights the active node', (await page.locator('[aria-current="true"][data-node-id="business-22"]').count()) === 1)
-  const links = await page.locator('[data-testid="page-link"]').evaluateAll((as) => as.map((a) => ({ href: a.href, text: a.textContent })))
-  const pdfOk = links.length > 0 && links.every((l) => /\.pdf#page=\d+$/.test(l.href))
-  const firstLink = links[0]
-  check('7.4 page links target the PDF with #page=N', pdfOk, `${links.length} links; first: ${firstLink?.text?.trim()} → ${firstLink?.href.split('/').pop()}`)
-  check('7.4 first risk page is PDF page 58 (printed 57)', firstLink?.href.endsWith('#page=58') && firstLink.text.includes("57"))
+  const markers = (await page.locator('[data-testid="page-marker"]').allInnerTexts()).map((t) => t.trim())
+  check('7.4 page markers show the printed page (else the page in the file)',
+    markers.length > 0 && markers.every((m) => /עמ' \d+|עמוד \d+ בקובץ/.test(m)), `${markers.length} markers; first: ${markers[0]}`)
+  check("7.4 first risk page shows printed page 57", markers[0]?.includes("עמ' 57"), markers[0])
+  check('7.4 no page marker or link opens the source PDF',
+    (await page.locator('[data-testid="page-marker"] a').count()) === 0 && (await page.locator('a[href*=".pdf"]').count()) === 0)
   // mixed Hebrew/Latin: find the AI risk paragraph and check the "(AI)" run keeps Latin order
   const ai = page.locator('[data-pid]', { hasText: 'בינה מלאכותית (AI)' }).first()
   await ai.scrollIntoViewIfNeeded()
@@ -121,9 +123,13 @@ const check = (name, ok, detail = '') => {
   await page.click('button[type="submit"]')
   await page.waitForSelector('[data-testid="answer"][data-status="done"]', { timeout: 15000 })
   const meta = await page.locator('[data-testid="answer-meta"]').innerText()
-  const sources = await page.locator('[data-testid="source-links"] a').evaluateAll((as) => as.map((a) => a.href))
+  const sources = await page.locator('[data-testid="source-ids"] li').allInnerTexts()
+  const readerLink = page.locator('[data-testid="answer-meta"] a[href$="/MLTM/2025/report/business-22.1"]')
   check('7.6 answer streamed and completed', (await page.locator('[data-testid="answer"]').innerText()).includes('תשובה לדוגמה'))
-  check('7.6 cost and source-paragraph links shown when done', meta.includes('$0.00') && sources.length > 0 && sources.every((h) => /#page=\d+$/.test(h)), `${sources.length} sources`)
+  check('7.6 cost and supplied paragraph ids shown when done',
+    meta.includes('$0.00') && sources.length > 0 && sources.every((t) => /^MLTM-2025-p\d{4}-\d{3}$/.test(t.trim())), `${sources.length} paragraph ids`)
+  check('7.6 link to the section in the reader, none to the PDF',
+    (await readerLink.count()) === 1 && (await page.locator('[data-testid="answer-meta"] a[href*=".pdf"]').count()) === 0)
   await page.screenshot({ path: `${SHOTS}/5-playground.png` })
 
   // cancel: a stream that sends one delta and stays open until the client aborts

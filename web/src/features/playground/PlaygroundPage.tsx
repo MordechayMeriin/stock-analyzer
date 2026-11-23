@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { ExternalLink, Send, Square } from 'lucide-react'
+import { Send, Square } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 
@@ -204,22 +204,12 @@ export function PlaygroundPage() {
               </p>
               <div>
                 <p className="mb-1 font-medium">הפסקאות שנשלחו למודל ({done.paragraph_ids.length})</p>
-                <ul className="flex flex-wrap gap-1.5" data-testid="source-links">
-                  {done.paragraph_ids.map((pid) => {
-                    const href = done.citations[pid]
-                    const page = pageOfPid(pid)
-                    return (
-                      <li key={pid}>
-                        {href ? (
-                          <a href={href} target="_blank" rel="noreferrer" className="hover:bg-accent inline-flex items-center gap-1 rounded border px-1.5 py-0.5 font-mono text-xs" title={`עמוד ${page} בקובץ`}>
-                            <bdi>{pid}</bdi> <ExternalLink className="size-3" aria-hidden />
-                          </a>
-                        ) : (
-                          <bdi className="font-mono text-xs">{pid}</bdi>
-                        )}
-                      </li>
-                    )
-                  })}
+                <ul className="flex flex-wrap gap-1.5" data-testid="source-ids">
+                  {done.paragraph_ids.map((pid) => (
+                    <li key={pid} className="rounded border px-1.5 py-0.5 font-mono text-xs" title={`עמוד ${pageOfPid(pid)} בקובץ`}>
+                      <bdi>{pid}</bdi>
+                    </li>
+                  ))}
                 </ul>
                 {selectionKind === 'node' && nodeId && (
                   <Link className="text-primary mt-2 inline-block underline" to={`/${ticker}/${year}/report/${nodeId}`}>

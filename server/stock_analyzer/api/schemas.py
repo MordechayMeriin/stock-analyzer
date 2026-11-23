@@ -61,7 +61,6 @@ class PlaygroundDone(BaseModel):
     usage: PlaygroundUsage
     latency_ms: int
     paragraph_ids: list[str]
-    citations: dict[str, str | None]  # paragraph id → document_url#page=N
 
 
 class PlaygroundEvents(BaseModel):

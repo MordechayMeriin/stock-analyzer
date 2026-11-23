@@ -121,7 +121,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Paragraphs of a page (PDF page index) */
+        /** Paragraphs of a page (Markdown page index) */
         get: operations["get_page_api_companies__ticker__reports__fiscal_year__pages__page_index__get"];
         put?: never;
         post?: never;
@@ -267,6 +267,12 @@ export interface components {
             business_sections: number;
             /** Business Sections Matched From Toc */
             business_sections_matched_from_toc: number;
+            /**
+             * Business Sections Source
+             * @default toc
+             * @enum {string}
+             */
+            business_sections_source: "toc" | "body_numbering";
             /** Business Toc Entries */
             business_toc_entries: number;
             /** Chapters Duplicated */
@@ -301,8 +307,6 @@ export interface components {
         FilingOut: {
             /** Cached */
             cached: boolean;
-            /** Document Url */
-            document_url: string | null;
             /** File Extension */
             file_extension: string | null;
             /** File Size */
@@ -317,8 +321,6 @@ export interface components {
             selected: boolean;
             /** Title */
             title: string;
-            /** Viewer Url */
-            viewer_url: string | null;
         };
         /** FilingsOut */
         FilingsOut: {
@@ -457,8 +459,6 @@ export interface components {
         };
         /** PageParagraphsOut */
         PageParagraphsOut: {
-            /** Citation Url */
-            citation_url: string | null;
             /** Fiscal Year */
             fiscal_year: number;
             /** Node Ids */
@@ -481,8 +481,6 @@ export interface components {
         };
         /** ParagraphOut */
         ParagraphOut: {
-            /** Citation Url */
-            citation_url: string | null;
             /** Heading Level */
             heading_level: number;
             /** In Table */
@@ -505,10 +503,6 @@ export interface components {
         };
         /** PlaygroundDone */
         PlaygroundDone: {
-            /** Citations */
-            citations: {
-                [key: string]: string | null;
-            };
             /** Latency Ms */
             latency_ms: number;
             /** Model */
@@ -568,8 +562,6 @@ export interface components {
         /** StructureOut */
         StructureOut: {
             coverage: components["schemas"]["Coverage"];
-            /** Document Url */
-            document_url: string | null;
             /** Filing Id */
             filing_id: number;
             /** Fiscal Year */

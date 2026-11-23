@@ -2,7 +2,7 @@
 
 ## Purpose
 
-The Hebrew, right-to-left browser client in which an analyst browses companies and reports, reads reports with page citations, inspects financials and queries the LLM. Later phases add diff, ratio, feed, eval and committee views here.
+The Hebrew, right-to-left browser client in which an analyst browses companies and reports, reads reports with printed page numbers, inspects financials and queries the LLM. Later phases add diff, ratio, feed, eval and committee views here.
 
 ## Requirements
 

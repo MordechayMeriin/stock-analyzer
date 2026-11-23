@@ -24,7 +24,9 @@ def get_node(ctx: CtxDep, ticker: str, fiscal_year: FiscalYear, node_id: str) ->
 
 
 @router.get(
-    "/pages/{page_index}", response_model=PageParagraphsOut, summary="Paragraphs of a page (PDF page index)"
+    "/pages/{page_index}",
+    response_model=PageParagraphsOut,
+    summary="Paragraphs of a page (Markdown page index)",
 )
 def get_page(
     ctx: CtxDep, ticker: str, fiscal_year: FiscalYear, page_index: Annotated[int, Path(ge=1)]

@@ -6,7 +6,7 @@ in `tests/fixtures/`, "synthetic" a test built from the real line.
 
 | Quirk | Where | Handling | Test |
 |---|---|---|---|
-| Printed page = PDF page − 1 (not − 2 as first assumed); numbering restarts per chapter | FY2024 / FY2025 | Offset checked per numbering run; restarts recorded, not flagged | fixture + live |
+| Printed page = Markdown page − 1 (the cover has no number); numbering restarts per chapter | FY2024 / FY2025 | Restarts recorded; the printed/index offset is no longer checked (parser 2: pages are Markdown pages, the PDF is not linked) | fixture + live |
 | A `---` above footnotes inside one page (PDF p150) | FY2025 | Not a page break when followed by a footnote marker and no footer yet; 188 pages = PDF | fixture + synthetic + live |
 | Table rows and numbered-list items at a page end look like footers | FY2025 p135, p173 | Table rows next to other rows and bare numbers after a list item are not footers | live |
 | Stray space inside a word: `פרק ש לישי` | FY2024 | Chapter ordinals matched with spaces removed | synthetic |

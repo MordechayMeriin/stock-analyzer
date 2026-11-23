@@ -110,8 +110,8 @@ def test_structure_node_page_endpoints(client):
     assert s["page_count"] == 36 and any(n["node_id"] == "business-22" for n in s["nodes"])
     node = client.get("/api/companies/MLTM/reports/2025/nodes/business-22").json()
     p = node["paragraphs"][0]
-    assert set(p) >= {"pid", "text", "page_index", "page_printed", "citation_url"}
-    assert p["citation_url"].endswith(f"#page={p['page_index']}")
+    assert set(p) >= {"pid", "text", "page_index", "page_printed"}
+    assert "citation_url" not in p and "document_url" not in s  # no links to the source PDF
     page = client.get(f"/api/companies/MLTM/reports/2025/pages/{p['page_index']}").json()
     assert page["page_index"] == p["page_index"] and page["paragraphs"]
     assert client.get("/api/companies/MLTM/reports/2025/nodes/nope").json()["code"] == "node_not_found"
@@ -199,7 +199,7 @@ def test_playground_streams_deltas_then_done(settings):
         and done["paragraph_ids"]
         and all(p.startswith("MLTM-2025-p") for p in done["paragraph_ids"])
     )
-    assert all(u.endswith(f"#page={int(pid.split('-p')[1][:4])}") for pid, u in done["citations"].items())
+    assert "citations" not in done  # no links to the source document
     call = app.state.llm.calls[0]
     assert call.role == "main" and "מה הסיכונים?" in call.user and done["paragraph_ids"][0] in call.user
     assert "Answer in Hebrew" in call.system

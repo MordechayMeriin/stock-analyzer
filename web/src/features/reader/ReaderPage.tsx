@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { ExternalLink, MessageSquare } from 'lucide-react'
+import { MessageSquare } from 'lucide-react'
 import { useEffect } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 
@@ -12,7 +12,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { rememberYear } from '@/lib/years'
 
-/** Report reader: structure tree + the chosen node's paragraphs with page citations. */
+/** Report reader: structure tree + the chosen node's paragraphs with printed page numbers. */
 export function ReaderPage() {
   const { ticker = '', fy = '', nodeId } = useParams()
   const year = Number(fy)
@@ -41,11 +41,6 @@ export function ReaderPage() {
                   דוח <bdi>FY{s.fiscal_year}</bdi> · <bdi>{s.page_count}</bdi> עמודים · תיק{' '}
                   <bdi className="font-mono">#{s.filing_id}</bdi>
                 </p>
-                {s.document_url && (
-                  <a href={s.document_url} target="_blank" rel="noreferrer" className="text-primary inline-flex items-center gap-1 underline">
-                    הדוח המקורי (PDF) <ExternalLink className="size-3" aria-hidden />
-                  </a>
-                )}
                 {s.warnings.length > 0 && (
                   <details>
                     <summary className="cursor-pointer">
