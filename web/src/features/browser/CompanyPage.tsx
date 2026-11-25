@@ -11,8 +11,18 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { formatBytes, formatDate } from '@/lib/format'
 
+/** Why a year's uncached report cannot be read: the provider has no Markdown for it. */
+function unavailableReason(year: FiscalYearFilings): 'processing' | 'failed' | null {
+  if (year.report_cached) return null
+  if (year.markdown_availability === 'processing' || year.markdown_availability === 'failed') {
+    return year.markdown_availability
+  }
+  return null
+}
+
 function YearCard({ ticker, year }: { ticker: string; year: FiscalYearFilings }) {
   const selected = year.filings.find((f) => f.selected)
+  const unavailable = unavailableReason(year)
   return (
     <Card data-testid={`year-${year.fiscal_year}`}>
       <CardHeader>
@@ -30,6 +40,16 @@ function YearCard({ ticker, year }: { ticker: string; year: FiscalYearFilings })
             </Badge>
           )}
           {year.selection_error && <Badge variant="destructive">אין דוח מלא</Badge>}
+          {unavailable === 'processing' && (
+            <Badge variant="warning" data-testid="not-processed-badge">
+              טרם עובד אצל הספק
+            </Badge>
+          )}
+          {unavailable === 'failed' && (
+            <Badge variant="destructive" data-testid="conversion-failed-badge">
+              הספק לא הצליח להמיר
+            </Badge>
+          )}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -52,7 +72,17 @@ function YearCard({ ticker, year }: { ticker: string; year: FiscalYearFilings })
           ))}
         </ul>
         {year.selection_error && <p className="text-destructive text-sm">{year.selection_error}</p>}
-        {selected && (
+        {unavailable === 'processing' && (
+          <p className="text-muted-foreground text-sm" data-testid="unavailable-reason">
+            ספק הדיווחים טרם המיר את הדוח לטקסט, ולכן אי אפשר עדיין לקרוא אותו או לשאול עליו.
+          </p>
+        )}
+        {unavailable === 'failed' && (
+          <p className="text-destructive text-sm" data-testid="unavailable-reason">
+            ספק הדיווחים לא הצליח להמיר את הדוח לטקסט, ולכן אי אפשר לקרוא אותו או לשאול עליו.
+          </p>
+        )}
+        {selected && !unavailable && (
           <div className="flex flex-wrap gap-2">
             <Button asChild size="sm">
               <Link to={`/${ticker}/${year.fiscal_year}/report`}>

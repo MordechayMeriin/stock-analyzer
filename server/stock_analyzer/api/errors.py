@@ -24,6 +24,7 @@ STATUS_BY_CODE: dict[str, int] = {
     "not_cached": 409,
     "company_already_tracked": 409,
     "company_not_removable": 409,
+    "report_not_processed": 409,
     "live_disabled": 403,
     "live_required": 403,
     "selection_too_large": 413,

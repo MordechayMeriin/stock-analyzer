@@ -81,7 +81,13 @@ uv run uvicorn stock_analyzer.api.main:app --port 8000
 - Health: http://localhost:8000/health (liveness, which credentials are configured, and
   `storage: {backend, ok}`; always 200, `ok: false` when the database is unreachable)
 - Data routes take `?mode=cached|live`. With `ALLOW_LIVE=false` live requests get `403 live_disabled`.
-- Errors are always `{"code": "...", "message": "..."}`; e.g. `404 company_not_found`, `409 not_cached`.
+- Errors are always `{"code": "...", "message": "..."}`; e.g. `404 company_not_found`, `409 not_cached`,
+  `409 report_not_processed` (the provider has no Markdown for the selected filing yet, or could not
+  convert it; see `docs/fr_api.md`).
+- `GET /api/companies/{ticker}/filings` gives each year's `markdown_availability` (`available`,
+  `unknown`, `processing`, `failed`) and each filing's raw `processing_status`. In live mode a cached
+  filing list older than a day is fetched again (about 1 credit) when a year's selected report is
+  still `processing` or `failed`.
 - `POST /api/playground` streams server-sent events (`delta`…, then `done` with cost and paragraph ids).
   It calls the LLM only in live mode, or with `LLM_FAKE=true` (offline fake, no key, no cost).
 

@@ -104,7 +104,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Paragraphs of a structure node */
+        /**
+         * Paragraphs of a structure node
+         * @description An uncached report is fetched in live mode. If the provider has no Markdown for the selected filing (not processed yet, or not convertible), the request fails with 409 `report_not_processed`.
+         */
         get: operations["get_node_api_companies__ticker__reports__fiscal_year__nodes__node_id__get"];
         put?: never;
         post?: never;
@@ -121,7 +124,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Paragraphs of a page (Markdown page index) */
+        /**
+         * Paragraphs of a page (Markdown page index)
+         * @description An uncached report is fetched in live mode. If the provider has no Markdown for the selected filing (not processed yet, or not convertible), the request fails with 409 `report_not_processed`.
+         */
         get: operations["get_page_api_companies__ticker__reports__fiscal_year__pages__page_index__get"];
         put?: never;
         post?: never;
@@ -138,7 +144,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Report structure tree */
+        /**
+         * Report structure tree
+         * @description An uncached report is fetched in live mode. If the provider has no Markdown for the selected filing (not processed yet, or not convertible), the request fails with 409 `report_not_processed`.
+         */
         get: operations["get_structure_api_companies__ticker__reports__fiscal_year__structure_get"];
         put?: never;
         post?: never;
@@ -315,6 +324,11 @@ export interface components {
             filing_id: number;
             /** Fiscal Year */
             fiscal_year: number | null;
+            /**
+             * Processing Status
+             * @description The provider's Markdown processing status as given (COMPLETED, QUEUED, ...); null if none
+             */
+            processing_status?: string | null;
             /** Release Datetime */
             release_datetime: string | null;
             /** Selected */
@@ -378,6 +392,11 @@ export interface components {
             filings: components["schemas"]["FilingOut"][];
             /** Fiscal Year */
             fiscal_year: number;
+            /**
+             * Markdown Availability
+             * @description Whether the provider has Markdown for the selected filing: available (COMPLETED), unknown (no status), processing (PENDING/QUEUED/PROCESSING) or failed (FAILED/SKIPPED). Null when no filing is selected.
+             */
+            markdown_availability?: ("available" | "unknown" | "processing" | "failed") | null;
             /** Report Cached */
             report_cached: boolean;
             /** Selected Filing Id */

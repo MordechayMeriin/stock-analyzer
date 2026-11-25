@@ -67,6 +67,12 @@ class ReportSelectionError(AnalyzerError):
     code = "report_selection_failed"
 
 
+class ReportNotProcessed(AnalyzerError):
+    """The provider has no Markdown for the selected filing (not yet processed, or not convertible)."""
+
+    code = "report_not_processed"
+
+
 class ProviderError(AnalyzerError):
     """The provider answered with an error status (after retries for 429/5xx)."""
 
