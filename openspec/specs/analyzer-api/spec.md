@@ -62,11 +62,27 @@ The API SHALL stop tracking a company that was added at runtime, by ticker. The 
 - **THEN** it is refused with a 404 and code `company_not_found`
 
 ### Requirement: Filing endpoints
-The API SHALL list a company's annual filings and indicate, for each fiscal year, which filing was selected as the full report and whether its Markdown is cached.
+The API SHALL list a company's annual filings and indicate, for each fiscal year, which filing was selected as the full report, whether its Markdown is cached, and its Markdown availability at the provider (`available`, `unknown`, `processing` or `failed`; absent when nothing is selected). Each filing entry SHALL carry the provider's processing status. Filing entries SHALL NOT carry document or viewer URLs.
 
 #### Scenario: Selected report flag
 - **WHEN** filings for MLTM are requested
 - **THEN** filing 32935334 is marked as selected for FY2025
+
+#### Scenario: No document links
+- **WHEN** filings for any company are requested
+- **THEN** no filing entry has a document URL or viewer URL field
+
+#### Scenario: Year waiting for the provider
+- **WHEN** filings for RMLI are requested and FY2024's selected filing 61337033 has status `QUEUED`
+- **THEN** FY2024 shows 61337033 as selected with Markdown availability `processing`, and FY2025 shows `available`
+
+#### Scenario: Availability mapping
+- **WHEN** a year's selected filing has status `COMPLETED`, no status, `PENDING`/`QUEUED`/`PROCESSING`, or `FAILED`/`SKIPPED`
+- **THEN** the year's Markdown availability is `available`, `unknown`, `processing` or `failed` respectively; any other status is `unknown`
+
+#### Scenario: No selection
+- **WHEN** a year has no candidate full report
+- **THEN** its selection error is set and it has no Markdown availability
 
 ### Requirement: Report endpoints
 For a ticker and fiscal year, the API SHALL return the structure tree, the paragraphs of a given node, and the paragraphs of a given page. Each paragraph SHALL include a citation URL that points at its page in the original document.
@@ -112,11 +128,15 @@ Each request SHALL run in cached mode (local data only, no provider calls) or li
 - **THEN** it is refused with an explanatory error
 
 ### Requirement: Consistent error responses
-Errors SHALL use one JSON shape with a machine-readable code, a human-readable message and an HTTP status that matches the cause (not found, not cached, upstream failure, validation error, configuration error).
+Errors SHALL use one JSON shape with a machine-readable code, a human-readable message and an HTTP status that matches the cause (not found, not cached, report not yet processed by the provider, upstream failure, validation error, configuration error).
 
 #### Scenario: Unknown ticker
 - **WHEN** an unknown ticker is requested
 - **THEN** a 404 is returned with code `company_not_found`
+
+#### Scenario: Report not processed by the provider
+- **WHEN** a live-mode request for the RMLI FY2024 report structure needs Markdown the provider has not produced
+- **THEN** a 409 is returned with code `report_not_processed` and a message naming the filing and its provider status
 
 ### Requirement: Health endpoint
 The API SHALL expose an unauthenticated health endpoint that reports liveness and whether provider and LLM credentials are configured, without revealing them.

@@ -32,7 +32,8 @@
 
 ## 6. Integration check
 
-- [ ] 6.1 Run the full offline server suite (`uv run pytest` in `server/`), and the `live_data` tests against the hosted store (`DATABASE_URL`, cached mode). Then run the API in cached mode against the hosted store and check `GET /api/companies/RMLI/filings` and `/api/companies/DLEKG/filings`. Verify that RMLI FY2024 and DLEKG FY2023 report `processing`, all cached years are still `report_cached: true` with unchanged selected ids, and no provider call is logged.
+- [x] 6.1 Run the full offline server suite (`uv run pytest` in `server/`), and the `live_data` tests against the hosted store (`DATABASE_URL`, cached mode). Then run the API in cached mode against the hosted store and check `GET /api/companies/RMLI/filings` and `/api/companies/DLEKG/filings`. Verify that RMLI FY2024 and DLEKG FY2023 report `processing`, all cached years are still `report_cached: true` with unchanged selected ids, and no provider call is logged.
+  - Done 2026-11-25, with a substitute accepted by the user. The offline suite passed. `DATABASE_URL` was not available in the working environment, so the `live_data` tests skipped. Instead, the API ran in cached mode against a local copy of the hosted state: the filing lists and the 9 cached report ids, read from the hosted store. RMLI FY2019–2024 and DLEKG FY2019–2023 reported `processing`, all 9 cached years kept `report_cached: true` with unchanged ids, and the usage log held only cache hits at 0 credits.
 
 ## Workflow follow-up
 
