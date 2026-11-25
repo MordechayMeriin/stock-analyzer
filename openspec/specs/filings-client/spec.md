@@ -29,7 +29,7 @@ The system SHALL list a company's annual-report filings newest first, including 
 - **THEN** filing 61337033 (FY2024) carries the status `QUEUED` and filing 33051170 (FY2025) carries `COMPLETED`
 
 ### Requirement: Annual report selection
-For each fiscal year the system SHALL choose exactly one full report: the fiscal year comes from the filing's fiscal-year field or the first `20\d\d` in its title; candidates must be PDF filings without "iXBRL" in the title; the largest file wins. If no candidate exists, selection SHALL fail with an error naming the company and year.
+For each fiscal year the system SHALL choose exactly one full report: the fiscal year comes from the filing's fiscal-year field or the first `20\d\d` in its title; candidates must be PDF filings without "iXBRL" in the title whose title names a periodic report; the largest file wins. If no candidate exists, selection SHALL fail with an error naming the company and year.
 
 #### Scenario: Malam FY2025
 - **WHEN** the FY2025 report for Malam is selected
@@ -42,6 +42,14 @@ For each fiscal year the system SHALL choose exactly one full report: the fiscal
 #### Scenario: No candidate
 - **WHEN** a year has only HTM and iXBRL filings
 - **THEN** selection fails with an error that names the ticker and fiscal year
+
+#### Scenario: Trustee report is not an annual report
+- **WHEN** Delek Group's only PDF filing for FY2026 is titled `דו"ח שנתי – נאמנות למחזיקי אגרות החוב (סדרה לז'), הרמטיק`
+- **THEN** no report is selected for FY2026, and the error lists that filing
+
+#### Scenario: English and Hebrew titles
+- **WHEN** a year's PDF is titled `Periodic and annual report for 2025` or `דוח תקופתי ושנתי לשנת 2024`
+- **THEN** it is a candidate: a title names a periodic report when it contains `תקופתי`, or `periodic` in any letter case
 
 ### Requirement: Complete report Markdown retrieval
 The system SHALL retrieve a filing's full Markdown text using as few paged calls as possible, and SHALL verify that the assembled length equals the provider's reported total character count. The text and its metadata SHALL be saved per ticker and fiscal year. When the provider has no Markdown for a filing that is not `COMPLETED`, retrieval SHALL fail with a "report not processed" error naming the company, year, filing and provider status.
