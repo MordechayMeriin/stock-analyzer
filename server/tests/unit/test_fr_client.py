@@ -280,3 +280,54 @@ def test_usage_cached_mode_returns_last_seen(respx_mock, settings, client):
     )
     client.usage()
     assert FRClient(settings, mode="cached").usage() == {"free_credits": {"remaining": 400}}
+
+
+# ---------------------------------------------------------------- filing list age and refresh
+
+
+def test_cached_at_reads_the_stored_time_without_logging(settings, client):
+    from datetime import UTC, datetime
+
+    from tests.conftest import seed_fr_cache
+
+    params = {
+        "company": 7010,
+        "type": "10-K",
+        "ordering": "-release_datetime",
+        "view": "full",
+        "page_size": 100,
+        "page": 1,
+    }
+    assert client.cached_at("/filings/", params) is None
+    assert client.filings_cached_at(7010) is None
+    before = datetime.now(UTC)
+    seed_fr_cache(settings, "/filings/", params, {"count": 0, "next": None, "results": []})
+    at = client.filings_cached_at(7010)
+    assert at is not None and at >= before and at.tzinfo is not None
+    assert client.cached_at("/filings/", params) == at
+    assert not (settings.logs_dir / "fr.jsonl").exists()  # no usage record for an age check
+
+
+@respx.mock(base_url=BASE)
+def test_list_filings_refresh_overwrites_every_page(respx_mock, client, fixtures_dir):
+    page = json.loads((fixtures_dir / "malam_filings.json").read_text())
+    first = {**page, "results": page["results"][:5], "next": f"{BASE}/filings/?page=2"}
+    second = {**page, "results": page["results"][5:], "next": None}
+    queued = {**second, "results": [{**r, "processing_status": "QUEUED"} for r in second["results"]]}
+    route = respx_mock.get("/filings/").mock(
+        side_effect=[
+            httpx.Response(200, json=first),
+            httpx.Response(200, json=queued),
+            httpx.Response(200, json=first),
+            httpx.Response(200, json=second),
+        ]
+    )
+    stale = client.list_filings(6901)
+    assert stale[-1].processing_status == "QUEUED"
+    assert client.list_filings(6901)[-1].processing_status == "QUEUED"  # from the cache
+    assert route.call_count == 2
+    fresh = client.list_filings(6901, refresh=True)
+    assert route.call_count == 4
+    assert fresh[-1].processing_status == page["results"][-1].get("processing_status")
+    assert client.list_filings(6901)[-1].processing_status != "QUEUED"  # cache overwritten
+    assert route.call_count == 4

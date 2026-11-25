@@ -59,6 +59,21 @@ def test_not_cached_error(client):
     assert r.status_code == 409 and r.json()["code"] == "not_cached"
 
 
+def test_report_not_processed_error(client, monkeypatch):
+    from stock_analyzer.errors import ReportNotProcessed
+
+    def not_processed(*_args, **_kw):
+        raise ReportNotProcessed("RMLI FY2024: the provider has not processed filing 61337033 (QUEUED)")
+
+    monkeypatch.setattr(reports, "report_structure", not_processed)
+    r = client.get("/api/companies/MLTM/reports/2024/structure")
+    assert r.status_code == 409
+    assert r.json() == {
+        "code": "report_not_processed",
+        "message": "RMLI FY2024: the provider has not processed filing 61337033 (QUEUED)",
+    }
+
+
 def test_live_refused_when_disabled(settings):
     seed_malam(settings)
     app = create_app(settings.model_copy(update={"allow_live": False}))
@@ -103,6 +118,16 @@ def test_filings_endpoint_marks_selected(client):
     fy2025 = next(y for y in body["years"] if y["fiscal_year"] == 2025)
     assert fy2025["selected_filing_id"] == 32935334 and fy2025["report_cached"] is True
     assert [f["filing_id"] for f in fy2025["filings"] if f["selected"]] == [32935334]
+
+
+def test_filings_endpoint_reports_processing_status(client):
+    body = client.get("/api/companies/MLTM/filings").json()
+    fy2025 = next(y for y in body["years"] if y["fiscal_year"] == 2025)
+    assert fy2025["markdown_availability"] == "available"
+    assert {f["filing_id"]: f["processing_status"] for f in fy2025["filings"]}[32935334] == "COMPLETED"
+    for year in body["years"]:
+        if year["selection_error"]:
+            assert year["markdown_availability"] is None
 
 
 def test_structure_node_page_endpoints(client):

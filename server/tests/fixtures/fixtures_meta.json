@@ -58,5 +58,15 @@
   "2024": 63741657,
   "2025": 32935334
  },
- "note": "style_b is a composite: page index i in the fixture is source page style_b_pages[i-1]"
+ "note": "style_b is a composite: page index i in the fixture is source page style_b_pages[i-1]",
+ "filings_fixtures": {
+  "rmli_dlekg_filings.json": {
+   "companies": {
+    "DLEKG": 6742,
+    "RMLI": 7010
+   },
+   "listed_at": "2026-11-23",
+   "fiscal_years": "2019-2026"
+  }
+ }
 }

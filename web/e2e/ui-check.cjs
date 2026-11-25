@@ -75,6 +75,47 @@ const check = (name, ok, detail = '') => {
   check('7.3 filings shown without links to their PDFs', (await page.locator('a[href*=".pdf"]').count()) === 0)
   await page.screenshot({ path: `${SHOTS}/2-company.png`, fullPage: true })
 
+  // ---- reports the provider has not processed (use-filing-processing-status), routed responses
+  const rmliCompany = { ticker: 'RMLI', name_he: 'רמי לוי', name_en: null, fr_company_id: 7010, isin: null, source: 'added' }
+  const pdf = (id, fy, status, size) => ({
+    filing_id: id, title: `דוח תקופתי ושנתי לשנת ${fy}`, fiscal_year: fy, release_datetime: `${fy + 1}-03-27T13:07:01Z`,
+    file_extension: 'PDF', file_size: size, selected: true, cached: false, processing_status: status,
+  })
+  const yearOf = (fy, availability, status, cached = false) => {
+    const f = { ...pdf(60000000 + fy, fy, status, 14456209), cached }
+    return { fiscal_year: fy, selected_filing_id: f.filing_id, selection_error: null, report_cached: cached, markdown_availability: availability, filings: [f] }
+  }
+  const rmliFilings = {
+    ticker: 'RMLI',
+    years: [
+      yearOf(2025, 'available', 'COMPLETED'),
+      yearOf(2024, 'processing', 'QUEUED'),
+      yearOf(2023, 'processing', 'QUEUED', true),
+      yearOf(2022, 'failed', 'FAILED'),
+      yearOf(2021, 'unknown', null),
+    ],
+  }
+  await page.route('**/api/companies/RMLI/filings?*', (r) => r.fulfill({ contentType: 'application/json', body: JSON.stringify(rmliFilings) }))
+  await page.route('**/api/companies/RMLI?*', (r) => r.fulfill({ contentType: 'application/json', body: JSON.stringify(rmliCompany) }))
+  await page.goto(BASE + '/RMLI')
+  await page.waitForSelector('[data-testid="year-2024"]')
+  const yr = (fy) => page.locator(`[data-testid="year-${fy}"]`)
+  const readLinks = (fy) => yr(fy).getByRole('link', { name: /קריאת הדוח|שאלה ל-LLM/ }).count()
+  check('processing: a year the provider has not processed is marked, explained, and offers no read/ask',
+    (await yr(2024).locator('[data-testid="not-processed-badge"]').count()) === 1 &&
+      (await yr(2024).locator('[data-testid="unavailable-reason"]').innerText()).includes('טרם המיר') &&
+      (await readLinks(2024)) === 0)
+  check('processing: a year the provider could not convert is marked and offers no read/ask',
+    (await yr(2022).locator('[data-testid="conversion-failed-badge"]').count()) === 1 && (await readLinks(2022)) === 0)
+  check('processing: a cached report stays readable whatever its availability',
+    (await yr(2023).locator('[data-testid="not-processed-badge"]').count()) === 0 && (await readLinks(2023)) === 2)
+  check('processing: available and unknown years keep their read/ask actions',
+    (await readLinks(2025)) === 2 && (await readLinks(2021)) === 2 &&
+      (await page.locator('[data-testid="unavailable-reason"]').count()) === 2)
+  await page.screenshot({ path: `${SHOTS}/2b-not-processed.png`, fullPage: true })
+  await page.unroute('**/api/companies/RMLI/filings?*')
+  await page.unroute('**/api/companies/RMLI?*')
+
   // ---- 7.4 reader via deep link to the risk section
   await page.goto(BASE + '/MLTM/2025/report/business-22')
   await page.waitForSelector('[data-testid="node-title"]')

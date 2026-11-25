@@ -2,21 +2,49 @@
 
 Rule: fiscal year from ``fiscal_year`` or the first ``20\\d\\d`` in the title →
 candidates are PDF filings without "iXBRL" in the title whose title names a periodic report
-(``תקופתי``, or ``periodic`` in any case; a bond-trustee "annual report" is not one) → the largest
-``file_size`` wins. PDF only describes the provider filing whose Markdown is fetched; nothing links
-to it. No candidate is a loud failure naming the company and year.
+(``תקופתי``, or ``periodic`` in any case; a bond-trustee "annual report" is not one) → a candidate
+whose Markdown is available or of unknown status beats one the provider has not processed or could
+not convert (:func:`markdown_availability`) → within the same availability the largest ``file_size``
+wins. A year whose candidates are all unprocessed still selects one, so callers can say which filing
+it waits for. PDF only describes the provider filing whose Markdown is fetched; nothing links to it.
+No candidate is a loud failure naming the company and year.
 """
 
 from __future__ import annotations
 
 import re
 from collections.abc import Iterable
+from typing import Literal
 
 from stock_analyzer.errors import ReportSelectionError
 from stock_analyzer.ingest.fr_client import Filing
 
 _YEAR = re.compile(r"20\d\d")
 _PERIODIC = re.compile(r"תקופתי|periodic", re.IGNORECASE)
+
+Availability = Literal["available", "unknown", "processing", "failed"]
+
+# The provider's processing_status → whether the filing's Markdown can be fetched. A missing or
+# unrecognised status means unknown: the provider treats it as "try it", not as "not ready".
+_AVAILABILITY_BY_STATUS: dict[str, Availability] = {
+    "COMPLETED": "available",
+    "PENDING": "processing",
+    "QUEUED": "processing",
+    "PROCESSING": "processing",
+    "FAILED": "failed",
+    "SKIPPED": "failed",
+}
+_RANK: dict[Availability, int] = {"available": 2, "unknown": 2, "processing": 1, "failed": 0}
+
+
+def markdown_availability(filing: Filing) -> Availability:
+    status = (filing.processing_status or "").strip().upper()
+    return _AVAILABILITY_BY_STATUS.get(status, "unknown")
+
+
+def is_ready(filing: Filing) -> bool:
+    """False when the provider says it has no Markdown for the filing (yet)."""
+    return markdown_availability(filing) in ("available", "unknown")
 
 
 def filing_fiscal_year(filing: Filing) -> int | None:
@@ -44,7 +72,7 @@ def select_report(filings: Iterable[Filing], fiscal_year: int, *, ticker: str = 
             f"no full annual report for {ticker} FY{fiscal_year}: no PDF filing titled as a periodic report "
             f"(תקופתי / periodic) without 'iXBRL' among that year's filings [{seen}]"
         )
-    return max(candidates, key=lambda f: (f.file_size or 0, f.id))
+    return max(candidates, key=lambda f: (_RANK[markdown_availability(f)], f.file_size or 0, f.id))
 
 
 def selected_by_year(filings: Iterable[Filing], *, ticker: str = "?") -> dict[int, Filing]:

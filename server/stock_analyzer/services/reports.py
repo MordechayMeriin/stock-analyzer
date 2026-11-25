@@ -19,6 +19,7 @@ from stock_analyzer.ingest.select import select_report
 from stock_analyzer.ingest.structure import STRUCTURE_VERSION, Node, Structure, build_structure
 from stock_analyzer.services.companies import resolve_company
 from stock_analyzer.services.context import Ctx
+from stock_analyzer.services.filings import fetch_markdown, filings_for
 from stock_analyzer.services.models import (
     NodeOut,
     NodeParagraphsOut,
@@ -43,8 +44,8 @@ def _ensure_raw(ctx: Ctx, ticker: str, fiscal_year: int) -> tuple[str, ReportMet
             f"(stock-analyzer fetch {ticker.upper()} {fiscal_year})"
         )
     company = resolve_company(ctx, ticker)
-    filing = select_report(ctx.fr.list_filings(company.fr_company_id), fiscal_year, ticker=company.ticker)
-    text = ctx.fr.get_markdown(filing.id)
+    filing = select_report(filings_for(ctx, company, [fiscal_year]), fiscal_year, ticker=company.ticker)
+    text = fetch_markdown(ctx, company, fiscal_year, filing)
     meta = save_report(ctx.settings, company.ticker, fiscal_year, filing, text, store=ctx.store)
     return text, meta
 

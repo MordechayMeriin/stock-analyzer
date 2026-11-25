@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, Field, StringConstraints, field_validator
 
@@ -64,6 +64,10 @@ class FilingOut(BaseModel):
     file_size: int | None
     selected: bool  # the full annual report chosen for its fiscal year
     cached: bool  # its Markdown is saved locally
+    processing_status: str | None = Field(
+        default=None,
+        description="The provider's Markdown processing status as given (COMPLETED, QUEUED, ...); null if none",
+    )
 
 
 class FiscalYearFilings(BaseModel):
@@ -71,6 +75,12 @@ class FiscalYearFilings(BaseModel):
     selected_filing_id: int | None
     selection_error: str | None = None
     report_cached: bool
+    markdown_availability: Literal["available", "unknown", "processing", "failed"] | None = Field(
+        default=None,
+        description="Whether the provider has Markdown for the selected filing: available (COMPLETED), "
+        "unknown (no status), processing (PENDING/QUEUED/PROCESSING) or failed (FAILED/SKIPPED). "
+        "Null when no filing is selected.",
+    )
     filings: list[FilingOut]
 
 

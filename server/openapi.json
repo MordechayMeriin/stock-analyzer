@@ -332,6 +332,18 @@
             ],
             "title": "Fiscal Year"
           },
+          "processing_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The provider's Markdown processing status as given (COMPLETED, QUEUED, ...); null if none",
+            "title": "Processing Status"
+          },
           "release_datetime": {
             "anyOf": [
               {
@@ -539,6 +551,24 @@
           "fiscal_year": {
             "title": "Fiscal Year",
             "type": "integer"
+          },
+          "markdown_availability": {
+            "anyOf": [
+              {
+                "enum": [
+                  "available",
+                  "unknown",
+                  "processing",
+                  "failed"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Whether the provider has Markdown for the selected filing: available (COMPLETED), unknown (no status), processing (PENDING/QUEUED/PROCESSING) or failed (FAILED/SKIPPED). Null when no filing is selected.",
+            "title": "Markdown Availability"
           },
           "report_cached": {
             "title": "Report Cached",
@@ -1711,6 +1741,7 @@
     },
     "/api/companies/{ticker}/reports/{fiscal_year}/nodes/{node_id}": {
       "get": {
+        "description": "An uncached report is fetched in live mode. If the provider has no Markdown for the selected filing (not processed yet, or not convertible), the request fails with 409 `report_not_processed`.",
         "operationId": "get_node_api_companies__ticker__reports__fiscal_year__nodes__node_id__get",
         "parameters": [
           {
@@ -1789,6 +1820,7 @@
     },
     "/api/companies/{ticker}/reports/{fiscal_year}/pages/{page_index}": {
       "get": {
+        "description": "An uncached report is fetched in live mode. If the provider has no Markdown for the selected filing (not processed yet, or not convertible), the request fails with 409 `report_not_processed`.",
         "operationId": "get_page_api_companies__ticker__reports__fiscal_year__pages__page_index__get",
         "parameters": [
           {
@@ -1868,6 +1900,7 @@
     },
     "/api/companies/{ticker}/reports/{fiscal_year}/structure": {
       "get": {
+        "description": "An uncached report is fetched in live mode. If the provider has no Markdown for the selected filing (not processed yet, or not convertible), the request fails with 409 `report_not_processed`.",
         "operationId": "get_structure_api_companies__ticker__reports__fiscal_year__structure_get",
         "parameters": [
           {
