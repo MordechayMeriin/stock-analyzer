@@ -14,11 +14,15 @@ The whole interface SHALL be in Hebrew with a right-to-left layout. Numbers, dat
 - **THEN** the text reads right to left, and the Latin term and number keep their correct order
 
 ### Requirement: Company and filing browser
-The client SHALL let the user pick a tracked company or search for one, show its annual filings by fiscal year with the selected full report marked and its cached status, and show provider credit usage.
+The client SHALL let the user pick a tracked company or search for one, show its annual filings by fiscal year with the selected full report marked and its cached status, and show provider credit usage. Filings SHALL be shown without links to their documents.
 
 #### Scenario: Pick Malam
 - **WHEN** the user selects Malam
 - **THEN** FY2024 and FY2025 are listed, each with its selected report and cached status, and the credit usage is visible
+
+#### Scenario: No document links
+- **WHEN** the filings of any company are shown
+- **THEN** no filing has a link that opens its PDF
 
 ### Requirement: Track a company from search
 For each provider search result that is not tracked, the client SHALL offer an action to add it. The action SHALL open a form with the ticker and Hebrew name prefilled from the result and editable, and SHALL require both before submitting. After a successful add, the tracked-companies list and the search result SHALL show the company as tracked without a page reload.
@@ -56,11 +60,15 @@ In cached mode, the client SHALL show the add and stop-tracking actions as disab
 - **THEN** its add action is disabled and explains that live mode is needed
 
 ### Requirement: Report reader
-For a chosen company and fiscal year, the client SHALL show the report's structure tree and, when a node is chosen, its paragraphs with page markers. Each page marker SHALL link to that page of the original document.
+For a chosen company and fiscal year, the client SHALL show the report's structure tree and, when a node is chosen, its paragraphs with page markers. A page marker SHALL show the printed page number when the page has one, and otherwise the page's position in the report file; page markers SHALL NOT link to the source PDF.
 
 #### Scenario: Read a section
 - **WHEN** the user opens the risk-factors section of Malam FY2025
-- **THEN** its paragraphs are shown with printed page numbers, and each page link opens the source PDF at that page
+- **THEN** its paragraphs are shown with printed page numbers, and no page marker opens a PDF
+
+#### Scenario: Page without a printed number
+- **WHEN** a paragraph's page has no printed number
+- **THEN** its page marker shows the page's position in the report file, labelled as such
 
 #### Scenario: Deep link
 - **WHEN** the user opens a URL that names a company, year and node
@@ -74,11 +82,11 @@ The client SHALL show a company's normalized financial line items as a table wit
 - **THEN** income, balance-sheet and cash-flow items are shown per year, with the reporting currency displayed
 
 ### Requirement: LLM playground
-The client SHALL let the user select a report section (or pages), type a question, and see the Hebrew answer stream in. When the answer finishes, the client SHALL show its cost and links to the paragraphs that were supplied as context.
+The client SHALL let the user select a report section (or pages), type a question, and see the Hebrew answer stream in. When the answer finishes, the client SHALL show its cost and the ids of the paragraphs that were supplied as context. For a section selection, it SHALL also link to that section in the reader. No link SHALL open the source PDF.
 
 #### Scenario: Ask about a section
 - **WHEN** the user asks a question about the selected risk-factors section
-- **THEN** the answer appears incrementally, and on completion the cost and source-paragraph links are shown
+- **THEN** the answer appears incrementally, and on completion the cost, the supplied paragraph ids and a link to the section in the reader are shown
 
 #### Scenario: Cancel
 - **WHEN** the user cancels a streaming answer
