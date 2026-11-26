@@ -59,9 +59,9 @@ def style_b_slice(text: str, pages: list[int]) -> str:
 
 
 def trim_financials(data: dict, years: range) -> dict:
-    keep_period = {"fiscal_year", "fiscal_period", "period_start_date", "period_end_date"}
-    keep_stmt = {"statement_type", "currency", "currency_mismatch", "source_filing"}
-    keep_item = {
+    keep_period = ("fiscal_year", "fiscal_period", "period_start_date", "period_end_date")
+    keep_stmt = ("statement_type", "currency", "currency_mismatch", "source_filing")
+    keep_item = (  # tuples, not sets: a fixed key order keeps regenerated fixtures diff-stable
         "code",
         "name",
         "statement_type",
@@ -74,7 +74,7 @@ def trim_financials(data: dict, years: range) -> dict:
         "currency",
         "available_at",
         "revisions",
-    }
+    )
     periods = []
     for p in data["periods"]:
         if p.get("fiscal_year") not in years:
@@ -90,6 +90,7 @@ def trim_financials(data: dict, years: range) -> dict:
         periods.append(period)
     return {
         "company_id": data["company_id"],
+        "template": data.get("template"),
         "currency": data.get("currency"),
         "period_count": len(periods),
         "periods": periods,

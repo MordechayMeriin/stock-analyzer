@@ -68,7 +68,11 @@ Each template has an ordered list of `Field(name, statement, label_he, sources)`
   small Python callable over `Decimal`s.
 
 Resolution walks the sources in order and stops at the first value. Rules may use fields resolved later in
-the list (resolution is lazy and memoized per year), and a cycle raises at registry-load time.
+the list (resolution is lazy and memoized per year). Some rules depend on each other on purpose (gross profit
+⇄ cost of revenue, total ⇄ common equity), so cycles are not rejected when the registry loads: a rule that
+would recurse into a field already being resolved is skipped, and each fills the other only when the other is
+reported. A third source kind, `CodeSum(id, codes)`, sums provider codes that must all be present (used for
+the debt components).
 *Alternative:* string formulas with a parser. Rejected: a parser to maintain for a dozen rules, and Python
 callables are type-checked and testable.
 
@@ -132,7 +136,9 @@ consolidated net income.
   for neutral ratios; NA when either year is missing.
 - Initial thresholds come from plan.md §3.3 where given (gross margin 0.5pp, ROE 1.5pp, ROA 0.5pp,
   current ratio 0.1, debt/equity 0.1, equity/assets 2pp, CFO/NI 0.2, FCF 10% relative, FCF margin 0.5pp);
-  the others start at 0.5pp for margins, 3pp for growth and 2pp for bank ratios.
+  revenue growth 3pp and net income / EPS growth 10pp, also from plan.md; margins otherwise 0.5pp. Bank
+  ratios get per-ratio thresholds scaled to their levels (loans/deposits 2pp, non-performing loans 0.1pp,
+  coverage 0.5, capital ratios 0.5pp), since one flat value cannot fit a ratio near 0.2% and one near 75%.
 
 ### D7. Year window
 Ratios are computed over every fiscal year in the sheet (averages and growth need the year before), then the

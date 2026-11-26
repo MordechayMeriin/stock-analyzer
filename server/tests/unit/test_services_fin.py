@@ -21,6 +21,12 @@ def test_financials_grouped_by_statement_and_year(settings):
     assert out.available_at["2023"].startswith("2024-06-13")
 
 
+def test_company_financials_carries_template(settings):
+    seed_malam(settings)
+    fin = fin_service.company_financials(Ctx(settings), "MLTM")
+    assert fin.template == "industrial" and fin.values == fin_service.fin_values(Ctx(settings), "MLTM")
+
+
 def test_financials_as_of_excludes_late_values(settings):
     seed_malam(settings)
     out = fin_service.financials(Ctx(settings), "MLTM", as_of=date(2024, 4, 1))

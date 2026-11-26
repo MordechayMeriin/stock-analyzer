@@ -74,6 +74,22 @@ def test_report_not_processed_error(client, monkeypatch):
     }
 
 
+def test_template_not_supported_error(client, monkeypatch):
+    from stock_analyzer.errors import TemplateNotSupported
+    from stock_analyzer.services import financials
+
+    def unsupported(*_args, **_kw):
+        raise TemplateNotSupported("MLTM: no canonical fields for template 'reit'")
+
+    monkeypatch.setattr(financials, "financials", unsupported)
+    r = client.get("/api/companies/MLTM/financials")
+    assert r.status_code == 422
+    assert r.json() == {
+        "code": "template_not_supported",
+        "message": "MLTM: no canonical fields for template 'reit'",
+    }
+
+
 def test_live_refused_when_disabled(settings):
     seed_malam(settings)
     app = create_app(settings.model_copy(update={"allow_live": False}))

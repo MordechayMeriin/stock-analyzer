@@ -99,6 +99,12 @@ class CurrencyMismatch(AnalyzerError):
     code = "currency_mismatch"
 
 
+class TemplateNotSupported(AnalyzerError):
+    """The company's provider statement template has no canonical fields, so no ratios."""
+
+    code = "template_not_supported"
+
+
 class SelectionTooLarge(AnalyzerError):
     code = "selection_too_large"
 
