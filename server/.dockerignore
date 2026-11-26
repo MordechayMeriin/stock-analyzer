@@ -5,6 +5,7 @@
 .ruff_cache
 data/*
 !data/companies.yaml
+!data/osint_blocklist.yaml
 tests
 docs
 scripts

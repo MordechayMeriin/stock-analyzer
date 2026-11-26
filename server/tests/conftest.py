@@ -30,7 +30,10 @@ def _offline(monkeypatch):
     real_connect = socket.socket.connect
 
     def guarded(self, address):
-        if self.family in (socket.AF_INET, socket.AF_INET6):
+        # loopback stays allowed: on Windows asyncio's event loop builds its self-pipe with a
+        # loopback socketpair, so blocking it would break every asyncio.run in the tests
+        host = address[0] if isinstance(address, tuple) and address else None
+        if self.family in (socket.AF_INET, socket.AF_INET6) and host not in ("127.0.0.1", "::1"):
             raise NetworkBlocked(f"network access attempted in tests: {address!r}")
         return real_connect(self, address)
 

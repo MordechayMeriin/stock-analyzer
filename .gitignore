@@ -6,6 +6,7 @@
 # Server data: only the tracked-company registry is versioned
 server/data/*
 !server/data/companies.yaml
+!server/data/osint_blocklist.yaml
 # plan.md §7: financial overrides are versioned too (Phase 3)
 !server/data/financials/
 server/data/financials/*
