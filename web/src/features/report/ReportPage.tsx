@@ -20,7 +20,7 @@ const COLUMN = 'mx-auto w-full max-w-[480px] space-y-9 px-5 py-6'
 function NewCompanyLink() {
   return (
     <Button asChild variant="ghost" className="-ms-3 min-h-11">
-      <Link to="/">נתח מניה חדשה</Link>
+      <Link to="/c">נתח מניה חדשה</Link>
     </Button>
   )
 }

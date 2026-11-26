@@ -35,6 +35,10 @@ const router = createBrowserRouter([
         lazy: () => import('./features/osint/OsintPage').then((m) => ({ Component: m.OsintPage })),
       },
       {
+        path: 'c',
+        lazy: () => import('./features/report/search/SearchPage').then((m) => ({ Component: m.SearchPage })),
+      },
+      {
         path: 'c/:ticker',
         lazy: () => import('./features/report/ReportPage').then((m) => ({ Component: m.ReportPage })),
       },

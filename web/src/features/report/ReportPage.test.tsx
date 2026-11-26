@@ -32,7 +32,7 @@ describe('ReportPage with MLTM', () => {
     expect(await screen.findByRole('heading', { name: 'מלם תים' })).toBeTruthy()
     expect(screen.getByRole('img')).toBeTruthy()
     expect(screen.getAllByRole('button', { expanded: false })).toHaveLength(5)
-    expect(screen.getByText('נתח מניה חדשה').closest('a')?.getAttribute('href')).toBe('/')
+    expect(screen.getByText('נתח מניה חדשה').closest('a')?.getAttribute('href')).toBe('/c')
     expect(screen.getByText(/אינו מהווה המלצה/)).toBeTruthy()
   })
 

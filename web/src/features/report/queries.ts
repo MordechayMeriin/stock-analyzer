@@ -15,6 +15,18 @@ const FIXTURES: Record<string, CompanyReport> = {
   SPARSE: sparseFixture as CompanyReport,
 }
 
+/** Whether a report can be loaded for this ticker (today: a fixture exists). */
+export function hasReport(ticker: string): boolean {
+  return ticker.toUpperCase() in FIXTURES
+}
+
+/** The fixture tickers with their company, for search when the server is unreachable. */
+export const FIXTURE_COMPANIES = Object.entries(FIXTURES).map(([ticker, r]) => ({
+  ticker,
+  name_he: ticker === r.company.ticker ? r.company.name_he : `${r.company.name_he} · נתוני בדיקה`,
+  name_en: r.company.name_en ?? null,
+}))
+
 const FIXTURE_DELAY_MS = 300
 
 function wait(ms: number, signal?: AbortSignal): Promise<void> {
