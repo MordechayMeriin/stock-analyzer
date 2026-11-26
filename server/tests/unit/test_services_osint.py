@@ -180,3 +180,56 @@ def test_usage_records_have_osint_purposes(settings):
     path = settings.logs_dir / "llm.jsonl"
     purposes = {json.loads(line)["purpose"] for line in path.read_text().splitlines()}
     assert "osint-search" in purposes and "osint-agent:osint_orchestrator" in purposes
+
+
+def test_progress_reported_in_order(settings):
+    spy = Spy()
+    events = []
+    result = osint.run_research(
+        live_ctx(settings),
+        "ELAL",
+        today=TODAY,
+        backend=spy.search,
+        model_factory=spy.factory,
+        on_progress=events.append,
+    )
+    steps = [e.step for e in events]
+    assert steps[0] == "orchestrator" and steps[-1] == "synthesis"
+    assert steps.count("search") == result.searches_used
+    assert {e.area for e in events if e.step == "area_done"} == set(AREAS)
+    assert {e.area for e in events if e.step == "area_start"} == set(AREAS)
+    used = [e.searches_used for e in events]
+    assert used == sorted(used) and max(used) <= result.search_limit
+    assert all(e.search_limit == result.search_limit for e in events)
+
+
+def test_failing_progress_callback_does_not_fail_the_run(settings):
+    spy = Spy()
+
+    def boom(_event):
+        raise RuntimeError("stream closed")
+
+    result = osint.run_research(
+        live_ctx(settings),
+        "ELAL",
+        today=TODAY,
+        backend=spy.search,
+        model_factory=spy.factory,
+        on_progress=boom,
+    )
+    assert result.findings
+
+
+def test_run_slot_is_exclusive_per_ticker_and_window():
+    from stock_analyzer.errors import ResearchInProgress
+
+    osint.acquire_run("elal", 36)
+    try:
+        with pytest.raises(ResearchInProgress):
+            osint.acquire_run("ELAL", 36)
+        osint.acquire_run("ELAL", 12)  # another window is a different slot
+        osint.release_run("ELAL", 12)
+    finally:
+        osint.release_run("ELAL", 36)
+    osint.acquire_run("ELAL", 36)  # free again
+    osint.release_run("ELAL", 36)

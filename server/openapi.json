@@ -1030,6 +1030,108 @@
         "title": "NodeParagraphsOut",
         "type": "object"
       },
+      "OsintEvents": {
+        "description": "Documentation of the OSINT run stream: ``event: progress|done|error`` with these JSON payloads.",
+        "properties": {
+          "done": {
+            "$ref": "#/components/schemas/ResearchResult"
+          },
+          "error": {
+            "$ref": "#/components/schemas/ErrorOut"
+          },
+          "progress": {
+            "$ref": "#/components/schemas/OsintProgress"
+          }
+        },
+        "required": [
+          "progress",
+          "done",
+          "error"
+        ],
+        "title": "OsintEvents",
+        "type": "object"
+      },
+      "OsintProgress": {
+        "description": "One progress report from a running research (streamed by the API).",
+        "properties": {
+          "area": {
+            "anyOf": [
+              {
+                "enum": [
+                  "news",
+                  "market",
+                  "credit",
+                  "operations",
+                  "labor_government",
+                  "competition_macro"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Area"
+          },
+          "query": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Query"
+          },
+          "search_limit": {
+            "title": "Search Limit",
+            "type": "integer"
+          },
+          "searches_used": {
+            "title": "Searches Used",
+            "type": "integer"
+          },
+          "step": {
+            "enum": [
+              "orchestrator",
+              "search",
+              "area_start",
+              "area_done",
+              "synthesis"
+            ],
+            "title": "Step",
+            "type": "string"
+          }
+        },
+        "required": [
+          "step",
+          "searches_used",
+          "search_limit"
+        ],
+        "title": "OsintProgress",
+        "type": "object"
+      },
+      "OsintRunIn": {
+        "description": "Body of a live OSINT research run. ``months`` defaults to the server's window (36).",
+        "properties": {
+          "months": {
+            "anyOf": [
+              {
+                "maximum": 120.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Months"
+          }
+        },
+        "title": "OsintRunIn",
+        "type": "object"
+      },
       "PageParagraphsOut": {
         "properties": {
           "fiscal_year": {
@@ -2373,8 +2475,8 @@
     },
     "/api/companies/{ticker}/osint": {
       "get": {
-        "description": "Returns the latest stored research result for the ticker and window. Never searches the web or calls an LLM, in any mode. Fails with 409 `not_cached` when the company has not been researched yet.",
-        "operationId": "get_research_api_companies__ticker__osint_get",
+        "description": "Open-source stability research, never based on official filings. Returns the latest stored result for the ticker and window in either mode; `not_cached` (409) when none is stored.",
+        "operationId": "get_osint_api_companies__ticker__osint_get",
         "parameters": [
           {
             "in": "path",
@@ -2386,7 +2488,7 @@
             }
           },
           {
-            "description": "Research window in months. Defaults to the server's OSINT_WINDOW_MONTHS (36).",
+            "description": "Research window in months (default: the server's, 36)",
             "in": "query",
             "name": "months",
             "required": false,
@@ -2401,7 +2503,7 @@
                   "type": "null"
                 }
               ],
-              "description": "Research window in months. Defaults to the server's OSINT_WINDOW_MONTHS (36).",
+              "description": "Research window in months (default: the server's, 36)",
               "title": "Months"
             }
           },
@@ -2444,14 +2546,14 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Latest stored OSINT stability scorecard",
+        "summary": "Latest stored OSINT stability research (never calls a provider)",
         "tags": [
           "osint"
         ]
       },
       "post": {
-        "description": "Researches the company afresh from open sources (never its official filings), stores the result as the latest one and returns it. Spends LLM and web-search credit and takes minutes. Refused in cached mode (`live_required`) and on a cached-only server (`live_disabled`). A run whose findings all fail verification fails with 422 `osint_no_findings`.",
-        "operationId": "run_research_api_companies__ticker__osint_post",
+        "description": "Searches the web afresh and costs OpenRouter credit (about $1); takes several minutes. Refused before the stream starts with `live_required` (cached mode), `live_disabled` (cached-only server), `missing_credential`, `company_not_found`, or `research_in_progress` (a run for this ticker and window is already running in this server process). The run continues if the client disconnects.",
+        "operationId": "run_osint_api_companies__ticker__osint_post",
         "parameters": [
           {
             "in": "path",
@@ -2460,26 +2562,6 @@
             "schema": {
               "title": "Ticker",
               "type": "string"
-            }
-          },
-          {
-            "description": "Research window in months. Defaults to the server's OSINT_WINDOW_MONTHS (36).",
-            "in": "query",
-            "name": "months",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "maximum": 120,
-                  "minimum": 1,
-                  "type": "integer"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "Research window in months. Defaults to the server's OSINT_WINDOW_MONTHS (36).",
-              "title": "Months"
             }
           },
           {
@@ -2499,16 +2581,33 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/OsintRunIn"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ResearchResult"
+                  "$ref": "#/components/schemas/OsintEvents"
                 }
               }
             },
-            "description": "Successful Response"
+            "description": "text/event-stream of `progress` events, then one `done` (or `error`) event. Payload schemas are listed in OsintEvents."
           },
           "422": {
             "content": {
@@ -2521,7 +2620,7 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Run OSINT stability research (live mode only)",
+        "summary": "Run fresh OSINT stability research (live mode, streamed)",
         "tags": [
           "osint"
         ]

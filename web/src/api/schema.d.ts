@@ -105,16 +105,16 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Latest stored OSINT stability scorecard
-         * @description Returns the latest stored research result for the ticker and window. Never searches the web or calls an LLM, in any mode. Fails with 409 `not_cached` when the company has not been researched yet.
+         * Latest stored OSINT stability research (never calls a provider)
+         * @description Open-source stability research, never based on official filings. Returns the latest stored result for the ticker and window in either mode; `not_cached` (409) when none is stored.
          */
-        get: operations["get_research_api_companies__ticker__osint_get"];
+        get: operations["get_osint_api_companies__ticker__osint_get"];
         put?: never;
         /**
-         * Run OSINT stability research (live mode only)
-         * @description Researches the company afresh from open sources (never its official filings), stores the result as the latest one and returns it. Spends LLM and web-search credit and takes minutes. Refused in cached mode (`live_required`) and on a cached-only server (`live_disabled`). A run whose findings all fail verification fails with 422 `osint_no_findings`.
+         * Run fresh OSINT stability research (live mode, streamed)
+         * @description Searches the web afresh and costs OpenRouter credit (about $1); takes several minutes. Refused before the stream starts with `live_required` (cached mode), `live_disabled` (cached-only server), `missing_credential`, `company_not_found`, or `research_in_progress` (a run for this ticker and window is already running in this server process). The run continues if the client disconnects.
          */
-        post: operations["run_research_api_companies__ticker__osint_post"];
+        post: operations["run_osint_api_companies__ticker__osint_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -601,6 +601,42 @@ export interface components {
             paragraphs: components["schemas"]["ParagraphOut"][];
             /** Ticker */
             ticker: string;
+        };
+        /**
+         * OsintEvents
+         * @description Documentation of the OSINT run stream: ``event: progress|done|error`` with these JSON payloads.
+         */
+        OsintEvents: {
+            done: components["schemas"]["ResearchResult"];
+            error: components["schemas"]["ErrorOut"];
+            progress: components["schemas"]["OsintProgress"];
+        };
+        /**
+         * OsintProgress
+         * @description One progress report from a running research (streamed by the API).
+         */
+        OsintProgress: {
+            /** Area */
+            area?: ("news" | "market" | "credit" | "operations" | "labor_government" | "competition_macro") | null;
+            /** Query */
+            query?: string | null;
+            /** Search Limit */
+            search_limit: number;
+            /** Searches Used */
+            searches_used: number;
+            /**
+             * Step
+             * @enum {string}
+             */
+            step: "orchestrator" | "search" | "area_start" | "area_done" | "synthesis";
+        };
+        /**
+         * OsintRunIn
+         * @description Body of a live OSINT research run. ``months`` defaults to the server's window (36).
+         */
+        OsintRunIn: {
+            /** Months */
+            months?: number | null;
         };
         /** PageParagraphsOut */
         PageParagraphsOut: {
@@ -1191,10 +1227,10 @@ export interface operations {
             };
         };
     };
-    get_research_api_companies__ticker__osint_get: {
+    get_osint_api_companies__ticker__osint_get: {
         parameters: {
             query?: {
-                /** @description Research window in months. Defaults to the server's OSINT_WINDOW_MONTHS (36). */
+                /** @description Research window in months (default: the server's, 36) */
                 months?: number | null;
                 /** @description cached: local data only, no provider calls. live: fetch what is missing (if the server allows). */
                 mode?: "cached" | "live";
@@ -1227,11 +1263,9 @@ export interface operations {
             };
         };
     };
-    run_research_api_companies__ticker__osint_post: {
+    run_osint_api_companies__ticker__osint_post: {
         parameters: {
             query?: {
-                /** @description Research window in months. Defaults to the server's OSINT_WINDOW_MONTHS (36). */
-                months?: number | null;
                 /** @description cached: local data only, no provider calls. live: fetch what is missing (if the server allows). */
                 mode?: "cached" | "live";
             };
@@ -1241,15 +1275,19 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["OsintRunIn"] | null;
+            };
+        };
         responses: {
-            /** @description Successful Response */
+            /** @description text/event-stream of `progress` events, then one `done` (or `error`) event. Payload schemas are listed in OsintEvents. */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ResearchResult"];
+                    "application/json": components["schemas"]["OsintEvents"];
                 };
             };
             /** @description Validation Error */

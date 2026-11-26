@@ -104,6 +104,14 @@ cache under `osint:` keys) and is printed instead when live calls are off: `--mo
 `ALLOW_LIVE=false`. Fake-mode results are stored under separate keys and never served as real ones. Usage records go to the LLM
 usage log with purposes `osint-search` and `osint-agent:<agent>`.
 
+Over HTTP: `GET /api/companies/{ticker}/osint[?months=36]` returns the latest stored result in either mode
+and never calls a provider (`409 not_cached` when there is none). `POST /api/companies/{ticker}/osint?mode=live`
+(optional body `{"months": 12}`) runs fresh research and streams `progress` events, then one `done` (the
+result) or `error` event; it is refused before streaming with `403 live_required`, `403 live_disabled`,
+`503 missing_credential` or `409 research_in_progress` (one run per ticker and window per server process).
+A run that finds nothing usable ends with `osint_no_findings`. A client that disconnects does not stop the
+run; its result is still stored. The web client shows this at `/{ticker}/osint` (linked from the company page).
+
 ### Tracked companies
 
 The tracked companies are the version-controlled list in `data/companies.yaml` plus companies

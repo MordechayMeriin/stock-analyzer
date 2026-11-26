@@ -123,3 +123,15 @@ class StorageUnavailable(AnalyzerError):
     """The state store cannot be reached. Messages never include the connection string."""
 
     code = "storage_unavailable"
+
+
+class NoFindings(AnalyzerError):
+    """An OSINT run produced no finding that passed verification, so there is nothing to score."""
+
+    code = "osint_no_findings"
+
+
+class ResearchInProgress(AnalyzerError):
+    """An OSINT run for the same ticker and window is already running in this server process."""
+
+    code = "research_in_progress"
