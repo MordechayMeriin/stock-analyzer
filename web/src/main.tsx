@@ -25,6 +25,11 @@ const router = createBrowserRouter([
       { index: true, element: <CompaniesPage /> },
       { path: ':ticker', element: <CompanyPage /> },
       { path: ':ticker/financials', element: <FinancialsPage /> },
+      // Lazy: the chart library loads only when the ratios view opens.
+      {
+        path: ':ticker/ratios',
+        lazy: () => import('./features/ratios/RatiosPage').then((m) => ({ Component: m.RatiosPage })),
+      },
       { path: ':ticker/:fy/report', element: <ReaderPage /> },
       { path: ':ticker/:fy/report/:nodeId', element: <ReaderPage /> },
       { path: ':ticker/:fy/playground', element: <PlaygroundPage /> },

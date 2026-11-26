@@ -17,6 +17,58 @@ const check = (name, ok, detail = '') => {
   page.on('pageerror', (e) => consoleErrors.push(String(e)))
   page.on('console', (m) => m.type() === 'error' && consoleErrors.push(m.text()))
 
+  // ---- ratios view (add-financial-ratios 7.3). Needs cached financials for MLTM and LUMI on :8000.
+  // ONLY=ratios runs just this section.
+  const tickX = async (card, label) =>
+    (await card.locator('.recharts-xAxis-tick-labels text', { hasText: label }).first().boundingBox()).x
+  const fys = async (card) => card.locator('circle[data-testid="point"]').evaluateAll((els) => els.map((e) => Number(e.dataset.fy)))
+  const hoverYear = async (card, label) => {
+    await card.scrollIntoViewIfNeeded()
+    const box = await card.locator('[data-testid="ratio-chart"]').boundingBox()
+    const t = await card.locator('.recharts-xAxis-tick-labels text', { hasText: label }).first().boundingBox()
+    await page.mouse.move(t.x + t.width / 2, box.y + box.height / 2)  // labels are centered on their year
+    return card.locator('[data-testid="ratio-tooltip"]')
+  }
+  await page.goto(BASE + '/MLTM')
+  await page.click('[data-testid="ratios-link"]')
+  await page.waitForSelector('[data-testid="ratio-gross_margin"] circle[data-testid="point"]')
+  const gross = page.locator('[data-testid="ratio-gross_margin"]')
+  check('ratios: Malam gross margin shows 10.47% for FY2025', (await gross.locator('[data-testid="latest-value"]').innerText()).includes('10.47%'))
+  check('ratios: years increase left to right in the RTL page', (await tickX(gross, '2021')) < (await tickX(gross, '2025')))
+  check('ratios: gross margin has a point for every year', JSON.stringify((await fys(gross)).sort()) === '[2021,2022,2023,2024,2025]')
+  const change = gross.locator('[data-testid="change"]')
+  check('ratios: latest value shows its change and status (stable)', (await change.getAttribute('data-status')) === 'stable' && (await change.innerText()).includes('0.13'), await change.innerText())
+  const quick = page.locator('[data-testid="ratio-quick_ratio"]')
+  check('ratios: missing years have no point (quick ratio FY2021-22)', JSON.stringify((await fys(quick)).sort()) === '[2023,2024,2025]', JSON.stringify(await fys(quick)))
+  const qTip = await hoverYear(quick, '2021')
+  check('ratios: hovering a missing year shows the reason', (await qTip.locator('[data-testid="missing-reason"]').innerText()).includes('חסר נתון'))
+  const roe = page.locator('[data-testid="ratio-roe"]')
+  check('ratios: low-confidence point is marked', (await roe.locator('circle[data-fy="2025"][data-low="true"]').count()) === 1)
+  const rTip = await hoverYear(roe, '2025')
+  check('ratios: low-confidence details name the failed check', (await rTip.locator('[data-testid="low-confidence-details"]').innerText()).includes('BS5'))
+  await page.screenshot({ path: `${SHOTS}/r1-malam-ratios.png`, fullPage: true })
+  await page.fill('[data-testid="as-of"]', '2026-03-01')
+  await page.waitForFunction(() => !document.querySelector('[data-testid="ratio-gross_margin"] circle[data-fy="2025"]'))
+  check('ratios: availability date before FY2025 removes the FY2025 point', !(await fys(gross)).includes(2025))
+  await page.click('[data-testid="table-toggle"]')
+  check('ratios: table view lists every ratio row', (await page.locator('tr[data-code="gross_margin"]').count()) === 1)
+  await page.goto(BASE + '/LUMI/ratios')
+  await page.waitForSelector('[data-testid="group-credit"]')
+  check('ratios: bank shows credit and capital groups and no margin charts',
+    (await page.locator('[data-testid="group-capital"]').count()) === 1 && (await page.locator('[data-testid="ratio-gross_margin"]').count()) === 0)
+  check('ratios: a ratio with no value in any year shows a no-data message, not empty axes',
+    (await page.locator('[data-testid="ratio-roa"] [data-testid="no-data"]').count()) === 1 &&
+    (await page.locator('[data-testid="ratio-roa"] [data-testid="ratio-chart"]').count()) === 0)
+  await page.screenshot({ path: `${SHOTS}/r2-leumi-ratios.png`, fullPage: true })
+  if (process.env.ONLY === 'ratios') {
+    const failed = results.filter((r) => !r.ok)
+    const errors = consoleErrors.filter((e) => !e.includes('status of 409'))
+    check('ratios: no console errors', errors.length === 0, errors.slice(0, 3).join(' | '))
+    console.log(`\n${results.length - failed.length}/${results.length} checks passed`)
+    await browser.close()
+    process.exit(results.some((r) => !r.ok) ? 1 : 0)
+  }
+
   // ---- 7.2 shell: RTL + mode control reflects /health (cached-only server)
   await page.goto(BASE + '/')
   await page.waitForSelector('[data-testid="company-MLTM"]')

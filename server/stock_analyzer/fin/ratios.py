@@ -30,7 +30,9 @@ Direction = Literal["higher", "lower", "neutral"]
 Status = Literal["improved", "deteriorated", "changed", "stable", "na"]
 Confidence = Literal["high", "low"]
 
-ANNUAL_FILING_TYPES = {"10-K", "10-K-ESEF"}
+# Filing types known not to be annual reports: a value from one gets a note (not lower confidence). Other
+# types pass: the provider files some annual reports under generic types such as "RNS".
+NON_ANNUAL_FILING_TYPES = {"IR", "ER"}  # interim report, earnings release
 
 GROUP_LABELS_HE: dict[str, str] = {
     "profitability": "רווחיות",
@@ -390,7 +392,7 @@ def _compute_one(ratio: Ratio, sheet: Sheet, fy: int, failed: dict[int, dict[str
                 failed_checks.append(label)
         if cell.basis == "derived":
             derived.append(f"{cell.field}:{cell.fiscal_year}")
-        if cell.source_filing_type and cell.source_filing_type not in ANNUAL_FILING_TYPES:
+        if cell.source_filing_type in NON_ANNUAL_FILING_TYPES:
             notes.add("non_annual_source")
     return RatioValue(
         code=ratio.code,

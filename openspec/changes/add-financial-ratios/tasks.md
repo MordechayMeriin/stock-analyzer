@@ -36,13 +36,13 @@
 
 ## 7. Web client
 
-- [ ] 7.1 Add `recharts@3` to `web/package.json`, run `npm run gen:api`, and add `api.ratios(ticker, mode, asOf)` to `web/src/api/client.ts`. Verify `npm install`, `npm run check:api` and `npm run build` pass.
-- [ ] 7.2 Create `web/src/features/ratios/RatiosPage.tsx` (lazy-loaded route `:ticker/ratios` in `main.tsx`, linked from the company page), with group sections, one LTR chart card per ratio, unit formatters in `lib/format.ts`, `connectNulls={false}`, low-confidence dots, a tooltip with missing reason, failed checks and derived inputs, a latest-value header with delta and status, and the "available by date" control (design D10). Verify `npm run lint` and `npm run build` pass, and that the ratios chunk is separate from the main bundle in the build output.
-- [ ] 7.3 Extend `web/e2e/ui-check.cjs` with checks for the web-client scenarios "Malam ratios" (years increase left to right), "Bank company" (Leumi: no margin charts), "Missing year" (no FY2021 point for the quick ratio), "Low-confidence value", "Latest value and change" and "As-of date". Verify the script reports PASS for each, against the dev server and an API with the fixture data cached.
+- [x] 7.1 Add `recharts@3` to `web/package.json`, run `npm run gen:api`, and add `api.ratios(ticker, mode, asOf)` to `web/src/api/client.ts`. Verify `npm install`, `npm run check:api` and `npm run build` pass.
+- [x] 7.2 Create `web/src/features/ratios/RatiosPage.tsx` (lazy-loaded route `:ticker/ratios` in `main.tsx`, linked from the company page), with group sections, one LTR chart card per ratio, unit formatters in `lib/format.ts`, `connectNulls={false}`, low-confidence dots, a tooltip with missing reason, failed checks and derived inputs, a latest-value header with delta and status, and the "available by date" control (design D10). Verify `npm run lint` and `npm run build` pass, and that the ratios chunk is separate from the main bundle in the build output.
+- [x] 7.3 Extend `web/e2e/ui-check.cjs` with checks for the web-client scenarios "Malam ratios" (years increase left to right), "Bank company" (Leumi: no margin charts), "Missing year" (no FY2021 point for the quick ratio), "Low-confidence value", "Latest value and change" and "As-of date". Verify the script reports PASS for each, against the dev server and an API with the fixture data cached.
 
 ## 8. Integration
 
-- [ ] 8.1 Run the full server suite (`uv run pytest` in `server/`) and the web build and lint, then run `openspec validate add-financial-ratios --strict`. Verify all pass.
+- [x] 8.1 Run the full server suite (`uv run pytest` in `server/`) and the web build and lint, then run `openspec validate add-financial-ratios --strict`. Verify all pass.
 - [ ] 8.2 With a local API on the state store, open the ratios view for MLTM, LUMI and HARL in cached mode and confirm that no provider credits are spent (the usage log shows no new `fr` misses). Verify by checking `usage_log` before and after.
 
 ## Workflow follow-up

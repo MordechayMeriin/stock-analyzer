@@ -18,6 +18,10 @@ export type NodeParagraphs = Schemas['NodeParagraphsOut']
 export type PageParagraphs = Schemas['PageParagraphsOut']
 export type Paragraph = Schemas['ParagraphOut']
 export type Financials = Schemas['FinancialsOut']
+export type Ratios = Schemas['RatiosOut']
+export type RatioSeries = Schemas['RatioSeriesOut']
+export type RatioValue = Schemas['RatioValueOut']
+export type CheckResult = Schemas['CheckOut']
 export type Usage = Schemas['UsageOut']
 export type Health = Schemas['HealthOut']
 export type ApiErrorBody = Schemas['ErrorOut']
@@ -101,6 +105,8 @@ export const api = {
     get<Filings>(`/api/companies/${enc(ticker)}/filings`, { mode }, signal),
   financials: (ticker: string, mode: Mode, asOf?: string, signal?: AbortSignal) =>
     get<Financials>(`/api/companies/${enc(ticker)}/financials`, { mode, as_of: asOf }, signal),
+  ratios: (ticker: string, mode: Mode, asOf?: string, signal?: AbortSignal) =>
+    get<Ratios>(`/api/companies/${enc(ticker)}/ratios`, { mode, as_of: asOf }, signal),
   structure: (ticker: string, fy: number, mode: Mode, signal?: AbortSignal) =>
     get<Structure>(`/api/companies/${enc(ticker)}/reports/${fy}/structure`, { mode }, signal),
   node: (ticker: string, fy: number, nodeId: string, mode: Mode, signal?: AbortSignal) =>

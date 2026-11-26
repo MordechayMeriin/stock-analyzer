@@ -56,3 +56,49 @@ export function formatBytes(n: number | null | undefined): string {
 export function pageLabel(printed: number | null | undefined, index: number): string {
   return printed !== null && printed !== undefined ? `עמ' ${printed}` : `עמוד ${index} בקובץ`
 }
+
+/** Round an exact decimal string to `places` (half away from zero), exactly, via BigInt. */
+export function roundDecimal(value: string, places: number): string {
+  const m = /^(-?)(\d+)(?:\.(\d+))?$/.exec(value.trim())
+  if (!m) return value
+  const [, sign, int, frac = ''] = m
+  const digits = BigInt(int + frac.padEnd(places + 1, '0').slice(0, places + 1))
+  const rounded = (digits + 5n) / 10n
+  const text = rounded.toString().padStart(places + 1, '0')
+  const whole = places ? text.slice(0, -places) : text
+  const out = places ? `${whole}.${text.slice(-places)}` : whole
+  return sign && /[1-9]/.test(out) ? `-${out}` : out
+}
+
+/** Multiply an exact decimal string by 10^n (a decimal-point shift; n >= 0). */
+export function shiftDecimal(value: string, n: number): string {
+  const m = /^(-?)(\d+)(?:\.(\d+))?$/.exec(value.trim())
+  if (!m) return value
+  const [, sign, int, frac = ''] = m
+  const padded = frac.padEnd(n, '0')
+  const whole = (int + padded.slice(0, n)).replace(/^0+(?=\d)/, '')
+  const rest = padded.slice(n)
+  return `${sign}${whole}${rest ? `.${rest}` : ''}`
+}
+
+export type RatioUnit = 'percent' | 'ratio' | 'amount' | 'days'
+
+/** A ratio value (exact string; percent units are fractions) for display: "10.47%", "1.18", "65,518,000 ₪". */
+export function formatRatio(value: string | null | undefined, unit: RatioUnit, currency?: string | null): string {
+  if (value === null || value === undefined) return '—'
+  if (unit === 'percent') return `${roundDecimal(shiftDecimal(value, 2), 2)}%`
+  if (unit === 'amount') return formatMoney(roundDecimal(value, 0), currency)
+  if (unit === 'days') return `${roundDecimal(value, 0)} ימים`
+  return roundDecimal(value, 2)
+}
+
+/** A year-over-year delta with an explicit sign: percentage points, absolute, or relative for amounts. */
+export function formatDelta(delta: string | null | undefined, unit: RatioUnit): string {
+  if (delta === null || delta === undefined) return '—'
+  const sign = delta.startsWith('-') ? '−' : '+'
+  const abs = delta.replace(/^-/, '')
+  if (unit === 'percent') return `${sign}${roundDecimal(shiftDecimal(abs, 2), 2)} נק' אחוז`
+  if (unit === 'amount') return `${sign}${roundDecimal(shiftDecimal(abs, 2), 1)}%`
+  if (unit === 'days') return `${sign}${roundDecimal(abs, 0)} ימים`
+  return `${sign}${roundDecimal(abs, 2)}`
+}

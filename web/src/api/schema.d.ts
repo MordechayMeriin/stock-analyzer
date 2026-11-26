@@ -97,6 +97,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/companies/{ticker}/ratios": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Financial ratios by group and year, with confidence and data-quality checks */
+        get: operations["get_ratios_api_companies__ticker__ratios_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/companies/{ticker}/reports/{fiscal_year}/nodes/{node_id}": {
         parameters: {
             query?: never;
@@ -233,6 +250,28 @@ export interface components {
              * @description 1-15 Latin letters, digits, dots or hyphens; stored upper-case
              */
             ticker: string;
+        };
+        /** CheckOut */
+        CheckOut: {
+            /** Cells */
+            cells: string[];
+            /** Difference */
+            difference?: string | null;
+            /** Id */
+            id: string;
+            /** Label He */
+            label_he: string;
+            /** Left */
+            left?: string | null;
+            /** Reason */
+            reason?: string | null;
+            /** Right */
+            right?: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "passed" | "failed" | "not_applicable";
         };
         /** CompanyOut */
         CompanyOut: {
@@ -565,6 +604,107 @@ export interface components {
             /** Output Tokens */
             output_tokens: number;
         };
+        /** RatioGroupOut */
+        RatioGroupOut: {
+            /** Group */
+            group: string;
+            /** Label */
+            label: string;
+            /** Ratios */
+            ratios: components["schemas"]["RatioSeriesOut"][];
+        };
+        /** RatioSeriesOut */
+        RatioSeriesOut: {
+            /** Code */
+            code: string;
+            /**
+             * Direction
+             * @enum {string}
+             */
+            direction: "higher" | "lower" | "neutral";
+            /** Name He */
+            name_he: string;
+            /** Threshold */
+            threshold: string;
+            /**
+             * Unit
+             * @enum {string}
+             */
+            unit: "percent" | "ratio" | "amount" | "days";
+            /** Values */
+            values: {
+                [key: string]: components["schemas"]["RatioValueOut"];
+            };
+        };
+        /** RatioValueOut */
+        RatioValueOut: {
+            /**
+             * Avg Used
+             * @default false
+             */
+            avg_used: boolean;
+            /**
+             * Confidence
+             * @default high
+             * @enum {string}
+             */
+            confidence: "high" | "low";
+            /** Delta */
+            delta?: string | null;
+            /**
+             * Derived Inputs
+             * @default []
+             */
+            derived_inputs: string[];
+            /**
+             * Failed Checks
+             * @default []
+             */
+            failed_checks: string[];
+            /**
+             * Inputs
+             * @default {}
+             */
+            inputs: {
+                [key: string]: string;
+            };
+            /** Missing Message He */
+            missing_message_he?: string | null;
+            /** Missing Reason */
+            missing_reason?: string | null;
+            /**
+             * Notes
+             * @default []
+             */
+            notes: string[];
+            /**
+             * Status
+             * @default na
+             * @enum {string}
+             */
+            status: "improved" | "deteriorated" | "changed" | "stable" | "na";
+            /** Value */
+            value: string | null;
+        };
+        /** RatiosOut */
+        RatiosOut: {
+            /** As Of */
+            as_of: string | null;
+            /** Checks */
+            checks: {
+                [key: string]: components["schemas"]["CheckOut"][];
+            };
+            /** Currency */
+            currency: string | null;
+            /** Groups */
+            groups: components["schemas"]["RatioGroupOut"][];
+            /** Template */
+            template: string;
+            /** Ticker */
+            ticker: string;
+            /** Years */
+            years: number[];
+        };
         /** StorageHealth */
         StorageHealth: {
             /**
@@ -872,6 +1012,42 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["FinancialsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_ratios_api_companies__ticker__ratios_get: {
+        parameters: {
+            query?: {
+                /** @description Only values available by this date */
+                as_of?: string | null;
+                /** @description cached: local data only, no provider calls. live: fetch what is missing (if the server allows). */
+                mode?: "cached" | "live";
+            };
+            header?: never;
+            path: {
+                ticker: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RatiosOut"];
                 };
             };
             /** @description Validation Error */

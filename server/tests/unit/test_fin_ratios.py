@@ -179,3 +179,11 @@ def test_thresholds_give_a_mix_of_statuses(malam):
     ]
     assert {"stable", "improved", "deteriorated"} <= set(statuses)
     assert max(statuses.count(s) for s in set(statuses)) < 0.6 * len(statuses)
+
+
+def test_non_annual_source_note(malam, leumi):
+    assert leumi["equity_to_assets"].values[2025].notes == [
+        "non_annual_source"
+    ]  # FY2025 from an interim report
+    assert leumi["equity_to_assets"].values[2024].notes == []
+    assert malam["gross_margin"].values[2023].notes == []  # annual report filed under the generic RNS type
