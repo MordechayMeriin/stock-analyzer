@@ -1,8 +1,8 @@
 """State store interface (state-store spec, design D1).
 
 Everything the server persists goes through a :class:`Store`: the provider and LLM
-response caches, fetched report text with its metadata, financials snapshots, and the
-usage logs. Two backends implement it: files under ``DATA_DIR`` (:mod:`.fs`) and Postgres
+response caches, fetched report text with its metadata, financials snapshots, saved story
+runs, and the usage logs. Two backends implement it: files under ``DATA_DIR`` (:mod:`.fs`) and Postgres
 (:mod:`.pg`). Callers never build paths or SQL themselves.
 """
 
@@ -60,6 +60,18 @@ class Store(Protocol):
 
     def save_financials(self, ticker: str, revisions: bool, data: Any) -> None: ...
 
+    def save_story_run(self, ticker: str, run: Mapping[str, Any]) -> None:
+        """Save one story run (a JSON-compatible dict with run_id, created_at, as_of and years)."""
+        ...
+
+    def latest_story_run(self, ticker: str) -> dict[str, Any] | None:
+        """The most recently created story run for ``ticker``, exactly as saved."""
+        ...
+
+    def list_story_runs(self, ticker: str) -> list[dict[str, Any]]:
+        """Summaries (run_id, created_at, as_of, years) of every saved run, newest first."""
+        ...
+
     def log(self, source: Source, record: Mapping[str, Any]) -> None: ...
 
     def totals(self, source: Source) -> dict[str, Any]: ...
@@ -103,3 +115,7 @@ def llm_totals(records: Iterable[Mapping[str, Any]]) -> dict[str, float | int]:
         failures += not rec.get("ok", True)
         cost += float(rec.get("cost") or 0)
     return {"calls": calls, "cache_hits": cache_hits, "failures": failures, "total_cost_usd": round(cost, 6)}
+
+
+def story_run_summary(run: Mapping[str, Any]) -> dict[str, Any]:
+    return {k: run.get(k) for k in ("run_id", "created_at", "as_of", "years")}

@@ -30,7 +30,7 @@ from stock_analyzer.ingest.parse_md import Paragraph, ParsedReport
 
 log = logging.getLogger(__name__)
 
-STRUCTURE_VERSION = "1"
+STRUCTURE_VERSION = "2"  # 2: bare chapter titles and headless sections (FY2023)
 
 NodeKind = Literal["chapter", "section", "subsection", "note", "auditor_report", "statement", "other"]
 Chapter = Literal["business", "directors", "financials", "additional", "governance", "other"]
@@ -138,6 +138,17 @@ _CHAPTER_TITLE_MARKERS: tuple[tuple[str, Chapter], ...] = (
     ("הצהרות מנהלים", "governance"),
 )
 _ORDINAL_DEFAULT: dict[int, Chapter] = {1: "business", 2: "directors", 3: "financials", 4: "additional"}
+# a whole line that is only the directors' report title, optionally with its year or the usual
+# "on the state of the company's affairs"; later repeats (running headers) hit the "seen" check
+_BARE_CHAPTER_TITLE = re.compile(
+    r"^דוח הדירקטוריון(?:\s+על\s+מצב\s+ענייני\s+(?:החברה|התאגיד))?(?:\s+לשנת\s+\d{4})?$"
+)
+# a whole bold line naming the company (up to five words) and then the financial statements of a
+# year (FY2023 cover: "**מלם תים בע"מ דוחות כספיים לשנת 2023**", no ordinal, no heading)
+_BARE_FINANCIALS_TITLE = re.compile(r"^(?:\S+\s+){0,5}דוחות כספיים(?:\s+מאוחדים)?\s+לשנת\s*\d{4}$")
+# a whole bold line opening the internal-control report (FY2023: "**דוח שנתי בדבר אפקטיביות
+# הבקרה הפנימית על הדיווח הכספי ועל הגילוי לפי תקנה 9ב(א)**", no ordinal, no heading)
+_BARE_GOVERNANCE_TITLE = re.compile(r"^דוח שנתי בדבר אפקטיביות הבקרה הפנימית\b")
 _TOC_HEADINGS = ("תוכן עניינים", "תוכן העניינים", "רשימת פרקים", "תוכן העניין")
 
 _REF_BEFORE = re.compile(r"(?:סעיפים|סעיף|ס'|תקנה|תקנות|ביאור|ביאורים|ר'|ראה|ראו|בפרק|פרק)\s*[-–]?\s*$")
@@ -306,8 +317,14 @@ def find_chapters(
             nxt = " ".join(hints)
             title_hint = f"{t} {nxt}"
         else:
-            # a title marker alone starts a chapter only if it is a real heading
-            if not p.heading_level or not any(t.startswith(mk) for mk, _ in _CHAPTER_TITLE_MARKERS):
+            # a title marker alone starts a chapter only if it is a real heading, or a plain line
+            # that is nothing but the chapter title (FY2023: "דוח הדירקטוריון לשנת 2023", no ordinal)
+            bold = p.raw.lstrip().startswith("**")
+            if not (
+                (p.heading_level and any(t.startswith(mk) for mk, _ in _CHAPTER_TITLE_MARKERS))
+                or _BARE_CHAPTER_TITLE.match(t)
+                or (bold and (_BARE_FINANCIALS_TITLE.match(t) or _BARE_GOVERNANCE_TITLE.match(t)))
+            ):
                 continue
         kind: Chapter | None = next((ch for mk, ch in _CHAPTER_TITLE_MARKERS if mk in title_hint), None)
         if kind is None and ordinal is not None:
@@ -372,6 +389,23 @@ def _match_title_in(text: str, title: str, threshold: int) -> tuple[int, int, in
     return (int(score), start, end) if score >= threshold else None
 
 
+def _headless_section(
+    body: list[Paragraph], entry: TocEntry, cursor: tuple[int, int], last_number: int
+) -> tuple[Paragraph, int, str, str] | None:
+    """A section whose heading line the Markdown lost, leaving only its subsections (FY2023:
+    "13. הון חוזר" is gone but "13.1.היחס השוטף ..." follows section 12). The TOC gives the
+    number; the section starts at its first ``N.1`` subsection, if that is the next number."""
+    if not entry.number or not entry.number.isdigit() or int(entry.number) != last_number + 1:
+        return None
+    first_sub = re.compile(rf"^\.?{int(entry.number)}\.1\.?(?!\d)")
+    for p in body:
+        if p.seq < cursor[0] or (p.seq == cursor[0] and cursor[1] > 0):
+            continue
+        if first_sub.match(normalize_title(p.raw.split("\n", 1)[0])):
+            return p, 0, entry.number, "num"
+    return None
+
+
 def find_business_sections(
     paragraphs: list[Paragraph],
     toc: list[TocEntry],
@@ -428,6 +462,8 @@ def find_business_sections(
                 hit = (sub[0], sub[1] + e, sub[2] + e) if sub else None
             if found:
                 break
+        if not found:
+            found = _headless_section(body, entry, cursor, last_number)
         if not found:
             continue
         p, pos, number, kind = found

@@ -12,6 +12,7 @@ import { CompanyPage } from './features/browser/CompanyPage'
 import { FinancialsPage } from './features/financials/FinancialsPage'
 import { PlaygroundPage } from './features/playground/PlaygroundPage'
 import { ReaderPage } from './features/reader/ReaderPage'
+import { StoryPage } from './features/story/StoryPage'
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false, staleTime: 60_000 } },
@@ -25,6 +26,7 @@ const router = createBrowserRouter([
       { index: true, element: <CompaniesPage /> },
       { path: ':ticker', element: <CompanyPage /> },
       { path: ':ticker/financials', element: <FinancialsPage /> },
+      { path: ':ticker/story', element: <StoryPage /> },
       { path: ':ticker/:fy/report', element: <ReaderPage /> },
       { path: ':ticker/:fy/report/:nodeId', element: <ReaderPage /> },
       { path: ':ticker/:fy/playground', element: <PlaygroundPage /> },

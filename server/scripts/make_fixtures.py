@@ -3,6 +3,7 @@
 Run from ``server/`` after ``stock-analyzer fetch MLTM 2024 2025``:
 
     uv run python scripts/make_fixtures.py
+    uv run python scripts/make_fixtures.py --alignment   # only the three-year business slices
 
 Full documents stay out of git; only these slices are committed. Each slice keeps the
 provider's exact text so parser tests exercise real quirks.
@@ -122,5 +123,27 @@ def main() -> None:
     write("fixtures_meta.json", json.dumps(meta, indent=1))
 
 
+# Three-year business-section comparison (report-diff, task 4.5): cover and TOC pages plus
+# sections 12-19 (marketing, working capital, financing, fixed assets, tax, regulation,
+# insurance, legal proceedings) of each year. FY2023 lost the "13. הון חוזר" heading.
+ALIGNMENT_PAGES = {
+    2023: ("A", [*range(1, 7), *range(51, 56)]),
+    2024: ("A", [*range(1, 7), *range(51, 56)]),
+    2025: ("B", [*range(1, 7), *range(53, 58)]),
+}
+
+
+def alignment_fixtures() -> None:
+    """Write only the alignment slices; the other fixtures are left as they are."""
+    OUT.mkdir(parents=True, exist_ok=True)
+    for fy, (style, pages) in ALIGNMENT_PAGES.items():
+        text = read_exact(RAW / f"{fy}.md")
+        sliced = style_a_slice(text, pages) if style == "A" else style_b_slice(text, pages)
+        write(f"mltm_{fy}_business_slice.md", sliced)
+
+
 if __name__ == "__main__":
-    main()
+    if "--alignment" in sys.argv[1:]:
+        alignment_fixtures()
+    else:
+        main()

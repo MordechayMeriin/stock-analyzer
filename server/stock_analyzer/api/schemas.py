@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Literal
+from datetime import date
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -69,4 +70,28 @@ class PlaygroundEvents(BaseModel):
 
     delta: PlaygroundDelta
     done: PlaygroundDone
+    error: ErrorOut
+
+
+class StoryRequest(BaseModel):
+    mode: str = Field(default="live", pattern="^(cached|live)$")
+    as_of: date | None = Field(
+        default=None, description="Use only reports published by this date (default: today)"
+    )
+
+
+class StoryProgress(BaseModel):
+    step: str = Field(
+        description="reports, budget, agent_start, agent_done, agent_failed, tool, verify or saved"
+    )
+    message: str
+    data: dict[str, Any] | None = None
+
+
+class StoryEvents(BaseModel):
+    """Documentation of the server-sent events: ``event: progress|done|error`` with these JSON payloads.
+    ``done`` carries the saved story run (see ``StoryRun``)."""
+
+    progress: StoryProgress
+    done: dict[str, Any]
     error: ErrorOut

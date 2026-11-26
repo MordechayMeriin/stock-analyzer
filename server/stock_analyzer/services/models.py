@@ -7,6 +7,8 @@ from typing import Any
 
 from pydantic import BaseModel
 
+from stock_analyzer.fin.checks import CheckResult
+from stock_analyzer.fin.ratios import Change, RatioValue
 from stock_analyzer.ingest.structure import Coverage
 
 
@@ -149,6 +151,18 @@ class FinStatementOut(BaseModel):
     statement: str
     label: str
     items: list[FinItemOut]
+
+
+class RatiosOut(BaseModel):
+    """Core ratios, their year-over-year changes and the data-quality checks (financial-analysis spec)."""
+
+    ticker: str
+    currency: str | None
+    years: list[int]  # newest first
+    as_of: str | None
+    ratios: list[RatioValue]  # every core ratio per year; values are exact decimal strings
+    changes: list[Change]  # ratio changes between consecutive years
+    checks: list[CheckResult]
 
 
 class FinancialsOut(BaseModel):

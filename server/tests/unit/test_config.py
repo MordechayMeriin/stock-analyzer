@@ -16,6 +16,8 @@ def test_defaults_load_with_no_env():
     assert s.min_business_sections == 10
     assert s.data_dir.name == "data"
     assert s.cache_dir == s.data_dir / "cache"
+    assert s.agent_max_turns == 8
+    assert (s.story_reader_role, s.story_writer_role) == ("cheap", "main")
 
 
 def test_env_overrides():
@@ -28,8 +30,13 @@ def test_env_overrides():
             "MODEL_CHEAP": "vendor/cheap",
             "PLAYGROUND_MAX_TOKENS": "1234",
             "TOC_MATCH_THRESHOLD": "90",
+            "AGENT_MAX_TURNS": "12",
+            "STORY_READER_ROLE": "main",
+            "STORY_WRITER_ROLE": "cheap",
         }
     )
+    assert s.agent_max_turns == 12
+    assert (s.story_reader_role, s.story_writer_role) == ("main", "cheap")
     assert s.data_dir == Path("/tmp/sa-data")
     assert s.allow_live is False
     assert s.cors_origins == ("https://a.example", "https://b.example")
@@ -46,6 +53,10 @@ def test_bad_values_are_explained():
         Settings.from_env({"PLAYGROUND_MAX_TOKENS": "lots"})
     with pytest.raises(ValueError, match="unknown model role"):
         Settings.from_env({}).model_for("fancy")
+    with pytest.raises(ValueError, match="AGENT_MAX_TURNS"):
+        Settings.from_env({"AGENT_MAX_TURNS": "many"})
+    with pytest.raises(ValueError, match="story_reader_role"):
+        Settings.from_env({"STORY_READER_ROLE": "fancy"})
 
 
 def test_secrets_never_in_repr():

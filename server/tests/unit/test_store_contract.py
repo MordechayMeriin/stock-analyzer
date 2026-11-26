@@ -142,3 +142,43 @@ def test_fr_client_cache_hit_then_cached_mode(store, settings):
 
 def test_ping(store):
     assert store.ping() is True
+
+
+def _run(run_id: str, created_at: str) -> dict:
+    return {
+        "run_id": run_id,
+        "ticker": "MLTM",
+        "created_at": created_at,
+        "as_of": "2026-11-27",
+        "years": [2023, 2024, 2025],
+        "rendered": {
+            "what_it_does": [{"segments": [{"type": "text", "text": "מלם תים — שירותי מחשוב ״ענן״"}]}]
+        },
+        "facts": [{"fact_id": "FIN:revenue:2025", "value": "4138004000", "unit": "money"}],
+        "usage": {"cost_usd": 0.81},
+    }
+
+
+def test_story_run_round_trip_hebrew_and_decimal_strings(store):
+    assert store.latest_story_run("MLTM") is None and store.list_story_runs("MLTM") == []
+    run = _run("a" * 32, "2026-11-27T10:00:00.123456+00:00")
+    store.save_story_run("MLTM", run)
+    assert store.latest_story_run("MLTM") == run
+    assert store.latest_story_run("mltm") == run  # tickers are case-insensitive
+    assert store.latest_story_run("OTHER") is None
+
+
+def test_story_runs_latest_and_newest_first(store):
+    older = _run("1" * 32, "2026-11-26T09:00:00+00:00")
+    newer = _run("2" * 32, "2026-11-27T09:00:00+00:00")
+    store.save_story_run("MLTM", older)
+    store.save_story_run("MLTM", newer)
+    assert store.latest_story_run("MLTM")["run_id"] == newer["run_id"]
+    assert [r["run_id"] for r in store.list_story_runs("MLTM")] == [newer["run_id"], older["run_id"]]
+    summary = store.list_story_runs("MLTM")[0]
+    assert summary == {
+        "run_id": newer["run_id"],
+        "created_at": newer["created_at"],
+        "as_of": "2026-11-27",
+        "years": [2023, 2024, 2025],
+    }

@@ -11,8 +11,9 @@ import os
 from collections.abc import Mapping
 from functools import lru_cache
 from pathlib import Path
+from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, SecretStr
+from pydantic import BaseModel, ConfigDict, Field, SecretStr
 
 _TRUE = {"1", "true", "yes", "on"}
 _FALSE = {"0", "false", "no", "off", ""}
@@ -65,6 +66,20 @@ class Settings(BaseModel):
     llm_max_tokens: int = 4096
     playground_max_tokens: int = 60_000  # budget for the selected report text
 
+    # --- agents (OpenAI Agents SDK through the gateway, design D8) ---
+    agent_max_turns: int = 8  # model turns per agent run before it fails
+    # output tokens per agent turn; Hebrew structured output is long (4096 truncated Malam readers)
+    agent_max_output_tokens: int = 16_000
+    story_reader_role: Literal["main", "cheap"] = "cheap"  # describe / change / explain agents
+    story_writer_role: Literal["main", "cheap"] = "main"  # the storyteller
+    # report text a story run may send to the agents (estimated tokens). The change agents get both
+    # full versions of each changed section; a Malam FY2023-FY2025 run needs ~272K (docs/diff_notes.md)
+    story_max_tokens: int = 300_000
+    story_describe_intro_tokens: int = 12_000  # opening business sections given to the describe agent
+    story_reader_budget_tokens: int = 20_000  # what each agent may read with its read tools
+    story_change_batch_tokens: int = 40_000  # changed sections per change-agent call
+    story_writer_max_turns: int = 20  # the storyteller calls tools more than the readers
+
     # --- report parsing thresholds (plan.md §1.4–1.5) ---
     toc_match_threshold: int = 85  # rapidfuzz token_set_ratio for TOC title anchoring
     chapter_match_threshold: int = 85
@@ -74,8 +89,30 @@ class Settings(BaseModel):
     glued_title_max_chars: int = 120
     chars_per_token: float = 3.0  # conservative estimate for Hebrew text
 
+    # --- report comparison across years (report-diff spec, design D6) ---
+    diff_unchanged_threshold: float = 0.95  # section text similarity at or above this is "unchanged"
+    diff_title_match_threshold: int = 85  # rapidfuzz score for aligning renamed titles
+    diff_content_match_threshold: float = 0.6  # text similarity that aligns a section whose title failed
+
     # --- financial data ---
     fin_max_years: int = 5
+
+    # --- data-quality checks (plan.md §3.2): relative tolerance per check id ---
+    # BS4 is the largest unexplained share of current assets; the rest are relative differences
+    # (see fin/checks.py for the base each one is measured against).
+    check_tolerances: dict[str, float] = Field(
+        default_factory=lambda: {
+            "BS1": 0.005,
+            "BS2": 0.005,
+            "BS3": 0.005,
+            "BS4": 0.40,
+            "BS5": 0.005,
+            "IS1": 0.001,
+            "IS2": 0.005,
+            "IS3": 0.10,
+            "CF1": 0.02,
+        }
+    )
 
     @property
     def cache_dir(self) -> Path:
@@ -140,6 +177,15 @@ class Settings(BaseModel):
             "LLM_TIMEOUT_S": ("llm_timeout_s", float),
             "LLM_MAX_TOKENS": ("llm_max_tokens", int),
             "PLAYGROUND_MAX_TOKENS": ("playground_max_tokens", int),
+            "AGENT_MAX_TURNS": ("agent_max_turns", int),
+            "AGENT_MAX_OUTPUT_TOKENS": ("agent_max_output_tokens", int),
+            "STORY_READER_ROLE": ("story_reader_role", str),
+            "STORY_WRITER_ROLE": ("story_writer_role", str),
+            "STORY_MAX_TOKENS": ("story_max_tokens", int),
+            "STORY_DESCRIBE_INTRO_TOKENS": ("story_describe_intro_tokens", int),
+            "STORY_READER_BUDGET_TOKENS": ("story_reader_budget_tokens", int),
+            "STORY_CHANGE_BATCH_TOKENS": ("story_change_batch_tokens", int),
+            "STORY_WRITER_MAX_TURNS": ("story_writer_max_turns", int),
             "TOC_MATCH_THRESHOLD": ("toc_match_threshold", int),
             "CHAPTER_MATCH_THRESHOLD": ("chapter_match_threshold", int),
             "REPEATED_LINE_RATIO": ("repeated_line_ratio", float),
@@ -148,6 +194,9 @@ class Settings(BaseModel):
             "GLUED_TITLE_MAX_CHARS": ("glued_title_max_chars", int),
             "CHARS_PER_TOKEN": ("chars_per_token", float),
             "FIN_MAX_YEARS": ("fin_max_years", int),
+            "DIFF_UNCHANGED_THRESHOLD": ("diff_unchanged_threshold", float),
+            "DIFF_TITLE_MATCH_THRESHOLD": ("diff_title_match_threshold", int),
+            "DIFF_CONTENT_MATCH_THRESHOLD": ("diff_content_match_threshold", float),
         }
         for env_name, (field, typ) in simple.items():
             if (raw := get(env_name)) is not None:

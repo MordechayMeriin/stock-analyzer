@@ -5,7 +5,9 @@
 import { ApiError, errorFrom, url } from './client'
 
 export interface SseHandlers<TDone> {
-  onDelta: (text: string) => void
+  onDelta?: (text: string) => void
+  /** `progress` events (the story run's steps). */
+  onProgress?: (progress: unknown) => void
   onDone: (done: TDone) => void
   onError: (error: ApiError) => void
 }
@@ -56,7 +58,8 @@ export function postSse<TDone>(path: string, body: unknown, handlers: SseHandler
       let buffer = ''
       const emit = (event: string, data: string) => {
         const payload = JSON.parse(data)
-        if (event === 'delta') handlers.onDelta(payload.text as string)
+        if (event === 'delta') handlers.onDelta?.(payload.text as string)
+        else if (event === 'progress') handlers.onProgress?.(payload)
         else if (event === 'done') {
           outcome = 'done'
           handlers.onDone(payload as TDone)

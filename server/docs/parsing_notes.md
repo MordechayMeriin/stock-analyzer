@@ -1,4 +1,4 @@
-# Report-parsing notes (Malam FY2024 / FY2025)
+# Report-parsing notes (Malam FY2023 / FY2024 / FY2025)
 
 Findings from checking `parse_md` and `structure` against the full cached reports and the
 original PDFs (task 4.7). Each quirk has a regression test; "fixture" means a trimmed slice
@@ -20,3 +20,7 @@ in `tests/fixtures/`, "synthetic" a test built from the real line.
 | Note headings in five layouts (plain, bold+underline, list item, `N ביאור`, reversed `title - N ביאור`); some notes have no heading at all | FY2024 / FY2025 | All five patterns; gaps reported as `note_numbers_missing` | synthetic + live |
 | An auditor-report sentence mentioning "דוח רואה החשבון" | FY2025 | Auditor headings must start with `דוח` | synthetic |
 | Brand/footer lines after chapter headings (`MalamTeam`, `www… | … | 0`) | both | Excluded from chapter title hints | synthetic |
+| No `פרק שני` heading: the directors' report opens with a plain line `דוח הדירקטוריון לשנת 2023`, which then repeats as each page's running header | FY2023 | A whole line that is only that title (optionally `על מצב ענייני החברה` and the year) starts the chapter; the repeats hit the already-seen check | synthetic + live |
+| No `פרק שלישי` heading: the financial statements open with a bold line `מלם תים בע"מ דוחות כספיים לשנת 2023` | FY2023 | A whole **bold** line of up to five words and then `דוחות כספיים [מאוחדים] לשנת YYYY` starts the chapter; the same words in a sentence or a non-bold line do not | synthetic + live |
+| No governance chapter heading: it opens with the bold line `דוח שנתי בדבר אפקטיביות הבקרה הפנימית…` | FY2023 | A whole bold line starting with that phrase starts the chapter | synthetic + live |
+| Section headings lost entirely: `13. הון חוזר` and `19. הליכים משפטיים` are missing, only `13.1.…` / `19.1.…` remain | FY2023 | When a TOC title is not found and the TOC gives the next expected number N, the section starts at the first `N.1` paragraph, titled from the TOC | synthetic + live |

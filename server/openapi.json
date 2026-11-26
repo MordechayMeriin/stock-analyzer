@@ -1,6 +1,378 @@
 {
   "components": {
     "schemas": {
+      "AlignedSection": {
+        "properties": {
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "level": {
+            "title": "Level",
+            "type": "integer"
+          },
+          "node_ids": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Node Ids",
+            "type": "object"
+          },
+          "pairs": {
+            "items": {
+              "$ref": "#/components/schemas/PairStatus"
+            },
+            "title": "Pairs",
+            "type": "array"
+          },
+          "parent": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "title",
+          "level",
+          "parent",
+          "node_ids",
+          "pairs"
+        ],
+        "title": "AlignedSection",
+        "type": "object"
+      },
+      "Change": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "confidence": {
+            "enum": [
+              "high",
+              "low"
+            ],
+            "title": "Confidence",
+            "type": "string"
+          },
+          "failed_checks": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Failed Checks",
+            "type": "array"
+          },
+          "from_year": {
+            "title": "From Year",
+            "type": "integer"
+          },
+          "kind": {
+            "enum": [
+              "FIN",
+              "RATIO"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "name_he": {
+            "title": "Name He",
+            "type": "string"
+          },
+          "new": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "New"
+          },
+          "old": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Old"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "to_year": {
+            "title": "To Year",
+            "type": "integer"
+          },
+          "unit": {
+            "enum": [
+              "percent",
+              "pp",
+              "multiple"
+            ],
+            "title": "Unit",
+            "type": "string"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "required": [
+          "kind",
+          "code",
+          "name_he",
+          "unit",
+          "from_year",
+          "to_year",
+          "old",
+          "new",
+          "value",
+          "reason",
+          "confidence",
+          "failed_checks"
+        ],
+        "title": "Change",
+        "type": "object"
+      },
+      "ChangeNote": {
+        "properties": {
+          "fact_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Fact Ids",
+            "type": "array"
+          },
+          "from_year": {
+            "title": "From Year",
+            "type": "integer"
+          },
+          "kind": {
+            "enum": [
+              "activity",
+              "customers",
+              "strategy",
+              "risk",
+              "regulation",
+              "organization",
+              "legal",
+              "routine",
+              "other"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "new_paragraph_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "New Paragraph Ids",
+            "type": "array"
+          },
+          "old_paragraph_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Old Paragraph Ids",
+            "type": "array"
+          },
+          "section_key": {
+            "description": "The section key given in the input, e.g. s6.5",
+            "title": "Section Key",
+            "type": "string"
+          },
+          "to_year": {
+            "title": "To Year",
+            "type": "integer"
+          },
+          "what_changed_he": {
+            "title": "What Changed He",
+            "type": "string"
+          }
+        },
+        "required": [
+          "section_key",
+          "from_year",
+          "to_year",
+          "kind",
+          "what_changed_he"
+        ],
+        "title": "ChangeNote",
+        "type": "object"
+      },
+      "CheckResult": {
+        "properties": {
+          "actual": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actual"
+          },
+          "check_id": {
+            "title": "Check Id",
+            "type": "string"
+          },
+          "description_he": {
+            "title": "Description He",
+            "type": "string"
+          },
+          "expected": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected"
+          },
+          "fiscal_year": {
+            "title": "Fiscal Year",
+            "type": "integer"
+          },
+          "inputs": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Inputs",
+            "type": "object"
+          },
+          "missing": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Missing",
+            "type": "array"
+          },
+          "status": {
+            "enum": [
+              "pass",
+              "fail",
+              "not_run"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "tolerance": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tolerance"
+          }
+        },
+        "required": [
+          "check_id",
+          "fiscal_year",
+          "status",
+          "description_he",
+          "inputs",
+          "missing",
+          "expected",
+          "actual",
+          "tolerance"
+        ],
+        "title": "CheckResult",
+        "type": "object"
+      },
+      "Citation": {
+        "properties": {
+          "fiscal_year": {
+            "title": "Fiscal Year",
+            "type": "integer"
+          },
+          "node_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Node Id"
+          },
+          "page_index": {
+            "title": "Page Index",
+            "type": "integer"
+          },
+          "page_printed": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page Printed"
+          },
+          "paragraph_id": {
+            "title": "Paragraph Id",
+            "type": "string"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          }
+        },
+        "required": [
+          "paragraph_id",
+          "fiscal_year",
+          "page_index",
+          "page_printed",
+          "url"
+        ],
+        "title": "Citation",
+        "type": "object"
+      },
       "CompanyOut": {
         "properties": {
           "fr_company_id": {
@@ -44,6 +416,22 @@
           "fr_company_id"
         ],
         "title": "CompanyOut",
+        "type": "object"
+      },
+      "CompanyProfile": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ProfileItem"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "CompanyProfile",
         "type": "object"
       },
       "CompanySearchHit": {
@@ -106,6 +494,40 @@
           "name"
         ],
         "title": "CompanySearchHit",
+        "type": "object"
+      },
+      "Comparison": {
+        "properties": {
+          "sections": {
+            "items": {
+              "$ref": "#/components/schemas/AlignedSection"
+            },
+            "title": "Sections",
+            "type": "array"
+          },
+          "ticker": {
+            "title": "Ticker",
+            "type": "string"
+          },
+          "unchanged_threshold": {
+            "title": "Unchanged Threshold",
+            "type": "number"
+          },
+          "years": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Years",
+            "type": "array"
+          }
+        },
+        "required": [
+          "ticker",
+          "years",
+          "unchanged_threshold",
+          "sections"
+        ],
+        "title": "Comparison",
         "type": "object"
       },
       "Coverage": {
@@ -214,6 +636,172 @@
           "message"
         ],
         "title": "ErrorOut",
+        "type": "object"
+      },
+      "Fact": {
+        "properties": {
+          "code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code"
+          },
+          "confidence": {
+            "default": "high",
+            "enum": [
+              "high",
+              "low"
+            ],
+            "title": "Confidence",
+            "type": "string"
+          },
+          "currency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Currency"
+          },
+          "fact_id": {
+            "title": "Fact Id",
+            "type": "string"
+          },
+          "failed_checks": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Failed Checks",
+            "type": "array"
+          },
+          "inputs": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Inputs",
+            "type": "array"
+          },
+          "kind": {
+            "enum": [
+              "FIN",
+              "CHG",
+              "RATIO",
+              "TXT",
+              "DER"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "name_he": {
+            "title": "Name He",
+            "type": "string"
+          },
+          "operation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Operation"
+          },
+          "paragraph_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Paragraph Id"
+          },
+          "quote": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quote"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "source_filing_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Filing Id"
+          },
+          "unit": {
+            "enum": [
+              "money",
+              "percent",
+              "pp",
+              "multiple",
+              "count",
+              "per_share",
+              "number"
+            ],
+            "title": "Unit",
+            "type": "string"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          },
+          "years": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Years",
+            "type": "array"
+          }
+        },
+        "required": [
+          "fact_id",
+          "kind",
+          "name_he",
+          "unit",
+          "years",
+          "value"
+        ],
+        "title": "Fact",
         "type": "object"
       },
       "FilingOut": {
@@ -478,6 +1066,55 @@
         "title": "FinancialsOut",
         "type": "object"
       },
+      "Finding": {
+        "properties": {
+          "caveat_fact_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Caveat Fact Ids",
+            "type": "array"
+          },
+          "fact_ids": {
+            "description": "Facts the finding rests on (tokens in the text count too).",
+            "items": {
+              "type": "string"
+            },
+            "title": "Fact Ids",
+            "type": "array"
+          },
+          "label": {
+            "enum": [
+              "consistent",
+              "tension",
+              "unexplained"
+            ],
+            "title": "Label",
+            "type": "string"
+          },
+          "paragraph_ids": {
+            "description": "Report paragraphs the finding rests on.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Paragraph Ids",
+            "type": "array"
+          },
+          "text_he": {
+            "description": "Hebrew prose with fact tokens: how the story fits (or not) the numbers.",
+            "title": "Text He",
+            "type": "string"
+          }
+        },
+        "required": [
+          "label",
+          "text_he",
+          "fact_ids",
+          "paragraph_ids"
+        ],
+        "title": "Finding",
+        "type": "object"
+      },
       "FiscalYearFilings": {
         "properties": {
           "filings": {
@@ -586,6 +1223,59 @@
           "storage"
         ],
         "title": "HealthOut",
+        "type": "object"
+      },
+      "ManagementClaim": {
+        "properties": {
+          "claim_he": {
+            "title": "Claim He",
+            "type": "string"
+          },
+          "direction": {
+            "enum": [
+              "up",
+              "down",
+              "stable",
+              "mixed",
+              "none"
+            ],
+            "title": "Direction",
+            "type": "string"
+          },
+          "fact_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Fact Ids",
+            "type": "array"
+          },
+          "line_item_codes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Line Item Codes",
+            "type": "array"
+          },
+          "paragraph_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Paragraph Ids",
+            "type": "array"
+          },
+          "topic": {
+            "title": "Topic",
+            "type": "string"
+          }
+        },
+        "required": [
+          "topic",
+          "line_item_codes",
+          "direction",
+          "claim_he",
+          "paragraph_ids"
+        ],
+        "title": "ManagementClaim",
         "type": "object"
       },
       "NodeOut": {
@@ -825,6 +1515,47 @@
         "title": "PageRange",
         "type": "object"
       },
+      "PairStatus": {
+        "properties": {
+          "from_year": {
+            "title": "From Year",
+            "type": "integer"
+          },
+          "similarity": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Similarity"
+          },
+          "status": {
+            "enum": [
+              "unchanged",
+              "changed",
+              "new",
+              "dropped"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "to_year": {
+            "title": "To Year",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "from_year",
+          "to_year",
+          "status",
+          "similarity"
+        ],
+        "title": "PairStatus",
+        "type": "object"
+      },
       "ParagraphOut": {
         "properties": {
           "citation_url": {
@@ -1048,6 +1779,379 @@
         "title": "PlaygroundUsage",
         "type": "object"
       },
+      "ProfileItem": {
+        "properties": {
+          "fact_ids": {
+            "description": "TXT facts from quote_number, if any",
+            "items": {
+              "type": "string"
+            },
+            "title": "Fact Ids",
+            "type": "array"
+          },
+          "paragraph_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Paragraph Ids",
+            "type": "array"
+          },
+          "text_he": {
+            "title": "Text He",
+            "type": "string"
+          },
+          "topic": {
+            "enum": [
+              "business_line",
+              "products",
+              "customers",
+              "markets",
+              "scale",
+              "other"
+            ],
+            "title": "Topic",
+            "type": "string"
+          }
+        },
+        "required": [
+          "topic",
+          "text_he",
+          "paragraph_ids"
+        ],
+        "title": "ProfileItem",
+        "type": "object"
+      },
+      "RatioValue": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "confidence": {
+            "enum": [
+              "high",
+              "low"
+            ],
+            "title": "Confidence",
+            "type": "string"
+          },
+          "failed_checks": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Failed Checks",
+            "type": "array"
+          },
+          "fiscal_year": {
+            "title": "Fiscal Year",
+            "type": "integer"
+          },
+          "group": {
+            "title": "Group",
+            "type": "string"
+          },
+          "inputs": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Inputs",
+            "type": "object"
+          },
+          "name_he": {
+            "title": "Name He",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "unit": {
+            "enum": [
+              "money",
+              "percent",
+              "multiple",
+              "count",
+              "per_share"
+            ],
+            "title": "Unit",
+            "type": "string"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "required": [
+          "code",
+          "name_he",
+          "group",
+          "unit",
+          "fiscal_year",
+          "value",
+          "inputs",
+          "reason",
+          "confidence",
+          "failed_checks"
+        ],
+        "title": "RatioValue",
+        "type": "object"
+      },
+      "RatiosOut": {
+        "description": "Core ratios, their year-over-year changes and the data-quality checks (financial-analysis spec).",
+        "properties": {
+          "as_of": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "As Of"
+          },
+          "changes": {
+            "items": {
+              "$ref": "#/components/schemas/Change"
+            },
+            "title": "Changes",
+            "type": "array"
+          },
+          "checks": {
+            "items": {
+              "$ref": "#/components/schemas/CheckResult"
+            },
+            "title": "Checks",
+            "type": "array"
+          },
+          "currency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Currency"
+          },
+          "ratios": {
+            "items": {
+              "$ref": "#/components/schemas/RatioValue"
+            },
+            "title": "Ratios",
+            "type": "array"
+          },
+          "ticker": {
+            "title": "Ticker",
+            "type": "string"
+          },
+          "years": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Years",
+            "type": "array"
+          }
+        },
+        "required": [
+          "ticker",
+          "currency",
+          "years",
+          "as_of",
+          "ratios",
+          "changes",
+          "checks"
+        ],
+        "title": "RatiosOut",
+        "type": "object"
+      },
+      "RenderedFinding": {
+        "properties": {
+          "fact_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Fact Ids",
+            "type": "array"
+          },
+          "label": {
+            "enum": [
+              "consistent",
+              "tension",
+              "unexplained"
+            ],
+            "title": "Label",
+            "type": "string"
+          },
+          "paragraph_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Paragraph Ids",
+            "type": "array"
+          },
+          "segments": {
+            "items": {
+              "$ref": "#/components/schemas/Segment"
+            },
+            "title": "Segments",
+            "type": "array"
+          }
+        },
+        "required": [
+          "segments",
+          "paragraph_ids",
+          "label",
+          "fact_ids"
+        ],
+        "title": "RenderedFinding",
+        "type": "object"
+      },
+      "RenderedParagraph": {
+        "properties": {
+          "paragraph_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Paragraph Ids",
+            "type": "array"
+          },
+          "segments": {
+            "items": {
+              "$ref": "#/components/schemas/Segment"
+            },
+            "title": "Segments",
+            "type": "array"
+          }
+        },
+        "required": [
+          "segments",
+          "paragraph_ids"
+        ],
+        "title": "RenderedParagraph",
+        "type": "object"
+      },
+      "RenderedStory": {
+        "properties": {
+          "story_vs_numbers": {
+            "items": {
+              "$ref": "#/components/schemas/RenderedFinding"
+            },
+            "title": "Story Vs Numbers",
+            "type": "array"
+          },
+          "unchanged_sections": {
+            "items": {
+              "$ref": "#/components/schemas/UnchangedSection"
+            },
+            "title": "Unchanged Sections",
+            "type": "array"
+          },
+          "what_changed": {
+            "items": {
+              "$ref": "#/components/schemas/RenderedParagraph"
+            },
+            "title": "What Changed",
+            "type": "array"
+          },
+          "what_it_does": {
+            "items": {
+              "$ref": "#/components/schemas/RenderedParagraph"
+            },
+            "title": "What It Does",
+            "type": "array"
+          }
+        },
+        "required": [
+          "what_it_does",
+          "what_changed",
+          "story_vs_numbers",
+          "unchanged_sections"
+        ],
+        "title": "RenderedStory",
+        "type": "object"
+      },
+      "Segment": {
+        "properties": {
+          "display": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display"
+          },
+          "fact_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fact Id"
+          },
+          "fact_ids": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Fact Ids",
+            "type": "array"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Text"
+          },
+          "type": {
+            "enum": [
+              "text",
+              "fact",
+              "caveat"
+            ],
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type"
+        ],
+        "title": "Segment",
+        "type": "object"
+      },
       "StorageHealth": {
         "properties": {
           "backend": {
@@ -1069,6 +2173,319 @@
           "ok"
         ],
         "title": "StorageHealth",
+        "type": "object"
+      },
+      "Story": {
+        "properties": {
+          "story_vs_numbers": {
+            "description": "How management's story fits the numbers.",
+            "items": {
+              "$ref": "#/components/schemas/Finding"
+            },
+            "title": "Story Vs Numbers",
+            "type": "array"
+          },
+          "what_changed": {
+            "description": "What changed across the covered fiscal years.",
+            "items": {
+              "$ref": "#/components/schemas/StoryParagraph"
+            },
+            "title": "What Changed",
+            "type": "array"
+          },
+          "what_it_does": {
+            "description": "What the company does, from the latest report.",
+            "items": {
+              "$ref": "#/components/schemas/StoryParagraph"
+            },
+            "title": "What It Does",
+            "type": "array"
+          }
+        },
+        "required": [
+          "what_it_does",
+          "what_changed",
+          "story_vs_numbers"
+        ],
+        "title": "Story",
+        "type": "object"
+      },
+      "StoryEvents": {
+        "description": "Documentation of the server-sent events: ``event: progress|done|error`` with these JSON payloads.\n``done`` carries the saved story run (see ``StoryRun``).",
+        "properties": {
+          "done": {
+            "additionalProperties": true,
+            "title": "Done",
+            "type": "object"
+          },
+          "error": {
+            "$ref": "#/components/schemas/ErrorOut"
+          },
+          "progress": {
+            "$ref": "#/components/schemas/StoryProgress"
+          }
+        },
+        "required": [
+          "progress",
+          "done",
+          "error"
+        ],
+        "title": "StoryEvents",
+        "type": "object"
+      },
+      "StoryParagraph": {
+        "properties": {
+          "caveat_fact_ids": {
+            "description": "Low-confidence facts this paragraph cites; code writes the caveat.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Caveat Fact Ids",
+            "type": "array"
+          },
+          "paragraph_ids": {
+            "description": "Report paragraph ids this paragraph draws on.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Paragraph Ids",
+            "type": "array"
+          },
+          "text_he": {
+            "description": "Hebrew prose. Quantities only as fact tokens such as {{FIN:revenue:2025}}.",
+            "title": "Text He",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text_he",
+          "paragraph_ids"
+        ],
+        "title": "StoryParagraph",
+        "type": "object"
+      },
+      "StoryProgress": {
+        "properties": {
+          "data": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "step": {
+            "description": "reports, budget, agent_start, agent_done, agent_failed, tool, verify or saved",
+            "title": "Step",
+            "type": "string"
+          }
+        },
+        "required": [
+          "step",
+          "message"
+        ],
+        "title": "StoryProgress",
+        "type": "object"
+      },
+      "StoryRequest": {
+        "properties": {
+          "as_of": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Use only reports published by this date (default: today)",
+            "title": "As Of"
+          },
+          "mode": {
+            "default": "live",
+            "pattern": "^(cached|live)$",
+            "title": "Mode",
+            "type": "string"
+          }
+        },
+        "title": "StoryRequest",
+        "type": "object"
+      },
+      "StoryRun": {
+        "description": "Everything a saved story needs to be shown again, unchanged (company-story spec).",
+        "properties": {
+          "as_of": {
+            "title": "As Of",
+            "type": "string"
+          },
+          "change_notes": {
+            "items": {
+              "$ref": "#/components/schemas/ChangeNote"
+            },
+            "title": "Change Notes",
+            "type": "array"
+          },
+          "citations": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/Citation"
+            },
+            "title": "Citations",
+            "type": "object"
+          },
+          "claims": {
+            "additionalProperties": {
+              "items": {
+                "$ref": "#/components/schemas/ManagementClaim"
+              },
+              "type": "array"
+            },
+            "title": "Claims",
+            "type": "object"
+          },
+          "config_hash": {
+            "title": "Config Hash",
+            "type": "string"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "facts": {
+            "items": {
+              "$ref": "#/components/schemas/Fact"
+            },
+            "title": "Facts",
+            "type": "array"
+          },
+          "filing_ids": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Filing Ids",
+            "type": "object"
+          },
+          "models": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Models",
+            "type": "object"
+          },
+          "profile": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CompanyProfile"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "prompt_hashes": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Prompt Hashes",
+            "type": "object"
+          },
+          "rendered": {
+            "$ref": "#/components/schemas/RenderedStory"
+          },
+          "run_id": {
+            "title": "Run Id",
+            "type": "string"
+          },
+          "story": {
+            "$ref": "#/components/schemas/Story"
+          },
+          "ticker": {
+            "title": "Ticker",
+            "type": "string"
+          },
+          "usage": {
+            "$ref": "#/components/schemas/StoryUsage"
+          },
+          "verification": {
+            "items": {
+              "$ref": "#/components/schemas/VerificationAttempt"
+            },
+            "title": "Verification",
+            "type": "array"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          },
+          "years": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Years",
+            "type": "array"
+          }
+        },
+        "required": [
+          "run_id",
+          "ticker",
+          "as_of",
+          "created_at",
+          "years",
+          "filing_ids",
+          "rendered",
+          "story",
+          "facts",
+          "citations",
+          "profile",
+          "change_notes",
+          "claims",
+          "verification",
+          "warnings",
+          "models",
+          "prompt_hashes",
+          "config_hash",
+          "usage"
+        ],
+        "title": "StoryRun",
+        "type": "object"
+      },
+      "StoryUsage": {
+        "properties": {
+          "cost_usd": {
+            "title": "Cost Usd",
+            "type": "number"
+          },
+          "input_tokens": {
+            "title": "Input Tokens",
+            "type": "integer"
+          },
+          "model_turns": {
+            "title": "Model Turns",
+            "type": "integer"
+          },
+          "output_tokens": {
+            "title": "Output Tokens",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "input_tokens",
+          "output_tokens",
+          "cost_usd",
+          "model_turns"
+        ],
+        "title": "StoryUsage",
         "type": "object"
       },
       "StructureOut": {
@@ -1189,6 +2606,24 @@
         "title": "TocEntryOut",
         "type": "object"
       },
+      "UnchangedSection": {
+        "properties": {
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "title"
+        ],
+        "title": "UnchangedSection",
+        "type": "object"
+      },
       "UsageOut": {
         "properties": {
           "fr_log": {
@@ -1282,6 +2717,50 @@
           "type"
         ],
         "title": "ValidationError",
+        "type": "object"
+      },
+      "VerificationAttempt": {
+        "properties": {
+          "attempt": {
+            "title": "Attempt",
+            "type": "integer"
+          },
+          "errors": {
+            "items": {
+              "$ref": "#/components/schemas/VerificationError"
+            },
+            "title": "Errors",
+            "type": "array"
+          }
+        },
+        "required": [
+          "attempt",
+          "errors"
+        ],
+        "title": "VerificationAttempt",
+        "type": "object"
+      },
+      "VerificationError": {
+        "properties": {
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "rule": {
+            "title": "Rule",
+            "type": "integer"
+          },
+          "where": {
+            "title": "Where",
+            "type": "string"
+          }
+        },
+        "required": [
+          "rule",
+          "where",
+          "message"
+        ],
+        "title": "VerificationError",
         "type": "object"
       }
     }
@@ -1468,6 +2947,79 @@
         ]
       }
     },
+    "/api/companies/{ticker}/compare": {
+      "get": {
+        "operationId": "get_comparison_api_companies__ticker__compare_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ticker",
+            "required": true,
+            "schema": {
+              "title": "Ticker",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Fiscal years to compare (repeat the parameter)",
+            "in": "query",
+            "name": "years",
+            "required": true,
+            "schema": {
+              "description": "Fiscal years to compare (repeat the parameter)",
+              "items": {
+                "type": "integer"
+              },
+              "minItems": 2,
+              "title": "Years",
+              "type": "array"
+            }
+          },
+          {
+            "description": "cached: local data only, no provider calls. live: fetch what is missing (if the server allows).",
+            "in": "query",
+            "name": "mode",
+            "required": false,
+            "schema": {
+              "default": "cached",
+              "description": "cached: local data only, no provider calls. live: fetch what is missing (if the server allows).",
+              "enum": [
+                "cached",
+                "live"
+              ],
+              "title": "Mode",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Comparison"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Business sections aligned across fiscal years, with a change status per year pair",
+        "tags": [
+          "companies"
+        ]
+      }
+    },
     "/api/companies/{ticker}/filings": {
       "get": {
         "operationId": "list_filings_api_companies__ticker__filings_get",
@@ -1598,6 +3150,83 @@
           }
         },
         "summary": "Normalized financials by statement and year",
+        "tags": [
+          "companies"
+        ]
+      }
+    },
+    "/api/companies/{ticker}/ratios": {
+      "get": {
+        "operationId": "get_ratios_api_companies__ticker__ratios_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ticker",
+            "required": true,
+            "schema": {
+              "title": "Ticker",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Only values available by this date",
+            "in": "query",
+            "name": "as_of",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only values available by this date",
+              "title": "As Of"
+            }
+          },
+          {
+            "description": "cached: local data only, no provider calls. live: fetch what is missing (if the server allows).",
+            "in": "query",
+            "name": "mode",
+            "required": false,
+            "schema": {
+              "default": "cached",
+              "description": "cached: local data only, no provider calls. live: fetch what is missing (if the server allows).",
+              "enum": [
+                "cached",
+                "live"
+              ],
+              "title": "Mode",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RatiosOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Core ratios, year-over-year changes and data-quality checks",
         "tags": [
           "companies"
         ]
@@ -1826,6 +3455,114 @@
         "summary": "Report structure tree",
         "tags": [
           "reports"
+        ]
+      }
+    },
+    "/api/companies/{ticker}/story": {
+      "get": {
+        "operationId": "get_story_api_companies__ticker__story_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ticker",
+            "required": true,
+            "schema": {
+              "title": "Ticker",
+              "type": "string"
+            }
+          },
+          {
+            "description": "cached: local data only, no provider calls. live: fetch what is missing (if the server allows).",
+            "in": "query",
+            "name": "mode",
+            "required": false,
+            "schema": {
+              "default": "cached",
+              "description": "cached: local data only, no provider calls. live: fetch what is missing (if the server allows).",
+              "enum": [
+                "cached",
+                "live"
+              ],
+              "title": "Mode",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StoryRun"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "The latest saved company story (no LLM or provider call)",
+        "tags": [
+          "story"
+        ]
+      },
+      "post": {
+        "operationId": "run_story_api_companies__ticker__story_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ticker",
+            "required": true,
+            "schema": {
+              "title": "Ticker",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StoryRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StoryEvents"
+                }
+              }
+            },
+            "description": "text/event-stream of `progress` events, then one `done` (the saved StoryRun) or `error` event."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Generate a company story (live mode; streamed progress, then the saved run)",
+        "tags": [
+          "story"
         ]
       }
     },

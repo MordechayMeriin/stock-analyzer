@@ -6,8 +6,9 @@ from typing import Annotated
 from fastapi import APIRouter, Query
 
 from stock_analyzer.api.deps import CtxDep
-from stock_analyzer.services import companies, filings, financials
-from stock_analyzer.services.models import CompanyOut, CompanySearchHit, FilingsOut, FinancialsOut
+from stock_analyzer.diff.align import Comparison
+from stock_analyzer.services import analysis, companies, compare, filings, financials
+from stock_analyzer.services.models import CompanyOut, CompanySearchHit, FilingsOut, FinancialsOut, RatiosOut
 
 router = APIRouter(prefix="/api/companies", tags=["companies"])
 
@@ -47,3 +48,31 @@ def get_financials(
     as_of: Annotated[date | None, Query(description="Only values available by this date")] = None,
 ) -> FinancialsOut:
     return financials.financials(ctx, ticker, as_of=as_of)
+
+
+@router.get(
+    "/{ticker}/ratios",
+    response_model=RatiosOut,
+    summary="Core ratios, year-over-year changes and data-quality checks",
+)
+def get_ratios(
+    ctx: CtxDep,
+    ticker: str,
+    as_of: Annotated[date | None, Query(description="Only values available by this date")] = None,
+) -> RatiosOut:
+    return analysis.ratios(ctx, ticker, as_of=as_of)
+
+
+@router.get(
+    "/{ticker}/compare",
+    response_model=Comparison,
+    summary="Business sections aligned across fiscal years, with a change status per year pair",
+)
+def get_comparison(
+    ctx: CtxDep,
+    ticker: str,
+    years: Annotated[
+        list[int], Query(min_length=2, description="Fiscal years to compare (repeat the parameter)")
+    ],
+) -> Comparison:
+    return compare.compare(ctx, ticker, years)

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import os
 import socket
+import threading
 import uuid
 from pathlib import Path
 
@@ -28,13 +29,25 @@ class NetworkBlocked(RuntimeError):
 @pytest.fixture(autouse=True)
 def _offline(monkeypatch):
     real_connect = socket.socket.connect
+    real_socketpair = socket.socketpair
+    in_socketpair = threading.local()
 
     def guarded(self, address):
-        if self.family in (socket.AF_INET, socket.AF_INET6):
+        # Windows has no native socketpair: Python emulates it by connecting two loopback sockets
+        # inside the process, and every asyncio event loop creates one. Allow only that.
+        if self.family in (socket.AF_INET, socket.AF_INET6) and not getattr(in_socketpair, "on", False):
             raise NetworkBlocked(f"network access attempted in tests: {address!r}")
         return real_connect(self, address)
 
+    def socketpair(*args, **kwargs):
+        in_socketpair.on = True
+        try:
+            return real_socketpair(*args, **kwargs)
+        finally:
+            in_socketpair.on = False
+
     monkeypatch.setattr(socket.socket, "connect", guarded)
+    monkeypatch.setattr(socket, "socketpair", socketpair)
     proxies = ("HTTPS_PROXY", "HTTP_PROXY", "ALL_PROXY", "https_proxy", "http_proxy", "all_proxy")
     cleared = ("FR_API_KEY", "OPENROUTER_API_KEY", "DATABASE_URL", "TEST_DATABASE_URL", "DATA_DIR")
     for var in (*cleared, "ALLOW_LIVE", "LLM_FAKE", *proxies):
@@ -113,7 +126,7 @@ def fixtures_dir() -> Path:
 
 
 LIVE_RAW = SERVER_ROOT / "data" / "raw" / "MLTM"
-LIVE_FILINGS = {2024: 63741657, 2025: 32935334}
+LIVE_FILINGS = {2023: 63741686, 2024: 63741657, 2025: 32935334}
 
 
 def live_report(fiscal_year: int) -> str:
@@ -176,3 +189,12 @@ def seed_malam(settings) -> None:
     )
     row = next(r for r in filings["results"] if r["id"] == 32935334)
     save_report(settings, "MLTM", 2025, Filing.model_validate(row), fixture_text("mltm_2025_style_b.md"))
+
+
+def seed_business_slices(settings) -> None:
+    """Cached Malam FY2023-FY2025 reports made of the three-year business slices (report-diff tests)."""
+    from stock_analyzer.ingest.fr_client import Filing, save_report
+
+    for fy, filing_id in LIVE_FILINGS.items():
+        filing = Filing(id=filing_id, title=f"Periodic and annual report for {fy}", fiscal_year=fy)
+        save_report(settings, "MLTM", fy, filing, fixture_text(f"mltm_{fy}_business_slice.md"))

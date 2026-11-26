@@ -1,4 +1,5 @@
 import json
+from contextlib import closing
 
 import pytest
 from fastapi.testclient import TestClient
@@ -157,6 +158,9 @@ def test_openapi_lists_every_endpoint(client):
         "/api/companies/{ticker}",
         "/api/companies/{ticker}/filings",
         "/api/companies/{ticker}/financials",
+        "/api/companies/{ticker}/ratios",
+        "/api/companies/{ticker}/compare",
+        "/api/companies/{ticker}/story",
         "/api/companies/{ticker}/reports/{fiscal_year}/structure",
         "/api/companies/{ticker}/reports/{fiscal_year}/nodes/{node_id}",
         "/api/companies/{ticker}/reports/{fiscal_year}/pages/{page_index}",
@@ -278,3 +282,156 @@ def test_usage_totals_come_from_the_store(client, settings):
     assert body["llm"] == {"calls": 2, "cache_hits": 1, "failures": 0, "total_cost_usd": 0.125}
     # the logged miss, plus the usage request itself served from cache
     assert body["fr_log"] == {"calls": 2, "cache_hits": 1, "network_calls": 1, "credits_logged": 6}
+
+
+# ---------------------------------------------------------------- core ratios (financial-analysis)
+
+
+def test_ratios_endpoint_values_are_decimal_strings(client):
+    body = client.get("/api/companies/MLTM/ratios").json()
+    assert body["ticker"] == "MLTM" and body["years"][0] == 2025
+    gm = next(r for r in body["ratios"] if r["code"] == "gross_margin" and r["fiscal_year"] == 2025)
+    assert isinstance(gm["value"], str) and gm["value"].startswith("0.1047")
+    assert gm["confidence"] == "high"
+    fcf = next(r for r in body["ratios"] if r["code"] == "free_cash_flow" and r["fiscal_year"] == 2025)
+    assert fcf["value"] == "65518000" and fcf["confidence"] == "low" and "CF1" in fcf["failed_checks"]
+    failed = {c["check_id"] for c in body["checks"] if c["fiscal_year"] == 2025 and c["status"] == "fail"}
+    assert failed == {"CF1", "CF2", "IS3", "BS4", "BS5"}
+    assert all(c["kind"] == "RATIO" for c in body["changes"])
+
+
+def test_cli_api_ratios_parity(client, settings):
+    from stock_analyzer.cli import render_ratios
+    from stock_analyzer.services import analysis
+    from stock_analyzer.services.models import RatiosOut
+
+    api = RatiosOut.model_validate(client.get("/api/companies/MLTM/ratios").json())
+    cli = analysis.ratios(Ctx(settings), "MLTM")
+    assert api == cli
+    assert render_ratios(api) == render_ratios(cli)
+    late = client.get("/api/companies/MLTM/ratios", params={"as_of": "2024-04-01"}).json()
+    assert 2023 not in late["years"]
+
+
+# ---------------------------------------------------------------- report comparison (report-diff)
+
+
+def test_compare_endpoint_and_cli_parity(settings):
+    from stock_analyzer.cli import render_comparison
+    from stock_analyzer.diff.align import Comparison
+    from stock_analyzer.services import compare
+    from tests.conftest import seed_business_slices
+
+    seed_business_slices(settings)
+    with TestClient(create_app(settings)) as c:
+        response = c.get("/api/companies/MLTM/compare", params={"years": [2023, 2024, 2025]})
+        assert response.status_code == 200, response.text
+        api = Comparison.model_validate(response.json())
+        assert c.get("/api/companies/MLTM/compare", params={"years": [2025]}).status_code == 422
+    assert api.years == [2023, 2024, 2025]
+    tax = next(s for s in api.sections if s.title == "מיסוי")
+    assert [p.status for p in tax.pairs] == ["changed", "unchanged"]
+    cli = compare.compare(Ctx(settings), "MLTM", [2023, 2024, 2025])
+    assert api == cli
+    assert render_comparison(api) == render_comparison(cli)
+
+
+# ---------------------------------------------------------------- company story (company-story)
+
+
+@pytest.fixture
+def story_settings(settings):
+    """Malam with a full FY2025 fixture (directors' report, document URL) and FY2023/FY2024 slices."""
+    from stock_analyzer.ingest.fr_client import Filing, save_report
+    from tests.conftest import fixture_text, seed_malam
+
+    seed_malam(settings)
+    for fy, filing_id in ((2023, 63741686), (2024, 63741657)):
+        filing = Filing(id=filing_id, title=f"Periodic and annual report for {fy}", fiscal_year=fy)
+        save_report(settings, "MLTM", fy, filing, fixture_text(f"mltm_{fy}_business_slice.md"))
+    return settings
+
+
+def scripted_models(settings, finals):
+    from stock_analyzer.agents_model import FakeAgentModels
+    from stock_analyzer.story.pipeline import prepare_story
+    from tests.unit.test_story_pipeline import AS_OF, storyteller_script
+
+    with closing(Ctx(settings)) as c:
+        prep = prepare_story(c, "MLTM", as_of=AS_OF)
+    script = storyteller_script(prep, [f(prep) for f in finals])
+    return FakeAgentModels(settings=settings, script={"story.storyteller": script})
+
+
+def good(prep):
+    from tests.unit.test_story_pipeline import good_story
+
+    return lambda der: good_story(prep, der)
+
+
+def bad(prep):
+    from tests.unit.test_story_pipeline import good_story
+
+    story = good_story(prep)
+    story["what_it_does"][0]["text_he"] = "הכנסות של 4.1 מיליארד."
+    return story
+
+
+def test_story_live_run_then_saved_story(story_settings):
+    from stock_analyzer.story.pipeline import StoryRun
+
+    app = create_app(story_settings)
+    app.state.agent_models = scripted_models(story_settings, [good])
+    with TestClient(app) as c:
+        missing = c.get("/api/companies/MLTM/story")
+        assert missing.status_code == 409 and missing.json()["code"] == "not_cached"
+
+        response = c.post("/api/companies/MLTM/story", json={"mode": "live", "as_of": "2026-11-26"})
+        assert response.status_code == 200
+        events = sse_events(response.text)
+        names = [n for n, _ in events]
+        assert names[0] == "progress" and names[-1] == "done" and "error" not in names
+        steps = [d["step"] for n, d in events if n == "progress"]
+        assert steps[0] == "reports" and "verify" in steps and "saved" in steps
+        done = StoryRun.model_validate(events[-1][1])
+
+        saved = c.get("/api/companies/MLTM/story")
+        assert saved.status_code == 200
+        body = saved.json()
+    assert body["run_id"] == done.run_id
+    revenue = next(f for f in body["facts"] if f["fact_id"] == "FIN:revenue:2025")
+    assert revenue["value"] == "4138004000" and isinstance(revenue["value"], str)
+    assert all(
+        c["url"].rsplit("#page=", 1)[1].isdigit()
+        for c in body["citations"].values()
+        if c["fiscal_year"] == 2025
+    )
+
+
+def test_story_run_refused_in_cached_mode(story_settings):
+    with TestClient(create_app(story_settings)) as c:
+        r = c.post("/api/companies/MLTM/story", json={"mode": "cached"})
+    assert r.status_code == 403 and "live mode" in r.json()["message"]
+
+
+def test_story_run_over_budget_rejected_before_streaming(story_settings):
+    small = story_settings.model_copy(update={"story_max_tokens": 1000})
+    app = create_app(small)
+    app.state.agent_models = scripted_models(story_settings, [good])
+    with TestClient(app) as c:
+        r = c.post("/api/companies/MLTM/story", json={"mode": "live", "as_of": "2026-11-26"})
+    assert (
+        r.status_code == 413
+        and r.json()["code"] == "story_too_large"
+        and "1,000-token" in r.json()["message"]
+    )
+
+
+def test_story_failed_verification_is_an_error_event(story_settings):
+    app = create_app(story_settings)
+    app.state.agent_models = scripted_models(story_settings, [bad, bad])
+    with TestClient(app) as c:
+        r = c.post("/api/companies/MLTM/story", json={"mode": "live", "as_of": "2026-11-26"})
+        events = sse_events(r.text)
+        assert events[-1][0] == "error" and events[-1][1]["code"] == "story_verification_failed"
+        assert c.get("/api/companies/MLTM/story").status_code == 409  # nothing saved

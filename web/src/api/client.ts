@@ -22,6 +22,11 @@ export type Health = Schemas['HealthOut']
 export type ApiErrorBody = Schemas['ErrorOut']
 export type PlaygroundRequest = Schemas['PlaygroundRequest']
 export type PlaygroundDone = Schemas['PlaygroundDone']
+export type StoryRun = Schemas['StoryRun']
+export type StoryProgress = Schemas['StoryProgress']
+export type StoryFact = Schemas['Fact']
+export type StorySegment = Schemas['Segment']
+export type StoryCitation = Schemas['Citation']
 
 /** An API failure carrying the server's machine-readable code. */
 export class ApiError extends Error {
@@ -86,4 +91,6 @@ export const api = {
   page: (ticker: string, fy: number, page: number, mode: Mode, signal?: AbortSignal) =>
     get<PageParagraphs>(`/api/companies/${enc(ticker)}/reports/${fy}/pages/${page}`, { mode }, signal),
   usage: (mode: Mode, signal?: AbortSignal) => get<Usage>('/api/usage', { mode }, signal),
+  story: (ticker: string, mode: Mode, signal?: AbortSignal) =>
+    get<StoryRun>(`/api/companies/${enc(ticker)}/story`, { mode }, signal),
 }
