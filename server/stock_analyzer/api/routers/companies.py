@@ -6,13 +6,14 @@ from typing import Annotated
 from fastapi import APIRouter, Query, Response, status
 
 from stock_analyzer.api.deps import CtxDep
-from stock_analyzer.services import companies, filings, financials
+from stock_analyzer.services import companies, filings, financials, ratios
 from stock_analyzer.services.models import (
     AddCompanyIn,
     CompanyOut,
     CompanySearchHit,
     FilingsOut,
     FinancialsOut,
+    RatiosOut,
 )
 
 router = APIRouter(prefix="/api/companies", tags=["companies"])
@@ -79,3 +80,16 @@ def get_financials(
     as_of: Annotated[date | None, Query(description="Only values available by this date")] = None,
 ) -> FinancialsOut:
     return financials.financials(ctx, ticker, as_of=as_of)
+
+
+@router.get(
+    "/{ticker}/ratios",
+    response_model=RatiosOut,
+    summary="Financial ratios by group and year, with confidence and data-quality checks",
+)
+def get_ratios(
+    ctx: CtxDep,
+    ticker: str,
+    as_of: Annotated[date | None, Query(description="Only values available by this date")] = None,
+) -> RatiosOut:
+    return ratios.ratios(ctx, ticker, as_of=as_of)

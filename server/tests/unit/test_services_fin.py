@@ -49,3 +49,24 @@ def test_fin_raw_not_cached(tmp_path, monkeypatch):
     reset_settings_cache()
     result = CliRunner().invoke(app, ["fin-raw", "MLTM"])
     assert result.exit_code == 1 and "not_cached" in result.output
+
+
+def test_ratios_cli_prints_ratios_without_network(settings, monkeypatch):
+    monkeypatch.setenv("DATA_DIR", str(settings.data_dir))
+    reset_settings_cache()
+    seed_malam(settings)
+    result = CliRunner().invoke(app, ["ratios", "MLTM"])
+    assert result.exit_code == 0, result.output
+    assert "template industrial, currency ILS" in result.output and "FY2025" in result.output
+    gross = next(line for line in result.output.splitlines() if line.startswith("שיעור רווח גולמי"))
+    assert "10.47%" in gross and "13.62%" in gross
+    roe = next(line for line in result.output.splitlines() if line.startswith("תשואה על ההון"))
+    assert "10.03%*" in roe  # FY2025 is low confidence (BS5 failed)
+    assert "FY2025 BS5, CF1" in result.output or "FY2025 CF1" in result.output
+
+
+def test_ratios_cli_not_cached(tmp_path, monkeypatch):
+    monkeypatch.setenv("DATA_DIR", str(tmp_path))
+    reset_settings_cache()
+    result = CliRunner().invoke(app, ["ratios", "MLTM"])
+    assert result.exit_code == 1 and "not_cached" in result.output

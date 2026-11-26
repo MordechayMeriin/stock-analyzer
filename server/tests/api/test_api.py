@@ -9,7 +9,7 @@ from stock_analyzer.llm import FakeLLM
 from stock_analyzer.services import reports
 from stock_analyzer.services.context import Ctx
 from stock_analyzer.services.models import StructureOut
-from tests.conftest import seed_fr_cache, seed_malam
+from tests.conftest import FIXTURES, seed_bank_and_insurer, seed_fr_cache, seed_malam
 
 
 @pytest.fixture
@@ -198,6 +198,7 @@ def test_openapi_lists_every_endpoint(client):
         "/api/companies/{ticker}",
         "/api/companies/{ticker}/filings",
         "/api/companies/{ticker}/financials",
+        "/api/companies/{ticker}/ratios",
         "/api/companies/{ticker}/reports/{fiscal_year}/structure",
         "/api/companies/{ticker}/reports/{fiscal_year}/nodes/{node_id}",
         "/api/companies/{ticker}/reports/{fiscal_year}/pages/{page_index}",
@@ -399,3 +400,63 @@ def test_cors_preflight_allows_delete(settings):
         )
     assert r.status_code == 200
     assert "DELETE" in r.headers["access-control-allow-methods"]
+
+
+# -- ratios endpoint (analyzer-api spec: Ratios endpoint)
+
+
+def _floats(node) -> list:
+    if isinstance(node, float):
+        return [node]
+    if isinstance(node, dict):
+        return [f for v in node.values() for f in _floats(v)]
+    if isinstance(node, list):
+        return [f for v in node for f in _floats(v)]
+    return []
+
+
+def test_malam_ratios_endpoint(client):
+    r = client.get("/api/companies/MLTM/ratios")
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["template"] == "industrial" and body["years"] == [2025, 2024, 2023, 2022, 2021]
+    groups = {g["group"]: g for g in body["groups"]}
+    gross = next(x for x in groups["profitability"]["ratios"] if x["code"] == "gross_margin")
+    assert gross["values"]["2025"]["value"] == "0.104733"
+    quick = next(x for x in groups["liquidity"]["ratios"] if x["code"] == "quick_ratio")
+    assert (
+        quick["values"]["2021"]["value"] is None
+        and "receivables" in quick["values"]["2021"]["missing_reason"]
+    )
+    assert _floats(body) == []  # every number is a decimal string
+
+
+def test_ratios_low_confidence_value(client):
+    body = client.get("/api/companies/MLTM/ratios").json()
+    roe = next(x for g in body["groups"] for x in g["ratios"] if x["code"] == "roe")["values"]["2025"]
+    assert roe["confidence"] == "low" and "BS5" in roe["failed_checks"]
+
+
+def test_ratios_bank_and_insurer(settings, client):
+    seed_bank_and_insurer(settings)
+    leumi = client.get("/api/companies/LUMI/ratios").json()
+    assert leumi["template"] == "bank" and leumi["years"] == [2025, 2024, 2023]
+    harel = client.get("/api/companies/HARL/ratios").json()
+    codes = {x["code"] for g in harel["groups"] for x in g["ratios"]}
+    assert "roe" in codes and "gross_margin" not in codes
+
+
+def test_ratios_not_cached(settings):
+    app = create_app(settings)
+    with TestClient(app) as c:
+        r = c.get("/api/companies/MLTM/ratios")
+    assert r.status_code == 409 and r.json()["code"] == "not_cached"
+
+
+def test_ratios_unsupported_template(settings, client):
+    data = json.loads((FIXTURES / "mltm_financials.json").read_text())
+    data["template"] = "reit"
+    seed_fr_cache(settings, "/companies/6901/financials/", {"fiscal_period": "FY"}, data)
+    r = client.get("/api/companies/MLTM/ratios")
+    assert r.status_code == 422 and r.json()["code"] == "template_not_supported"
+    assert "reit" in r.json()["message"] and "MLTM" in r.json()["message"]

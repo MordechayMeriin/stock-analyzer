@@ -55,6 +55,86 @@
         "title": "AddCompanyIn",
         "type": "object"
       },
+      "CheckOut": {
+        "properties": {
+          "cells": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Cells",
+            "type": "array"
+          },
+          "difference": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Difference"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "label_he": {
+            "title": "Label He",
+            "type": "string"
+          },
+          "left": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Left"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "right": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Right"
+          },
+          "status": {
+            "enum": [
+              "passed",
+              "failed",
+              "not_applicable"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "label_he",
+          "status",
+          "cells"
+        ],
+        "title": "CheckOut",
+        "type": "object"
+      },
       "CompanyOut": {
         "properties": {
           "fr_company_id": {
@@ -1088,6 +1168,264 @@
         "title": "PlaygroundUsage",
         "type": "object"
       },
+      "RatioGroupOut": {
+        "properties": {
+          "group": {
+            "title": "Group",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "ratios": {
+            "items": {
+              "$ref": "#/components/schemas/RatioSeriesOut"
+            },
+            "title": "Ratios",
+            "type": "array"
+          }
+        },
+        "required": [
+          "group",
+          "label",
+          "ratios"
+        ],
+        "title": "RatioGroupOut",
+        "type": "object"
+      },
+      "RatioSeriesOut": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "direction": {
+            "enum": [
+              "higher",
+              "lower",
+              "neutral"
+            ],
+            "title": "Direction",
+            "type": "string"
+          },
+          "name_he": {
+            "title": "Name He",
+            "type": "string"
+          },
+          "threshold": {
+            "title": "Threshold",
+            "type": "string"
+          },
+          "unit": {
+            "enum": [
+              "percent",
+              "ratio",
+              "amount",
+              "days"
+            ],
+            "title": "Unit",
+            "type": "string"
+          },
+          "values": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/RatioValueOut"
+            },
+            "title": "Values",
+            "type": "object"
+          }
+        },
+        "required": [
+          "code",
+          "name_he",
+          "unit",
+          "direction",
+          "threshold",
+          "values"
+        ],
+        "title": "RatioSeriesOut",
+        "type": "object"
+      },
+      "RatioValueOut": {
+        "properties": {
+          "avg_used": {
+            "default": false,
+            "title": "Avg Used",
+            "type": "boolean"
+          },
+          "confidence": {
+            "default": "high",
+            "enum": [
+              "high",
+              "low"
+            ],
+            "title": "Confidence",
+            "type": "string"
+          },
+          "delta": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Delta"
+          },
+          "derived_inputs": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Derived Inputs",
+            "type": "array"
+          },
+          "failed_checks": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Failed Checks",
+            "type": "array"
+          },
+          "inputs": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "default": {},
+            "title": "Inputs",
+            "type": "object"
+          },
+          "missing_message_he": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Missing Message He"
+          },
+          "missing_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Missing Reason"
+          },
+          "notes": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Notes",
+            "type": "array"
+          },
+          "status": {
+            "default": "na",
+            "enum": [
+              "improved",
+              "deteriorated",
+              "changed",
+              "stable",
+              "na"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "required": [
+          "value"
+        ],
+        "title": "RatioValueOut",
+        "type": "object"
+      },
+      "RatiosOut": {
+        "properties": {
+          "as_of": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "As Of"
+          },
+          "checks": {
+            "additionalProperties": {
+              "items": {
+                "$ref": "#/components/schemas/CheckOut"
+              },
+              "type": "array"
+            },
+            "title": "Checks",
+            "type": "object"
+          },
+          "currency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Currency"
+          },
+          "groups": {
+            "items": {
+              "$ref": "#/components/schemas/RatioGroupOut"
+            },
+            "title": "Groups",
+            "type": "array"
+          },
+          "template": {
+            "title": "Template",
+            "type": "string"
+          },
+          "ticker": {
+            "title": "Ticker",
+            "type": "string"
+          },
+          "years": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Years",
+            "type": "array"
+          }
+        },
+        "required": [
+          "ticker",
+          "template",
+          "currency",
+          "years",
+          "as_of",
+          "groups",
+          "checks"
+        ],
+        "title": "RatiosOut",
+        "type": "object"
+      },
       "StorageHealth": {
         "properties": {
           "backend": {
@@ -1734,6 +2072,83 @@
           }
         },
         "summary": "Normalized financials by statement and year",
+        "tags": [
+          "companies"
+        ]
+      }
+    },
+    "/api/companies/{ticker}/ratios": {
+      "get": {
+        "operationId": "get_ratios_api_companies__ticker__ratios_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ticker",
+            "required": true,
+            "schema": {
+              "title": "Ticker",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Only values available by this date",
+            "in": "query",
+            "name": "as_of",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only values available by this date",
+              "title": "As Of"
+            }
+          },
+          {
+            "description": "cached: local data only, no provider calls. live: fetch what is missing (if the server allows).",
+            "in": "query",
+            "name": "mode",
+            "required": false,
+            "schema": {
+              "default": "cached",
+              "description": "cached: local data only, no provider calls. live: fetch what is missing (if the server allows).",
+              "enum": [
+                "cached",
+                "live"
+              ],
+              "title": "Mode",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RatiosOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Financial ratios by group and year, with confidence and data-quality checks",
         "tags": [
           "companies"
         ]
