@@ -13,7 +13,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, SecretStr
+from pydantic import BaseModel, ConfigDict, SecretStr
 
 _TRUE = {"1", "true", "yes", "on"}
 _FALSE = {"0", "false", "no", "off", ""}
@@ -80,11 +80,19 @@ class Settings(BaseModel):
     story_change_batch_tokens: int = 40_000  # changed sections per change-agent call
     story_writer_max_turns: int = 20  # the storyteller calls tools more than the readers
 
+    # --- OSINT research (osint-research spec, add-osint-research design D8) ---
+    model_osint: str = "openai/gpt-6.1-sol"
+    osint_max_searches: int = 40  # web searches per research run
+    osint_search_results: int = 8  # results requested per search
+    osint_max_turns: int = 12  # model turns per agent run
+    osint_window_months: int = 36  # default research window: the present plus the past few years
+
     # --- report parsing thresholds (plan.md §1.4–1.5) ---
     toc_match_threshold: int = 85  # rapidfuzz token_set_ratio for TOC title anchoring
     chapter_match_threshold: int = 85
     repeated_line_ratio: float = 0.30  # lines on more than this share of pages are stripped
     repeated_line_min_pages: int = 4  # never strip "repeats" in very short documents
+    running_line_min_pages: int = 4  # a line at the edge of this many pages is a running header/footer
     min_business_sections: int = 10
     glued_title_max_chars: int = 120
     chars_per_token: float = 3.0  # conservative estimate for Hebrew text
@@ -96,23 +104,6 @@ class Settings(BaseModel):
 
     # --- financial data ---
     fin_max_years: int = 5
-
-    # --- data-quality checks (plan.md §3.2): relative tolerance per check id ---
-    # BS4 is the largest unexplained share of current assets; the rest are relative differences
-    # (see fin/checks.py for the base each one is measured against).
-    check_tolerances: dict[str, float] = Field(
-        default_factory=lambda: {
-            "BS1": 0.005,
-            "BS2": 0.005,
-            "BS3": 0.005,
-            "BS4": 0.40,
-            "BS5": 0.005,
-            "IS1": 0.001,
-            "IS2": 0.005,
-            "IS3": 0.10,
-            "CF1": 0.02,
-        }
-    )
 
     @property
     def cache_dir(self) -> Path:
@@ -127,12 +118,14 @@ class Settings(BaseModel):
         return self.data_dir / "logs"
 
     def model_for(self, role: str) -> str:
-        """Resolve a model *role* (``main`` / ``cheap``) to a configured model id."""
+        """Resolve a model *role* (``main`` / ``cheap`` / ``osint``) to a configured model id."""
         if role == "main":
             return self.model_main
         if role == "cheap":
             return self.model_cheap
-        raise ValueError(f"unknown model role {role!r}; expected 'main' or 'cheap'")
+        if role == "osint":
+            return self.model_osint
+        raise ValueError(f"unknown model role {role!r}; expected 'main', 'cheap' or 'osint'")
 
     @classmethod
     def from_env(cls, env: Mapping[str, str] | None = None) -> Settings:
@@ -186,10 +179,16 @@ class Settings(BaseModel):
             "STORY_READER_BUDGET_TOKENS": ("story_reader_budget_tokens", int),
             "STORY_CHANGE_BATCH_TOKENS": ("story_change_batch_tokens", int),
             "STORY_WRITER_MAX_TURNS": ("story_writer_max_turns", int),
+            "MODEL_OSINT": ("model_osint", str),
+            "OSINT_MAX_SEARCHES": ("osint_max_searches", int),
+            "OSINT_SEARCH_RESULTS": ("osint_search_results", int),
+            "OSINT_MAX_TURNS": ("osint_max_turns", int),
+            "OSINT_WINDOW_MONTHS": ("osint_window_months", int),
             "TOC_MATCH_THRESHOLD": ("toc_match_threshold", int),
             "CHAPTER_MATCH_THRESHOLD": ("chapter_match_threshold", int),
             "REPEATED_LINE_RATIO": ("repeated_line_ratio", float),
             "REPEATED_LINE_MIN_PAGES": ("repeated_line_min_pages", int),
+            "RUNNING_LINE_MIN_PAGES": ("running_line_min_pages", int),
             "MIN_BUSINESS_SECTIONS": ("min_business_sections", int),
             "GLUED_TITLE_MAX_CHARS": ("glued_title_max_chars", int),
             "CHARS_PER_TOKEN": ("chars_per_token", float),

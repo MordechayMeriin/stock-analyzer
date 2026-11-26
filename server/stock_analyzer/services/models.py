@@ -3,12 +3,11 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any
+from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, StringConstraints, field_validator
 
-from stock_analyzer.fin.checks import CheckResult
-from stock_analyzer.fin.ratios import Change, RatioValue
+from stock_analyzer.companies import CompanySource
 from stock_analyzer.ingest.structure import Coverage
 
 
@@ -18,6 +17,33 @@ class CompanyOut(BaseModel):
     name_en: str | None = None
     fr_company_id: int
     isin: str | None = None
+    source: CompanySource = Field(
+        description="registry: data/companies.yaml; added: added at runtime (removable)"
+    )
+
+
+_Ticker = Annotated[
+    str, StringConstraints(strip_whitespace=True, to_upper=True, pattern=r"^[A-Za-z0-9.\-]{1,15}$")
+]
+_NameHe = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
+_Isin = Annotated[
+    str, StringConstraints(strip_whitespace=True, to_upper=True, pattern=r"^[A-Za-z]{2}[A-Za-z0-9]{9}[0-9]$")
+]
+
+
+class AddCompanyIn(BaseModel):
+    """A company to start tracking, usually taken from a provider search hit."""
+
+    fr_company_id: int = Field(gt=0, description="Provider company id (from search)")
+    ticker: _Ticker = Field(description="1-15 Latin letters, digits, dots or hyphens; stored upper-case")
+    name_he: _NameHe
+    name_en: str | None = Field(default=None, max_length=200)
+    isin: _Isin | None = None
+
+    @field_validator("name_en", "isin", mode="before")
+    @classmethod
+    def _blank_is_none(cls, v: Any) -> Any:
+        return v.strip() or None if isinstance(v, str) else v
 
 
 class CompanySearchHit(BaseModel):
@@ -36,10 +62,12 @@ class FilingOut(BaseModel):
     release_datetime: datetime | None
     file_extension: str | None
     file_size: int | None
-    document_url: str | None
-    viewer_url: str | None
     selected: bool  # the full annual report chosen for its fiscal year
     cached: bool  # its Markdown is saved locally
+    processing_status: str | None = Field(
+        default=None,
+        description="The provider's Markdown processing status as given (COMPLETED, QUEUED, ...); null if none",
+    )
 
 
 class FiscalYearFilings(BaseModel):
@@ -47,6 +75,12 @@ class FiscalYearFilings(BaseModel):
     selected_filing_id: int | None
     selection_error: str | None = None
     report_cached: bool
+    markdown_availability: Literal["available", "unknown", "processing", "failed"] | None = Field(
+        default=None,
+        description="Whether the provider has Markdown for the selected filing: available (COMPLETED), "
+        "unknown (no status), processing (PENDING/QUEUED/PROCESSING) or failed (FAILED/SKIPPED). "
+        "Null when no filing is selected.",
+    )
     filings: list[FilingOut]
 
 
@@ -101,7 +135,6 @@ class StructureOut(BaseModel):
     ticker: str
     fiscal_year: int
     filing_id: int
-    document_url: str | None
     page_count: int
     page_style: str
     nodes: list[NodeOut]
@@ -119,7 +152,6 @@ class ParagraphOut(BaseModel):
     page_printed: int | None
     heading_level: int
     in_table: bool
-    citation_url: str | None  # document_url#page=N
 
 
 class NodeParagraphsOut(BaseModel):
@@ -134,7 +166,6 @@ class PageParagraphsOut(BaseModel):
     fiscal_year: int
     page_index: int
     page_printed: int | None
-    citation_url: str | None
     node_ids: list[str]  # deepest nodes that cover this page
     paragraphs: list[ParagraphOut]
 
@@ -153,18 +184,6 @@ class FinStatementOut(BaseModel):
     items: list[FinItemOut]
 
 
-class RatiosOut(BaseModel):
-    """Core ratios, their year-over-year changes and the data-quality checks (financial-analysis spec)."""
-
-    ticker: str
-    currency: str | None
-    years: list[int]  # newest first
-    as_of: str | None
-    ratios: list[RatioValue]  # every core ratio per year; values are exact decimal strings
-    changes: list[Change]  # ratio changes between consecutive years
-    checks: list[CheckResult]
-
-
 class FinancialsOut(BaseModel):
     ticker: str
     currency: str | None
@@ -172,3 +191,58 @@ class FinancialsOut(BaseModel):
     as_of: str | None
     statements: list[FinStatementOut]
     available_at: dict[str, str | None]  # fiscal year → earliest availability timestamp
+
+
+# -- ratios (financial-ratios spec) — every number is an exact decimal string, never a JSON float
+
+
+class RatioValueOut(BaseModel):
+    value: str | None  # fraction for percent units (0.104706 = 10.47%); None = missing
+    missing_reason: str | None = (
+        None  # missing_input:<fields> | missing_prior_input:<field> | zero_denominator | …
+    )
+    missing_message_he: str | None = None
+    confidence: Literal["high", "low"] = "high"
+    failed_checks: list[str] = []  # check ids; "<id>:<fy>" when the check failed in another year
+    derived_inputs: list[str] = []  # "<field>:<fy>"
+    avg_used: bool = False
+    inputs: dict[str, str] = {}  # field (closing) | "opening:<field>" | "prior:<field>" → value
+    delta: str | None = None  # change from the year before, in the ratio's unit (relative for amounts)
+    status: Literal["improved", "deteriorated", "changed", "stable", "na"] = "na"
+    notes: list[str] = []  # e.g. non_annual_source
+
+
+class RatioSeriesOut(BaseModel):
+    code: str
+    name_he: str
+    unit: Literal["percent", "ratio", "amount", "days"]
+    direction: Literal["higher", "lower", "neutral"]
+    threshold: str
+    values: dict[str, RatioValueOut]  # fiscal year → value, for every year in RatiosOut.years
+
+
+class RatioGroupOut(BaseModel):
+    group: str
+    label: str
+    ratios: list[RatioSeriesOut]
+
+
+class CheckOut(BaseModel):
+    id: str
+    label_he: str
+    status: Literal["passed", "failed", "not_applicable"]
+    cells: list[str]
+    left: str | None = None
+    right: str | None = None
+    difference: str | None = None
+    reason: str | None = None
+
+
+class RatiosOut(BaseModel):
+    ticker: str
+    template: str
+    currency: str | None
+    years: list[int]  # newest first; up to fin_max_years contiguous years ending at the latest
+    as_of: str | None
+    groups: list[RatioGroupOut]
+    checks: dict[str, list[CheckOut]]  # fiscal year → data-quality check results

@@ -2,17 +2,13 @@
 
 from __future__ import annotations
 
-import json
-
 import pytest
 
-from stock_analyzer.config import Settings
-from stock_analyzer.fin.normalize import normalize_financials
-from stock_analyzer.story.facts import Fact, FactRegistry, registry_from_values
+from stock_analyzer.story.facts import Fact, FactRegistry, registry_from_analysis
 from stock_analyzer.story.models import Finding, Story, StoryParagraph
 from stock_analyzer.story.render import format_fact, render_finding, render_paragraph
 from stock_analyzer.story.verify import QUANTITY_WORDS, tokens, verify_story
-from tests.conftest import FIXTURES
+from tests.conftest import malam_analysis
 
 YEARS = [2023, 2024, 2025]
 PIDS = {"MLTM-2025-p0010-005", "MLTM-2024-p0066-001", "MLTM-2023-p0063-002"}
@@ -20,9 +16,7 @@ PIDS = {"MLTM-2025-p0010-005", "MLTM-2024-p0066-001", "MLTM-2023-p0063-002"}
 
 @pytest.fixture(scope="module")
 def registry() -> FactRegistry:
-    values = normalize_financials(json.loads((FIXTURES / "mltm_financials.json").read_text(encoding="utf-8")))
-    reg, _ = registry_from_values(values, YEARS, Settings().check_tolerances)
-    return reg
+    return registry_from_analysis(malam_analysis(), YEARS)
 
 
 def good_story(**changes) -> Story:

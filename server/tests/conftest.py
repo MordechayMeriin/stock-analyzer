@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import os
 import socket
-import threading
 import uuid
 from pathlib import Path
 
@@ -29,25 +28,16 @@ class NetworkBlocked(RuntimeError):
 @pytest.fixture(autouse=True)
 def _offline(monkeypatch):
     real_connect = socket.socket.connect
-    real_socketpair = socket.socketpair
-    in_socketpair = threading.local()
 
     def guarded(self, address):
-        # Windows has no native socketpair: Python emulates it by connecting two loopback sockets
-        # inside the process, and every asyncio event loop creates one. Allow only that.
-        if self.family in (socket.AF_INET, socket.AF_INET6) and not getattr(in_socketpair, "on", False):
+        # loopback stays allowed: on Windows asyncio's event loop builds its self-pipe with a
+        # loopback socketpair, so blocking it would break every asyncio.run in the tests
+        host = address[0] if isinstance(address, tuple) and address else None
+        if self.family in (socket.AF_INET, socket.AF_INET6) and host not in ("127.0.0.1", "::1"):
             raise NetworkBlocked(f"network access attempted in tests: {address!r}")
         return real_connect(self, address)
 
-    def socketpair(*args, **kwargs):
-        in_socketpair.on = True
-        try:
-            return real_socketpair(*args, **kwargs)
-        finally:
-            in_socketpair.on = False
-
     monkeypatch.setattr(socket.socket, "connect", guarded)
-    monkeypatch.setattr(socket, "socketpair", socketpair)
     proxies = ("HTTPS_PROXY", "HTTP_PROXY", "ALL_PROXY", "https_proxy", "http_proxy", "all_proxy")
     cleared = ("FR_API_KEY", "OPENROUTER_API_KEY", "DATABASE_URL", "TEST_DATABASE_URL", "DATA_DIR")
     for var in (*cleared, "ALLOW_LIVE", "LLM_FAKE", *proxies):
@@ -125,18 +115,56 @@ def fixtures_dir() -> Path:
     return FIXTURES
 
 
-LIVE_RAW = SERVER_ROOT / "data" / "raw" / "MLTM"
+# Full stored reports for the opt-in ``live_data`` tests, read through the state store
+# (design D12): the local ``DATA_DIR`` (default ``server/data``) or, when ``DATABASE_URL`` is set,
+# the Postgres store it names (e.g. the hosted one, which holds every reference report, so these
+# tests cost no provider credits). Both are read here, before the autouse fixture clears them.
+LIVE_DATA_DIR = Path(os.environ.get("DATA_DIR", "").strip() or SERVER_ROOT / "data")
+LIVE_DATABASE_URL = os.environ.get("DATABASE_URL", "").strip() or None
+
+# The reference reports every parser change is checked against (report-parsing spec).
+REFERENCE_REPORTS: list[tuple[str, int]] = [
+    ("MLTM", 2024),
+    ("MLTM", 2025),
+    ("ELAL", 2024),
+    ("ELAL", 2025),
+    ("RMLI", 2025),
+    ("DLEKG", 2025),
+]
+
+_live_store = None
+
+# Malam annual reports by fiscal year: the selected filing ids (report-diff and story tests).
 LIVE_FILINGS = {2023: 63741686, 2024: 63741657, 2025: 32935334}
 
 
-def live_report(fiscal_year: int) -> str:
-    """Full cached Malam report text; skips the test when it has not been fetched."""
-    path = LIVE_RAW / f"{fiscal_year}.md"
-    if not path.exists():
-        pytest.skip(
-            f"full Malam FY{fiscal_year} report not cached (run: stock-analyzer fetch MLTM {fiscal_year})"
+def _get_live_store():
+    global _live_store
+    if _live_store is None:
+        import atexit
+
+        from stock_analyzer.store import get_store
+
+        live_settings = Settings(
+            data_dir=LIVE_DATA_DIR,
+            database_url=SecretStr(LIVE_DATABASE_URL) if LIVE_DATABASE_URL else None,
         )
-    return read_exact(path)
+        _live_store = get_store(live_settings)
+        atexit.register(_live_store.close)
+    return _live_store
+
+
+def live_report(ticker: str, fiscal_year: int) -> tuple[str, int]:
+    """(text, filing id) of a full stored report; skips the test when it is not stored."""
+    loaded = _get_live_store().load_report(ticker.upper(), fiscal_year)
+    if loaded is None:
+        where = "the DATABASE_URL store" if LIVE_DATABASE_URL else str(LIVE_DATA_DIR)
+        pytest.skip(
+            f"full {ticker.upper()} FY{fiscal_year} report not stored in {where} "
+            f"(run: stock-analyzer fetch {ticker.upper()} {fiscal_year})"
+        )
+    text, meta = loaded
+    return text, meta.filing_id
 
 
 def fixture_text(name: str) -> str:
@@ -198,3 +226,55 @@ def seed_business_slices(settings) -> None:
     for fy, filing_id in LIVE_FILINGS.items():
         filing = Filing(id=filing_id, title=f"Periodic and annual report for {fy}", fiscal_year=fy)
         save_report(settings, "MLTM", fy, filing, fixture_text(f"mltm_{fy}_business_slice.md"))
+
+
+def seed_financials(settings, ticker: str, fr_company_id: int, fixture: str, name_he: str) -> None:
+    """Track a company (runtime-added) and cache its financials fixture, as if fetched live."""
+    import json as _json
+
+    from stock_analyzer.companies import TrackedCompany
+    from stock_analyzer.store import get_store
+
+    store = get_store(settings)
+    store.add_tracked(TrackedCompany(ticker=ticker, fr_company_id=fr_company_id, name_he=name_he))
+    store.close()
+    seed_fr_cache(
+        settings,
+        f"/companies/{fr_company_id}/financials/",
+        {"fiscal_period": "FY"},
+        _json.loads((FIXTURES / fixture).read_text()),
+    )
+
+
+def seed_bank_and_insurer(settings) -> None:
+    """Cached financials for Leumi (template bank) and Harel (template insurer)."""
+    seed_financials(settings, "LUMI", 6889, "lumi_financials.json", "בנק לאומי")
+    seed_financials(settings, "HARL", 6832, "harl_financials.json", "הראל השקעות")
+
+
+def malam_analysis(*, cutoff=None):
+    """A ratios analysis of the Malam financials fixture, built without a store (story facts tests)."""
+    import json
+
+    from stock_analyzer.fin.canonical import build_sheet
+    from stock_analyzer.fin.checks import run_checks
+    from stock_analyzer.fin.normalize import as_of, check_currency, financials_template, normalize_financials
+    from stock_analyzer.fin.ratios import compute
+    from stock_analyzer.services.ratios import Analysis
+
+    data = json.loads((FIXTURES / "mltm_financials.json").read_text(encoding="utf-8"))
+    values = normalize_financials(data)
+    if cutoff is not None:
+        values = as_of(values, cutoff)
+    sheet = build_sheet(values, financials_template(data))
+    checks = run_checks(sheet)
+    return Analysis(
+        ticker="MLTM",
+        template=sheet.template,
+        currency=check_currency(values),
+        as_of=cutoff,
+        years=sorted(sheet.years, reverse=True),
+        sheet=sheet,
+        checks=checks,
+        series=compute(sheet, checks),
+    )

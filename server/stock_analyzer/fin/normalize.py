@@ -5,6 +5,8 @@
 - One currency per company; a mismatch raises :class:`CurrencyMismatch` naming the items.
 - Every value carries ``available_at`` (when the provider had it); :func:`as_of` keeps only
   values available at or before a date.
+- :func:`financials_template` keeps the provider's statement template (``industrial``, ``bank``,
+  ``insurer``), which picks the canonical fields and ratios (``fin/canonical.py``).
 """
 
 from __future__ import annotations
@@ -106,6 +108,7 @@ class FinValue(BaseModel):
     scale: str | None  # as reported
     available_at: datetime | None
     source_filing_id: int | None
+    source_filing_type: str | None = None  # e.g. "10-K", "IR" (interim), "ER" (earnings release)
     depth: int = 0
     sort_order: int = 0
     provider_value_differs: bool = False  # raw × scale disagreed with the provider's value
@@ -147,6 +150,7 @@ def normalize_item(
     statement_type: str,
     default_currency: str | None,
     source_filing_id: int | None,
+    source_filing_type: str | None = None,
 ) -> FinValue | None:
     """One line item as a FinValue, or None when the provider has no value for it."""
     code = item["code"]
@@ -177,10 +181,18 @@ def normalize_item(
         scale=scale,
         available_at=_datetime(item.get("available_at")),
         source_filing_id=source_filing_id,
+        source_filing_type=source_filing_type,
         depth=int(item.get("depth") or 0),
         sort_order=int(item.get("sort_order") or 0),
         provider_value_differs=differs,
     )
+
+
+def financials_template(data: Mapping[str, Any]) -> str | None:
+    """The provider's statement template for the company, or None when the response has none
+    (financials cached before the provider added the field)."""
+    template = data.get("template")
+    return str(template) if template else None
 
 
 def normalize_financials(data: Mapping[str, Any], *, fiscal_period: str = "FY") -> list[FinValue]:
@@ -194,14 +206,15 @@ def normalize_financials(data: Mapping[str, Any], *, fiscal_period: str = "FY") 
             continue
         for st in period.get("statements", []):
             st_currency = (st.get("currency") or {}).get("code") or company_currency
-            source = (st.get("source_filing") or {}).get("id")
+            source_filing = st.get("source_filing") or {}
             for item in st.get("line_items", []):
                 value = normalize_item(
                     item,
                     fiscal_year=int(fy),
                     statement_type=st.get("statement_type", "SUP"),
                     default_currency=st_currency,
-                    source_filing_id=source,
+                    source_filing_id=source_filing.get("id"),
+                    source_filing_type=source_filing.get("filing_type"),
                 )
                 if value is not None:
                     values.append(value)

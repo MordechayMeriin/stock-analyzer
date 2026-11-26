@@ -10,7 +10,7 @@ from stock_analyzer.llm import FakeLLM
 from stock_analyzer.services import reports
 from stock_analyzer.services.context import Ctx
 from stock_analyzer.services.models import StructureOut
-from tests.conftest import seed_fr_cache, seed_malam
+from tests.conftest import FIXTURES, seed_bank_and_insurer, seed_fr_cache, seed_malam
 
 
 @pytest.fixture
@@ -60,6 +60,37 @@ def test_not_cached_error(client):
     assert r.status_code == 409 and r.json()["code"] == "not_cached"
 
 
+def test_report_not_processed_error(client, monkeypatch):
+    from stock_analyzer.errors import ReportNotProcessed
+
+    def not_processed(*_args, **_kw):
+        raise ReportNotProcessed("RMLI FY2024: the provider has not processed filing 61337033 (QUEUED)")
+
+    monkeypatch.setattr(reports, "report_structure", not_processed)
+    r = client.get("/api/companies/MLTM/reports/2024/structure")
+    assert r.status_code == 409
+    assert r.json() == {
+        "code": "report_not_processed",
+        "message": "RMLI FY2024: the provider has not processed filing 61337033 (QUEUED)",
+    }
+
+
+def test_template_not_supported_error(client, monkeypatch):
+    from stock_analyzer.errors import TemplateNotSupported
+    from stock_analyzer.services import financials
+
+    def unsupported(*_args, **_kw):
+        raise TemplateNotSupported("MLTM: no canonical fields for template 'reit'")
+
+    monkeypatch.setattr(financials, "financials", unsupported)
+    r = client.get("/api/companies/MLTM/financials")
+    assert r.status_code == 422
+    assert r.json() == {
+        "code": "template_not_supported",
+        "message": "MLTM: no canonical fields for template 'reit'",
+    }
+
+
 def test_live_refused_when_disabled(settings):
     seed_malam(settings)
     app = create_app(settings.model_copy(update={"allow_live": False}))
@@ -106,13 +137,23 @@ def test_filings_endpoint_marks_selected(client):
     assert [f["filing_id"] for f in fy2025["filings"] if f["selected"]] == [32935334]
 
 
+def test_filings_endpoint_reports_processing_status(client):
+    body = client.get("/api/companies/MLTM/filings").json()
+    fy2025 = next(y for y in body["years"] if y["fiscal_year"] == 2025)
+    assert fy2025["markdown_availability"] == "available"
+    assert {f["filing_id"]: f["processing_status"] for f in fy2025["filings"]}[32935334] == "COMPLETED"
+    for year in body["years"]:
+        if year["selection_error"]:
+            assert year["markdown_availability"] is None
+
+
 def test_structure_node_page_endpoints(client):
     s = client.get("/api/companies/MLTM/reports/2025/structure").json()
     assert s["page_count"] == 36 and any(n["node_id"] == "business-22" for n in s["nodes"])
     node = client.get("/api/companies/MLTM/reports/2025/nodes/business-22").json()
     p = node["paragraphs"][0]
-    assert set(p) >= {"pid", "text", "page_index", "page_printed", "citation_url"}
-    assert p["citation_url"].endswith(f"#page={p['page_index']}")
+    assert set(p) >= {"pid", "text", "page_index", "page_printed"}
+    assert "citation_url" not in p and "document_url" not in s  # no links to the source PDF
     page = client.get(f"/api/companies/MLTM/reports/2025/pages/{p['page_index']}").json()
     assert page["page_index"] == p["page_index"] and page["paragraphs"]
     assert client.get("/api/companies/MLTM/reports/2025/nodes/nope").json()["code"] == "node_not_found"
@@ -168,6 +209,7 @@ def test_openapi_lists_every_endpoint(client):
         "/api/playground",
     ):
         assert path in paths, path
+    assert "post" in paths["/api/companies"] and "delete" in paths["/api/companies/{ticker}"]
     schemas = client.get("/openapi.json").json()["components"]["schemas"]
     assert {"PlaygroundDone", "PlaygroundDelta", "ErrorOut", "StructureOut"} <= set(schemas)
 
@@ -202,7 +244,7 @@ def test_playground_streams_deltas_then_done(settings):
         and done["paragraph_ids"]
         and all(p.startswith("MLTM-2025-p") for p in done["paragraph_ids"])
     )
-    assert all(u.endswith(f"#page={int(pid.split('-p')[1][:4])}") for pid, u in done["citations"].items())
+    assert "citations" not in done  # no links to the source document
     call = app.state.llm.calls[0]
     assert call.role == "main" and "מה הסיכונים?" in call.user and done["paragraph_ids"][0] in call.user
     assert "Answer in Hebrew" in call.system
@@ -282,35 +324,6 @@ def test_usage_totals_come_from_the_store(client, settings):
     assert body["llm"] == {"calls": 2, "cache_hits": 1, "failures": 0, "total_cost_usd": 0.125}
     # the logged miss, plus the usage request itself served from cache
     assert body["fr_log"] == {"calls": 2, "cache_hits": 1, "network_calls": 1, "credits_logged": 6}
-
-
-# ---------------------------------------------------------------- core ratios (financial-analysis)
-
-
-def test_ratios_endpoint_values_are_decimal_strings(client):
-    body = client.get("/api/companies/MLTM/ratios").json()
-    assert body["ticker"] == "MLTM" and body["years"][0] == 2025
-    gm = next(r for r in body["ratios"] if r["code"] == "gross_margin" and r["fiscal_year"] == 2025)
-    assert isinstance(gm["value"], str) and gm["value"].startswith("0.1047")
-    assert gm["confidence"] == "high"
-    fcf = next(r for r in body["ratios"] if r["code"] == "free_cash_flow" and r["fiscal_year"] == 2025)
-    assert fcf["value"] == "65518000" and fcf["confidence"] == "low" and "CF1" in fcf["failed_checks"]
-    failed = {c["check_id"] for c in body["checks"] if c["fiscal_year"] == 2025 and c["status"] == "fail"}
-    assert failed == {"CF1", "CF2", "IS3", "BS4", "BS5"}
-    assert all(c["kind"] == "RATIO" for c in body["changes"])
-
-
-def test_cli_api_ratios_parity(client, settings):
-    from stock_analyzer.cli import render_ratios
-    from stock_analyzer.services import analysis
-    from stock_analyzer.services.models import RatiosOut
-
-    api = RatiosOut.model_validate(client.get("/api/companies/MLTM/ratios").json())
-    cli = analysis.ratios(Ctx(settings), "MLTM")
-    assert api == cli
-    assert render_ratios(api) == render_ratios(cli)
-    late = client.get("/api/companies/MLTM/ratios", params={"as_of": "2024-04-01"}).json()
-    assert 2023 not in late["years"]
 
 
 # ---------------------------------------------------------------- report comparison (report-diff)
@@ -401,11 +414,7 @@ def test_story_live_run_then_saved_story(story_settings):
     assert body["run_id"] == done.run_id
     revenue = next(f for f in body["facts"] if f["fact_id"] == "FIN:revenue:2025")
     assert revenue["value"] == "4138004000" and isinstance(revenue["value"], str)
-    assert all(
-        c["url"].rsplit("#page=", 1)[1].isdigit()
-        for c in body["citations"].values()
-        if c["fiscal_year"] == 2025
-    )
+    assert body["citations"] and all("url" not in c for c in body["citations"].values())  # no PDF links
 
 
 def test_story_run_refused_in_cached_mode(story_settings):
@@ -435,3 +444,142 @@ def test_story_failed_verification_is_an_error_event(story_settings):
         events = sse_events(r.text)
         assert events[-1][0] == "error" and events[-1][1]["code"] == "story_verification_failed"
         assert c.get("/api/companies/MLTM/story").status_code == 409  # nothing saved
+
+
+# ---------------------------------------------------------------- tracking companies at runtime
+
+ABC = {"fr_company_id": 1234, "ticker": "abc", "name_he": "חברה לדוגמה", "name_en": "Example Ltd."}
+
+
+@pytest.fixture
+def live_client(settings):
+    seed_malam(settings)
+    with TestClient(create_app(settings.model_copy(update={"allow_live": True}))) as c:
+        yield c
+
+
+def test_companies_list_reports_source(live_client):
+    assert [(c["ticker"], c["source"]) for c in live_client.get("/api/companies").json()] == [
+        ("MLTM", "registry")
+    ]
+
+
+def test_add_then_remove_company_in_live_mode(live_client):
+    r = live_client.post("/api/companies", params={"mode": "live"}, json=ABC)
+    assert r.status_code == 201
+    assert r.json() == {**ABC, "ticker": "ABC", "isin": None, "source": "added"}
+    listed = live_client.get("/api/companies").json()  # cached mode reads it too
+    assert [(c["ticker"], c["source"]) for c in listed] == [("MLTM", "registry"), ("ABC", "added")]
+    assert live_client.get("/api/companies/abc").json()["fr_company_id"] == 1234
+
+    r = live_client.delete("/api/companies/abc", params={"mode": "live"})
+    assert r.status_code == 204 and r.content == b""
+    assert [c["ticker"] for c in live_client.get("/api/companies").json()] == ["MLTM"]
+    assert live_client.get("/api/companies/ABC").json()["code"] == "company_not_found"
+
+
+def test_add_and_remove_refused_in_cached_mode(live_client):
+    r = live_client.post("/api/companies", json=ABC)
+    assert r.status_code == 403 and r.json()["code"] == "live_required"
+    r = live_client.delete("/api/companies/MLTM")
+    assert r.status_code == 403 and r.json()["code"] == "live_required"
+    assert len(live_client.get("/api/companies").json()) == 1
+
+
+def test_add_refused_on_cached_only_server(settings):
+    with TestClient(create_app(settings.model_copy(update={"allow_live": False}))) as c:
+        r = c.post("/api/companies", params={"mode": "live"}, json=ABC)
+        assert r.status_code == 403 and r.json()["code"] == "live_disabled"
+        assert [x["ticker"] for x in c.get("/api/companies").json()] == ["MLTM"]
+
+
+@pytest.mark.parametrize(
+    "change", [{"ticker": "mltm"}, {"fr_company_id": 6901}], ids=["ticker", "provider_id"]
+)
+def test_add_already_tracked_is_409(live_client, change):
+    r = live_client.post("/api/companies", params={"mode": "live"}, json={**ABC, **change})
+    assert r.status_code == 409 and r.json()["code"] == "company_already_tracked"
+    assert "MLTM" in r.json()["message"]
+
+
+def test_add_invalid_ticker_is_422(live_client):
+    r = live_client.post("/api/companies", params={"mode": "live"}, json={**ABC, "ticker": "A B/C"})
+    assert r.status_code == 422 and r.json()["code"] == "validation_error"
+
+
+def test_remove_registry_company_is_409_and_unknown_is_404(live_client):
+    r = live_client.delete("/api/companies/MLTM", params={"mode": "live"})
+    assert r.status_code == 409 and r.json()["code"] == "company_not_removable"
+    r = live_client.delete("/api/companies/NOPE", params={"mode": "live"})
+    assert r.status_code == 404 and r.json()["code"] == "company_not_found"
+
+
+def test_cors_preflight_allows_delete(settings):
+    app = create_app(settings.model_copy(update={"cors_origins": ("https://ui.example",)}))
+    with TestClient(app) as c:
+        r = c.options(
+            "/api/companies/ABC",
+            headers={"Origin": "https://ui.example", "Access-Control-Request-Method": "DELETE"},
+        )
+    assert r.status_code == 200
+    assert "DELETE" in r.headers["access-control-allow-methods"]
+
+
+# -- ratios endpoint (analyzer-api spec: Ratios endpoint)
+
+
+def _floats(node) -> list:
+    if isinstance(node, float):
+        return [node]
+    if isinstance(node, dict):
+        return [f for v in node.values() for f in _floats(v)]
+    if isinstance(node, list):
+        return [f for v in node for f in _floats(v)]
+    return []
+
+
+def test_malam_ratios_endpoint(client):
+    r = client.get("/api/companies/MLTM/ratios")
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["template"] == "industrial" and body["years"] == [2025, 2024, 2023, 2022, 2021]
+    groups = {g["group"]: g for g in body["groups"]}
+    gross = next(x for x in groups["profitability"]["ratios"] if x["code"] == "gross_margin")
+    assert gross["values"]["2025"]["value"] == "0.104733"
+    quick = next(x for x in groups["liquidity"]["ratios"] if x["code"] == "quick_ratio")
+    assert (
+        quick["values"]["2021"]["value"] is None
+        and "receivables" in quick["values"]["2021"]["missing_reason"]
+    )
+    assert _floats(body) == []  # every number is a decimal string
+
+
+def test_ratios_low_confidence_value(client):
+    body = client.get("/api/companies/MLTM/ratios").json()
+    roe = next(x for g in body["groups"] for x in g["ratios"] if x["code"] == "roe")["values"]["2025"]
+    assert roe["confidence"] == "low" and "BS5" in roe["failed_checks"]
+
+
+def test_ratios_bank_and_insurer(settings, client):
+    seed_bank_and_insurer(settings)
+    leumi = client.get("/api/companies/LUMI/ratios").json()
+    assert leumi["template"] == "bank" and leumi["years"] == [2025, 2024, 2023]
+    harel = client.get("/api/companies/HARL/ratios").json()
+    codes = {x["code"] for g in harel["groups"] for x in g["ratios"]}
+    assert "roe" in codes and "gross_margin" not in codes
+
+
+def test_ratios_not_cached(settings):
+    app = create_app(settings)
+    with TestClient(app) as c:
+        r = c.get("/api/companies/MLTM/ratios")
+    assert r.status_code == 409 and r.json()["code"] == "not_cached"
+
+
+def test_ratios_unsupported_template(settings, client):
+    data = json.loads((FIXTURES / "mltm_financials.json").read_text())
+    data["template"] = "reit"
+    seed_fr_cache(settings, "/companies/6901/financials/", {"fiscal_period": "FY"}, data)
+    r = client.get("/api/companies/MLTM/ratios")
+    assert r.status_code == 422 and r.json()["code"] == "template_not_supported"
+    assert "reit" in r.json()["message"] and "MLTM" in r.json()["message"]

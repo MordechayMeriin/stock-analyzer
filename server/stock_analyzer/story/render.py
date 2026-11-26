@@ -67,6 +67,8 @@ def format_fact(fact: Fact) -> str:
     if fact.unit == "multiple":
         text = f"{_q(v, 2)}"
         return _signed(text, v) if change else text
+    if fact.unit == "days":
+        return _signed(f"{_q(v, 0)} ימים", v) if change else f"{_q(v, 0)} ימים"
     if fact.unit == "per_share":
         return f"{_q(v, 2)}{money_suffix}"
     if fact.unit == "count":

@@ -1,4 +1,3 @@
-import { ExternalLink } from 'lucide-react'
 import { Fragment } from 'react'
 
 import type { Paragraph } from '@/api/client'
@@ -46,25 +45,13 @@ export function PageMarker({ p }: { p: Paragraph }) {
   return (
     <div className="text-muted-foreground flex items-center gap-2 pt-2 text-xs" data-testid="page-marker" data-page={p.page_index}>
       <span className="bg-border h-px flex-1" />
-      {p.citation_url ? (
-        <a
-          href={p.citation_url}
-          target="_blank"
-          rel="noreferrer"
-          className="hover:text-primary inline-flex items-center gap-1 underline-offset-2 hover:underline"
-          data-testid="page-link"
-        >
-          {pageLabel(p.page_printed, p.page_index)} <ExternalLink className="size-3" aria-hidden />
-        </a>
-      ) : (
-        <span>{pageLabel(p.page_printed, p.page_index)}</span>
-      )}
+      <span>{pageLabel(p.page_printed, p.page_index)}</span>
       <span className="bg-border h-px flex-1" />
     </div>
   )
 }
 
-/** Paragraphs with a page marker (linked to the PDF page) whenever the page changes. */
+/** Paragraphs with a page marker (the printed page number, else the page's position in the file) whenever the page changes. */
 export function ParagraphList({ paragraphs, highlight }: { paragraphs: Paragraph[]; highlight?: Set<string> }) {
   return (
     <div className="space-y-3 leading-7" dir="rtl">

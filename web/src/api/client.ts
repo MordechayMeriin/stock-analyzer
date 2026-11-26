@@ -8,6 +8,7 @@ import type { components } from './schema'
 export type Schemas = components['schemas']
 export type Mode = 'cached' | 'live'
 export type Company = Schemas['CompanyOut']
+export type AddCompanyInput = Schemas['AddCompanyIn']
 export type CompanySearchHit = Schemas['CompanySearchHit']
 export type Filings = Schemas['FilingsOut']
 export type FiscalYearFilings = Schemas['FiscalYearFilings']
@@ -17,6 +18,10 @@ export type NodeParagraphs = Schemas['NodeParagraphsOut']
 export type PageParagraphs = Schemas['PageParagraphsOut']
 export type Paragraph = Schemas['ParagraphOut']
 export type Financials = Schemas['FinancialsOut']
+export type Ratios = Schemas['RatiosOut']
+export type RatioSeries = Schemas['RatioSeriesOut']
+export type RatioValue = Schemas['RatioValueOut']
+export type CheckResult = Schemas['CheckOut']
 export type Usage = Schemas['UsageOut']
 export type Health = Schemas['HealthOut']
 export type ApiErrorBody = Schemas['ErrorOut']
@@ -27,6 +32,13 @@ export type StoryProgress = Schemas['StoryProgress']
 export type StoryFact = Schemas['Fact']
 export type StorySegment = Schemas['Segment']
 export type StoryCitation = Schemas['Citation']
+export type OsintResult = Schemas['ResearchResult']
+export type OsintFinding = Schemas['KeptFinding']
+export type OsintScorecard = Schemas['Scorecard']
+export type OsintPoint = Schemas['Point']
+export type OsintProgress = Schemas['OsintProgress']
+export type OsintLabel = Schemas['AreaAssessment']['label']
+export type OsintArea = Schemas['AreaAssessment']['area']
 
 /** An API failure carrying the server's machine-readable code. */
 export class ApiError extends Error {
@@ -59,17 +71,34 @@ export async function errorFrom(res: Response): Promise<ApiError> {
   return new ApiError('http_error', `${res.status} ${res.statusText}`, res.status)
 }
 
-async function get<T>(path: string, query?: Query, signal?: AbortSignal): Promise<T> {
+/** One request with the shared error mapping. Resolves to undefined for 204 No Content. */
+async function send<T>(
+  method: 'GET' | 'POST' | 'DELETE',
+  path: string,
+  query?: Query,
+  body?: unknown,
+  signal?: AbortSignal,
+): Promise<T> {
+  const headers: Record<string, string> = { Accept: 'application/json' }
+  if (body !== undefined) headers['Content-Type'] = 'application/json'
   let res: Response
   try {
-    res = await fetch(url(path, query), { headers: { Accept: 'application/json' }, signal })
+    res = await fetch(url(path, query), {
+      method,
+      headers,
+      body: body === undefined ? undefined : JSON.stringify(body),
+      signal,
+    })
   } catch (e) {
     if ((e as Error).name === 'AbortError') throw e
     throw new ApiError('network_error', 'השרת אינו זמין. בדקו שהשרת פועל ושכתובת ה-API נכונה.', 0)
   }
   if (!res.ok) throw await errorFrom(res)
+  if (res.status === 204) return undefined as T
   return (await res.json()) as T
 }
+
+const get = <T>(path: string, query?: Query, signal?: AbortSignal) => send<T>('GET', path, query, undefined, signal)
 
 const enc = encodeURIComponent
 
@@ -78,12 +107,18 @@ export const api = {
   companies: (mode: Mode, signal?: AbortSignal) => get<Company[]>('/api/companies', { mode }, signal),
   searchCompanies: (q: string, mode: Mode, signal?: AbortSignal) =>
     get<CompanySearchHit[]>('/api/companies/search', { q, mode }, signal),
+  /** Start tracking a company. Live mode only (the server refuses it in cached mode). */
+  addCompany: (input: AddCompanyInput, mode: Mode) => send<Company>('POST', '/api/companies', { mode }, input),
+  /** Stop tracking a runtime-added company. Live mode only. */
+  removeCompany: (ticker: string, mode: Mode) => send<void>('DELETE', `/api/companies/${enc(ticker)}`, { mode }),
   company: (ticker: string, mode: Mode, signal?: AbortSignal) =>
     get<Company>(`/api/companies/${enc(ticker)}`, { mode }, signal),
   filings: (ticker: string, mode: Mode, signal?: AbortSignal) =>
     get<Filings>(`/api/companies/${enc(ticker)}/filings`, { mode }, signal),
   financials: (ticker: string, mode: Mode, asOf?: string, signal?: AbortSignal) =>
     get<Financials>(`/api/companies/${enc(ticker)}/financials`, { mode, as_of: asOf }, signal),
+  ratios: (ticker: string, mode: Mode, asOf?: string, signal?: AbortSignal) =>
+    get<Ratios>(`/api/companies/${enc(ticker)}/ratios`, { mode, as_of: asOf }, signal),
   structure: (ticker: string, fy: number, mode: Mode, signal?: AbortSignal) =>
     get<Structure>(`/api/companies/${enc(ticker)}/reports/${fy}/structure`, { mode }, signal),
   node: (ticker: string, fy: number, nodeId: string, mode: Mode, signal?: AbortSignal) =>
@@ -93,4 +128,8 @@ export const api = {
   usage: (mode: Mode, signal?: AbortSignal) => get<Usage>('/api/usage', { mode }, signal),
   story: (ticker: string, mode: Mode, signal?: AbortSignal) =>
     get<StoryRun>(`/api/companies/${enc(ticker)}/story`, { mode }, signal),
+  /** Latest stored OSINT scorecard. Never searches, in either mode; 409 not_cached when never researched. */
+  osint: (ticker: string, months: number, mode: Mode, signal?: AbortSignal) =>
+    get<OsintResult>(`/api/companies/${enc(ticker)}/osint`, { mode, months }, signal),
+  // A live run is streamed (progress, then the result): see OsintPage, which uses postSse.
 }

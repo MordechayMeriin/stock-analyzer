@@ -18,25 +18,21 @@ import hashlib
 import re
 from collections.abc import Iterable, Mapping
 from decimal import Decimal, InvalidOperation, localcontext
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 from pydantic import BaseModel
 
-from stock_analyzer.fin.checks import CheckResult, failed_checks_for, run_checks
-from stock_analyzer.fin.normalize import FinValue, check_currency, decimal_str
-from stock_analyzer.fin.ratios import (
-    RATIO_BY_CODE,
-    Change,
-    RatioValue,
-    change_value,
-    compute_changes,
-    compute_ratios,
-    fin_unit,
-)
+from stock_analyzer.fin.canonical import fields_for
+from stock_analyzer.fin.checks import failed_by_cell
+from stock_analyzer.fin.normalize import decimal_str
+from stock_analyzer.fin.ratios import GROUP_LABELS_HE
 from stock_analyzer.ingest.parse_md import Paragraph
 
+if TYPE_CHECKING:
+    from stock_analyzer.services.ratios import Analysis
+
 FactKind = Literal["FIN", "CHG", "RATIO", "TXT", "DER"]
-FactUnit = Literal["money", "percent", "pp", "multiple", "count", "per_share", "number"]
+FactUnit = Literal["money", "percent", "pp", "multiple", "count", "per_share", "days", "number"]
 Confidence = Literal["high", "low"]
 Operation = Literal["pct_change", "ratio", "share", "sum", "diff"]
 
@@ -151,7 +147,7 @@ class FactRegistry:
                 result = values[0] / values[1]
                 unit = "percent" if op == "share" else "multiple"
             else:  # pct_change: from the first fact to the second
-                change, reason = change_value(values[0], values[1], "percent")
+                change, reason = percent_change(values[0], values[1])
                 if change is None:
                     raise FactError(
                         f"no percent change from {facts[0].fact_id} to {facts[1].fact_id}: {reason}"
@@ -262,97 +258,155 @@ def parse_quoted_number(quote: str, after: str, paragraph: str) -> tuple[Decimal
 
 
 # ---------------------------------------------------------------- building the registry
+#
+# Facts come from the financial-ratios engine (fin/canonical.py, fin/checks.py, fin/ratios.py):
+# FIN facts are canonical sheet cells, RATIO facts are ratio values, and CHG facts are the
+# year-over-year change of each cell (percent) and each ratio (the engine's own delta).
+
+# canonical field kind -> fact unit
+_FIELD_UNITS: dict[str, FactUnit] = {
+    "amount": "money",
+    "per_share": "per_share",
+    "ratio": "multiple",
+    "count": "count",
+}
+# ratio unit -> (fact unit, unit of its year-over-year change)
+_RATIO_UNITS: dict[str, tuple[FactUnit, FactUnit]] = {
+    "percent": ("percent", "pp"),
+    "ratio": ("multiple", "multiple"),
+    "amount": ("money", "percent"),
+    "days": ("days", "days"),
+}
 
 
-def build_registry(
-    values: Iterable[FinValue],
-    years: list[int],
-    checks: list[CheckResult],
-    ratios: Iterable[RatioValue],
-    changes: Iterable[Change],
-    paragraphs: Mapping[str, Paragraph] | None = None,
+def percent_change(old: Decimal | None, new: Decimal | None) -> tuple[Decimal | None, str | None]:
+    """(new - old) / |old|, or no value with a reason: a missing year, a zero base, a sign change."""
+    if old is None or new is None:
+        return None, "a value is missing in one of the years"
+    if old == 0:
+        return None, "the previous value is zero"
+    if (old < 0) != (new < 0) and new != 0:
+        return None, "the sign changed between the years"
+    with localcontext() as ctx:
+        ctx.prec = PRECISION
+        return (new - old) / abs(old), None
+
+
+def _input_fact(key: str, fiscal_year: int) -> str:
+    """A ratio input key ("field", "opening:field", "prior:field") as the FIN fact it reads."""
+    if ":" in key:
+        kind, field = key.split(":", 1)
+        return (
+            f"FIN:{field}:{fiscal_year - 1}" if kind in ("opening", "prior") else f"FIN:{field}:{fiscal_year}"
+        )
+    return f"FIN:{key}:{fiscal_year}"
+
+
+def registry_from_analysis(
+    analysis: Analysis, years: list[int], paragraphs: Mapping[str, Paragraph] | None = None
 ) -> FactRegistry:
-    """FIN, RATIO and CHG facts for the covered ``years`` (oldest first)."""
-    values = list(values)
-    currency = check_currency(values)
-    covered = set(years)
+    """FIN, RATIO and CHG facts for the covered ``years`` (oldest first) from a ratios analysis."""
+    sheet = analysis.sheet
+    covered = sorted(set(years))
+    pairs = list(zip(covered, covered[1:], strict=False))
+    currency = analysis.currency
+    labels = {f.name: f for f in fields_for(sheet.template)}
+    failed = {fy: failed_by_cell(results) for fy, results in analysis.checks.items()}
     facts: list[Fact] = []
-    for v in values:
-        if v.fiscal_year not in covered:
-            continue
-        failed = failed_checks_for([v.code], v.fiscal_year, checks)
-        facts.append(
-            Fact(
-                fact_id=f"FIN:{v.code}:{v.fiscal_year}",
-                kind="FIN",
-                name_he=v.label,
-                unit=fin_unit(v),
-                years=[v.fiscal_year],
-                value=decimal_str(v.value),
-                currency=v.currency if fin_unit(v) in ("money", "per_share") else None,
-                code=v.code,
-                inputs=[v.code],
-                source_filing_id=v.source_filing_id,
-                confidence="low" if failed else "high",
-                failed_checks=failed,
-            )
+
+    def cell_fact(field: str, fy: int) -> Fact | None:
+        cell = sheet.cell(fy, field)
+        if cell is None or cell.value is None:
+            return None
+        spec = labels.get(field)
+        unit = _FIELD_UNITS.get(spec.kind if spec else "amount", "money")
+        checks = sorted(set(failed.get(fy, {}).get(field, [])))
+        return Fact(
+            fact_id=f"FIN:{field}:{fy}",
+            kind="FIN",
+            name_he=spec.label_he if spec else field,
+            unit=unit,
+            years=[fy],
+            value=decimal_str(cell.value),
+            currency=currency if unit in ("money", "per_share") else None,
+            code=field,
+            inputs=list(cell.inputs) or ([cell.source] if cell.source else []),
+            operation=cell.source if cell.basis == "derived" else None,
+            source_filing_id=cell.source_filing_id,
+            confidence="low" if checks else "high",
+            failed_checks=checks,
         )
-    for r in ratios:
-        if r.fiscal_year not in covered:
-            continue
-        definition = RATIO_BY_CODE[r.code]
-        facts.append(
-            Fact(
-                fact_id=f"RATIO:{r.code}:{r.fiscal_year}",
-                kind="RATIO",
-                name_he=r.name_he,
-                unit=r.unit,
-                years=[r.fiscal_year],
-                value=r.value,
-                currency=currency if r.unit == "money" else None,
-                code=r.code,
-                inputs=[f"FIN:{c}:{r.fiscal_year}" for c in definition.inputs],
-                operation=definition.definition_he,
-                reason=r.reason,
-                confidence=r.confidence,
-                failed_checks=r.failed_checks,
+
+    cells: dict[tuple[str, int], Fact] = {}
+    for fy in covered:
+        for field in sheet.fields:
+            if (fact := cell_fact(field, fy)) is not None:
+                cells[(field, fy)] = fact
+                facts.append(fact)
+    for field in sheet.fields:
+        for y0, y1 in pairs:
+            a, b = cells.get((field, y0)), cells.get((field, y1))
+            if a is None and b is None:
+                continue
+            value, reason = percent_change(a.decimal if a else None, b.decimal if b else None)
+            low = sorted({c for f in (a, b) if f for c in f.failed_checks})
+            facts.append(
+                Fact(
+                    fact_id=f"CHG:{field}:{y0}-{y1}",
+                    kind="CHG",
+                    name_he=f"שינוי ב{(b or a).name_he}",  # type: ignore[union-attr]
+                    unit="percent",
+                    years=[y0, y1],
+                    value=decimal_str(value) if value is not None else None,
+                    code=field,
+                    inputs=[f"FIN:{field}:{y0}", f"FIN:{field}:{y1}"],
+                    reason=reason,
+                    confidence="low" if low else "high",
+                    failed_checks=low,
+                )
             )
-        )
-    for c in changes:
-        if c.from_year not in covered or c.to_year not in covered:
-            continue
-        prefix = "FIN" if c.kind == "FIN" else "RATIO"
-        facts.append(
-            Fact(
-                fact_id=f"CHG:{c.code}:{c.from_year}-{c.to_year}",
-                kind="CHG",
-                name_he=f"שינוי ב{c.name_he}",
-                unit=c.unit,
-                years=[c.from_year, c.to_year],
-                value=c.value,
-                code=c.code,
-                inputs=[f"{prefix}:{c.code}:{c.from_year}", f"{prefix}:{c.code}:{c.to_year}"],
-                reason=c.reason,
-                confidence=c.confidence,
-                failed_checks=c.failed_checks,
+
+    for series in analysis.series:
+        unit, change_unit = _RATIO_UNITS.get(series.unit, ("number", "number"))
+        for fy in covered:
+            v = series.values.get(fy)
+            if v is None:
+                continue
+            facts.append(
+                Fact(
+                    fact_id=f"RATIO:{series.code}:{fy}",
+                    kind="RATIO",
+                    name_he=series.name_he,
+                    unit=unit,
+                    years=[fy],
+                    value=decimal_str(v.value) if v.value is not None else None,
+                    currency=currency if unit == "money" else None,
+                    code=series.code,
+                    inputs=[_input_fact(k, fy) for k in v.inputs],
+                    operation=GROUP_LABELS_HE.get(series.group, series.group),
+                    reason=v.missing_message_he or v.missing_reason,
+                    confidence=v.confidence,
+                    failed_checks=list(v.failed_checks),
+                )
             )
-        )
+        for y0, y1 in pairs:
+            prev, cur = series.values.get(y0), series.values.get(y1)
+            if cur is None:
+                continue
+            low = sorted({c for v in (prev, cur) if v for c in v.failed_checks})
+            facts.append(
+                Fact(
+                    fact_id=f"CHG:{series.code}:{y0}-{y1}",
+                    kind="CHG",
+                    name_he=f"שינוי ב{series.name_he}",
+                    unit=change_unit,
+                    years=[y0, y1],
+                    value=decimal_str(cur.delta) if cur.delta is not None else None,
+                    code=series.code,
+                    inputs=[f"RATIO:{series.code}:{y0}", f"RATIO:{series.code}:{y1}"],
+                    reason=None if cur.delta is not None else "no comparable value in one of the years",
+                    confidence="low" if low else "high",
+                    failed_checks=low,
+                )
+            )
     return FactRegistry(facts, paragraphs, currency)
-
-
-def registry_from_values(
-    values: Iterable[FinValue],
-    years: list[int],
-    tolerances: Mapping[str, float],
-    paragraphs: Mapping[str, Paragraph] | None = None,
-) -> tuple[FactRegistry, list[CheckResult]]:
-    """Run the checks, core ratios and changes on ``values`` and build the registry for ``years``.
-
-    Ratios and changes use every year available, so the oldest covered year still gets its
-    change from the year before when the provider has it; only covered years enter the registry.
-    """
-    values = list(values)
-    checks = run_checks(values, tolerances)
-    ratios = compute_ratios(values, checks)
-    changes = compute_changes(values, ratios, checks)
-    return build_registry(values, years, checks, ratios, changes, paragraphs), checks

@@ -8,6 +8,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field, model_validator
 
 from stock_analyzer.api.errors import ErrorOut
+from stock_analyzer.osint.models import OsintProgress, ResearchResult
 
 
 class StorageHealth(BaseModel):
@@ -62,7 +63,6 @@ class PlaygroundDone(BaseModel):
     usage: PlaygroundUsage
     latency_ms: int
     paragraph_ids: list[str]
-    citations: dict[str, str | None]  # paragraph id → document_url#page=N
 
 
 class PlaygroundEvents(BaseModel):
@@ -94,4 +94,18 @@ class StoryEvents(BaseModel):
 
     progress: StoryProgress
     done: dict[str, Any]
+    error: ErrorOut
+
+
+class OsintRunIn(BaseModel):
+    """Body of a live OSINT research run. ``months`` defaults to the server's window (36)."""
+
+    months: int | None = Field(default=None, ge=1, le=120)
+
+
+class OsintEvents(BaseModel):
+    """Documentation of the OSINT run stream: ``event: progress|done|error`` with these JSON payloads."""
+
+    progress: OsintProgress
+    done: ResearchResult
     error: ErrorOut

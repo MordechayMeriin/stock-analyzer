@@ -73,3 +73,22 @@ def test_fetch_refused_when_live_disabled(tmp_path, monkeypatch):
     reset_settings_cache()
     result = CliRunner().invoke(app, ["fetch", "MLTM", "2025"])
     assert result.exit_code == 1 and "live_disabled" in result.output
+
+
+def test_fetch_unprocessed_report_explains_and_fails(tmp_path, monkeypatch, fixtures_dir):
+    monkeypatch.setenv("DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("FR_API_KEY", "dummy-key")
+    reset_settings_cache()
+    page = json.loads((fixtures_dir / "malam_filings.json").read_text())
+    page["results"] = [
+        {**r, "processing_status": "QUEUED"} if r["id"] == 32935334 else r for r in page["results"]
+    ]
+    with respx.mock(base_url=BASE, assert_all_called=False) as mock:
+        mock.get("/filings/").mock(return_value=httpx.Response(200, json=page))
+        md = mock.get("/filings/32935334/markdown/").mock(return_value=httpx.Response(404))
+        result = CliRunner().invoke(app, ["fetch", "MLTM", "2025", "--no-financials"])
+    assert result.exit_code == 1
+    assert "report_not_processed" in result.output
+    assert "MLTM FY2025" in result.output and "32935334" in result.output and "QUEUED" in result.output
+    assert md.call_count == 0
+    assert not (tmp_path / "raw" / "MLTM" / "2025.md").exists()

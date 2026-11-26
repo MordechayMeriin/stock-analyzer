@@ -2,25 +2,22 @@
 
 from __future__ import annotations
 
-import json
 from datetime import date
 from decimal import Decimal
 
 import pytest
 
 from stock_analyzer.config import Settings
-from stock_analyzer.fin.normalize import as_of, normalize_financials
 from stock_analyzer.ingest.parse_md import parse_report
-from stock_analyzer.story.facts import Fact, FactError, FactRegistry, registry_from_values
-from tests.conftest import FIXTURES, fixture_text
+from stock_analyzer.story.facts import Fact, FactError, FactRegistry, registry_from_analysis
+from tests.conftest import fixture_text, malam_analysis
 
-TOL = Settings().check_tolerances
 YEARS = [2023, 2024, 2025]
 
 
 @pytest.fixture(scope="module")
-def values():
-    return normalize_financials(json.loads((FIXTURES / "mltm_financials.json").read_text(encoding="utf-8")))
+def analysis():
+    return malam_analysis()
 
 
 @pytest.fixture(scope="module")
@@ -36,9 +33,8 @@ def paragraphs():
 
 
 @pytest.fixture
-def registry(values, paragraphs) -> FactRegistry:
-    reg, _ = registry_from_values(values, YEARS, TOL, paragraphs)
-    return reg
+def registry(analysis, paragraphs) -> FactRegistry:
+    return registry_from_analysis(analysis, YEARS, paragraphs)
 
 
 # ---------------------------------------------------------------- 5.1 registry
@@ -63,15 +59,16 @@ def test_registry_covers_only_the_story_years(registry):
 def test_ratio_facts_point_to_their_inputs_and_confidence(registry):
     gm = registry.get("RATIO:gross_margin:2025")
     assert gm.inputs == ["FIN:gross_profit:2025", "FIN:revenue:2025"]
-    assert gm.confidence == "high" and gm.operation == "רווח גולמי חלקי הכנסות"
+    assert gm.confidence == "high" and gm.operation == "רווחיות"  # the ratio's group
     fcf = registry.get("RATIO:free_cash_flow:2025")
     assert fcf.confidence == "low" and "CF1" in fcf.failed_checks and fcf.currency == "ILS"
-    assert registry.get("FIN:cash_from_operations:2025").confidence == "low"  # input of failed CF1
+    assert fcf.inputs == ["FIN:cfo:2025", "FIN:capex:2025"]
+    assert registry.get("FIN:cfo:2025").confidence == "low"  # input of failed CF1
 
 
-def test_registry_respects_as_of(values):
-    early = as_of(values, date(2024, 4, 1))  # FY2023 values became available only in June 2024
-    reg, _ = registry_from_values(early, YEARS, TOL)
+def test_registry_respects_as_of():
+    early = malam_analysis(cutoff=date(2024, 4, 1))  # FY2023 values became available only in June 2024
+    reg = registry_from_analysis(early, YEARS)
     assert "FIN:revenue:2023" not in reg and "FIN:revenue:2025" not in reg
 
 
@@ -97,10 +94,10 @@ def test_derive_share_registers_a_fact(registry):
     assert registry.get(share.fact_id) == share
 
 
-def test_fact_ids_come_from_content_not_order(values, paragraphs):
+def test_fact_ids_come_from_content_not_order(analysis, paragraphs):
     """Parallel agents must get the same ids on every run, so cached turns replay (design D8)."""
-    first, _ = registry_from_values(values, YEARS, TOL, paragraphs)
-    second, _ = registry_from_values(values, YEARS, TOL, paragraphs)
+    first = registry_from_analysis(analysis, YEARS, paragraphs)
+    second = registry_from_analysis(analysis, YEARS, paragraphs)
     a1 = first.quote_number("MLTM-2025-p0010-005", "1,635 מיליון", "money")
     second.quote_number("MLTM-2025-p0005-008", "65.46%", "number")  # a different quote first
     a2 = second.quote_number("MLTM-2025-p0010-005", "1,635 מיליון", "money")

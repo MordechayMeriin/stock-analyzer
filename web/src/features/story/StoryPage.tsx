@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { AlertTriangle, BookOpen, ExternalLink, Sparkles, Square } from 'lucide-react'
+import { AlertTriangle, BookOpen, Sparkles, Square } from 'lucide-react'
 import { useId, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 
@@ -170,17 +170,6 @@ function Citations({ ids, citations, ticker }: { ids: string[]; citations: Recor
           <span>
             FY{c.fiscal_year} · {pageLabel(c.page_printed, c.page_index)}
           </span>
-          {c.url && (
-            <a
-              href={c.url}
-              target="_blank"
-              rel="noreferrer"
-              data-testid="citation-pdf-link"
-              className="inline-flex items-center gap-0.5 underline"
-            >
-              PDF <ExternalLink className="size-3" aria-hidden />
-            </a>
-          )}
           {c.node_id && (
             <Link
               to={`/${ticker}/${c.fiscal_year}/report/${encodeURIComponent(c.node_id)}`}
@@ -265,7 +254,9 @@ function GeneratePanel({ ticker, hasStory }: { ticker: string; hasStory: boolean
       `/api/companies/${encodeURIComponent(ticker)}/story`,
       { mode: 'live' },
       {
-        onProgress: (p) => setSteps((s) => [...s, (p as StoryProgress).message]),
+        onEvent: (event, p) => {
+          if (event === 'progress') setSteps((s) => [...s, (p as StoryProgress).message])
+        },
         onDone: (run) => {
           queryClient.setQueryData(['story', ticker], run)
           setStatus('idle')

@@ -19,6 +19,18 @@ class CompanyNotFound(AnalyzerError):
     code = "company_not_found"
 
 
+class CompanyAlreadyTracked(AnalyzerError):
+    """The ticker or provider company id is already in the tracked companies."""
+
+    code = "company_already_tracked"
+
+
+class CompanyNotRemovable(AnalyzerError):
+    """Companies from the version-controlled registry cannot be removed at runtime."""
+
+    code = "company_not_removable"
+
+
 class FilingNotFound(AnalyzerError):
     code = "filing_not_found"
 
@@ -45,8 +57,20 @@ class LiveModeDisabled(AnalyzerError):
     code = "live_disabled"
 
 
+class LiveModeRequired(AnalyzerError):
+    """The operation only runs in live mode, and the request was in cached mode."""
+
+    code = "live_required"
+
+
 class ReportSelectionError(AnalyzerError):
     code = "report_selection_failed"
+
+
+class ReportNotProcessed(AnalyzerError):
+    """The provider has no Markdown for the selected filing (not yet processed, or not convertible)."""
+
+    code = "report_not_processed"
 
 
 class ProviderError(AnalyzerError):
@@ -73,6 +97,12 @@ class ParseError(AnalyzerError):
 
 class CurrencyMismatch(AnalyzerError):
     code = "currency_mismatch"
+
+
+class TemplateNotSupported(AnalyzerError):
+    """The company's provider statement template has no canonical fields, so no ratios."""
+
+    code = "template_not_supported"
 
 
 class SelectionTooLarge(AnalyzerError):
@@ -115,3 +145,15 @@ class StorageUnavailable(AnalyzerError):
     """The state store cannot be reached. Messages never include the connection string."""
 
     code = "storage_unavailable"
+
+
+class NoFindings(AnalyzerError):
+    """An OSINT run produced no finding that passed verification, so there is nothing to score."""
+
+    code = "osint_no_findings"
+
+
+class ResearchInProgress(AnalyzerError):
+    """An OSINT run for the same ticker and window is already running in this server process."""
+
+    code = "research_in_progress"

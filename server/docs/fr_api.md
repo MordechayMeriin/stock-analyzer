@@ -35,6 +35,20 @@ responses read during development. Re-check this file when the schema version ch
   `file_extension` (`PDF`, `HTM`, …), `file_size` (bytes, nullable), `document` (the file URL — named
   `document`, not `document_url`, in the full view; summary rows call it `document_url`), `viewer_url`,
   `processing_status`, `language.code`.
+- **`processing_status`** says whether the provider has converted the filing to Markdown. It is a
+  hint, nullable, and not a filter. How the app reads it (`ingest/select.py`, `markdown_availability`):
+
+  | `processing_status` | availability | Markdown |
+  |---|---|---|
+  | `COMPLETED` | `available` | exists |
+  | null (or a value not listed here) | `unknown` | try it |
+  | `PENDING`, `QUEUED`, `PROCESSING` | `processing` | not yet; may take months, or never come |
+  | `FAILED`, `SKIPPED` | `failed` | none |
+
+  Selection prefers `available`/`unknown` candidates over `processing`/`failed` ones before comparing
+  sizes. Observed 2026-11-25: Rami Levy (7010) FY2019–FY2024 and Delek Group (6742) FY2019–FY2023
+  periodic-report PDFs are `QUEUED`, `ingestion_mode: BACKFILLED`, added 2026-09-24 and still queued
+  two months later; repeated Markdown requests did not move them.
 - **Observed for Malam:** FY2025 → 32935334 (PDF, 4,215,135 B) + 32935333 (HTM cover form);
   FY2024 → 63741657 (PDF, 4,614,691 B) + 63728804 (HTM) + 63741654 (HTM, title contains "iXBRL").
   The listing holds 35 10-K rows for Malam, so the client pages until `next` is null.
@@ -49,7 +63,9 @@ responses read during development. Re-check this file when the schema version ch
   follow it with `offset=<next>&limit=200000` until it disappears; then assert
   `len(text) == X-Total-Chars` (Python `str` length = Unicode code points) or fail without saving.
 - **Observed:** Malam FY2025 = 390,912 chars (page style B), FY2024 = 410,512 chars (page style A).
-- `404` → no Markdown for that filing.
+- `404` → no Markdown for that filing. Not billed (`X-Credits-Charged: 0`) and not cached. For a filing
+  whose `processing_status` is not `COMPLETED` the app reports `report_not_processed` (HTTP 409); it
+  does not call the endpoint at all for `processing`/`failed` filings.
 
 ### `get_financials(company_id)` → `GET /companies/{id}/financials/`
 - **Cost:** 40 credits per call. Marked *Experimental* (may change without a version bump).

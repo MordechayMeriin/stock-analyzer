@@ -53,6 +53,17 @@ create table if not exists stock_analyzer.story_runs (
 );
 create index if not exists story_runs_ticker_created_idx on stock_analyzer.story_runs (ticker, created_at desc);
 
+-- Companies added at runtime (the version-controlled list stays in data/companies.yaml).
+-- Tickers are stored upper-case, so the primary key is case-insensitive in practice.
+create table if not exists stock_analyzer.tracked_companies (
+    ticker        text        primary key,
+    fr_company_id bigint      not null unique,
+    name_he       text        not null,
+    name_en       text,
+    isin          text,
+    added_at      timestamptz not null default now()
+);
+
 -- Keep the state private (design D4). The server connects as the owner role, which bypasses
 -- RLS; with RLS on and no policies, any other role sees nothing even if granted access.
 alter table stock_analyzer.kv_cache             enable row level security;
@@ -60,6 +71,7 @@ alter table stock_analyzer.reports              enable row level security;
 alter table stock_analyzer.financials_snapshots enable row level security;
 alter table stock_analyzer.usage_log            enable row level security;
 alter table stock_analyzer.story_runs           enable row level security;
+alter table stock_analyzer.tracked_companies    enable row level security;
 
 -- Supabase's API roles get no access to this schema. (Skipped where the roles do not exist,
 -- e.g. a plain local Postgres.)

@@ -1,355 +1,451 @@
-"""Core ratios, year-over-year changes and confidence (financial-analysis spec, design D7).
+"""Ratios over a canonical sheet, as year-over-year series (financial-ratios spec).
 
-A declarative registry: each ratio names its inputs, unit and how its change is measured. All
-arithmetic is ``Decimal``. A ratio that cannot be computed has no value and a reason, never a
-guess. Confidence comes from the data-quality checks: a ratio or change is ``low`` when any of
-its input codes took part in a failed check for that fiscal year.
+- A declarative :data:`RATIOS` registry: code, Hebrew name, group, unit, direction, change threshold, the
+  templates it applies to, and a formula over canonical fields.
+- Exact ``Decimal`` arithmetic; percentages are fractions (0.1047 = 10.47%).
+- Balance-sheet denominators listed in ``avg_inputs`` use (opening + closing) / 2 when the year before
+  has the value, else the closing value (``avg_used`` says which).
+- An uncomputable value is missing with a reason code, never estimated.
+- Confidence is ``low`` when an input (including an opening balance or a prior-year value) took part in a
+  failed data-quality check or was derived; the failed check ids and derived inputs are listed.
+- Each year's delta from the year before gets a status from the ratio's direction and threshold.
 
-Percentages are held as fractions (gross margin ``0.1047`` is 10.47%); percentage-point changes
-are differences of fractions (``-0.0013`` is −0.13 points). Display formatting is not done here.
+Pure: no I/O.
 """
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable, Mapping
+from collections.abc import Callable
 from dataclasses import dataclass
-from decimal import Decimal, localcontext
+from decimal import Decimal
 from typing import Literal
 
 from pydantic import BaseModel
 
-from stock_analyzer.fin.checks import CheckResult, failed_checks_for
-from stock_analyzer.fin.normalize import FinValue, decimal_str
+from stock_analyzer.fin.canonical import Cell, Sheet, field_def
+from stock_analyzer.fin.checks import CheckResult, failed_by_cell
 
-Unit = Literal["money", "percent", "multiple", "count", "per_share"]
-ChangeUnit = Literal["percent", "pp", "multiple"]
+Unit = Literal["percent", "ratio", "amount", "days"]
+Direction = Literal["higher", "lower", "neutral"]
+Status = Literal["improved", "deteriorated", "changed", "stable", "na"]
 Confidence = Literal["high", "low"]
 
-PRECISION = 28  # significant digits for division; inputs are exact
+# Filing types known not to be annual reports: a value from one gets a note (not lower confidence). Other
+# types pass: the provider files some annual reports under generic types such as "RNS".
+NON_ANNUAL_FILING_TYPES = {"IR", "ER"}  # interim report, earnings release
+
+GROUP_LABELS_HE: dict[str, str] = {
+    "profitability": "רווחיות",
+    "growth": "צמיחה",
+    "returns": "תשואה",
+    "liquidity": "נזילות",
+    "leverage": "מינוף ואיתנות",
+    "cash_flow": "תזרים מזומנים",
+    "credit": "אשראי ופיקדונות",
+    "capital": "הלימות הון",
+}
 
 
-class NoValue(Exception):
-    """A ratio has no meaningful value for this year; the message is the reason."""
+class Uncomputable(Exception):  # noqa: N818 - a reason code, not a failure
+    def __init__(self, reason: str):
+        super().__init__(reason)
+        self.reason = reason
+
+
+def div(numerator: Decimal, denominator: Decimal, *, positive: bool = False) -> Decimal:
+    """``positive``: a negative denominator makes the ratio meaningless (equity, prior-year profit)."""
+    if denominator == 0:
+        raise Uncomputable("zero_denominator")
+    if positive and denominator < 0:
+        raise Uncomputable("negative_denominator")
+    return numerator / denominator
+
+
+def growth(current: Decimal, prior: Decimal) -> Decimal:
+    return div(current, prior, positive=True) - 1
 
 
 @dataclass(frozen=True)
-class RatioDef:
+class Ratio:
     code: str
     name_he: str
     group: str
     unit: Unit
-    inputs: tuple[str, ...]
-    formula: Callable[[Mapping[str, Decimal]], Decimal]
-    definition_he: str
-
-    @property
-    def change_unit(self) -> ChangeUnit:
-        return {"percent": "pp", "multiple": "multiple"}.get(self.unit, "percent")  # type: ignore[return-value]
-
-
-def _div(numerator: Decimal, denominator: Decimal, what: str, *, positive: bool = False) -> Decimal:
-    if denominator == 0:
-        raise NoValue(f"{what} is zero")
-    if positive and denominator < 0:
-        raise NoValue(f"{what} is negative, so the ratio is not meaningful")
-    with localcontext() as ctx:
-        ctx.prec = PRECISION
-        return numerator / denominator
+    direction: Direction
+    threshold: Decimal  # |delta| below this is "stable"; relative change for amounts
+    templates: frozenset[str]
+    inputs: tuple[str, ...]  # current-year fields
+    fn: Callable[[dict[str, Decimal]], Decimal]  # keys: field, and "prior:<field>" for prior_inputs
+    avg_inputs: tuple[str, ...] = ()  # subset of inputs averaged with the opening balance
+    prior_inputs: tuple[str, ...] = ()  # fields needed from fiscal year − 1
+    reported: bool = False  # passed through from a canonical cell, never recomputed
 
 
-RATIOS: tuple[RatioDef, ...] = (
-    RatioDef(
-        "gross_margin",
-        "שיעור רווח גולמי",
+ALL = frozenset({"industrial", "bank", "insurer"})
+IND = frozenset({"industrial"})
+BANK = frozenset({"bank"})
+D = Decimal
+
+
+def _margin(code: str, name_he: str, numerator: str, threshold: str = "0.005") -> Ratio:
+    return Ratio(
+        code,
+        name_he,
         "profitability",
         "percent",
-        ("gross_profit", "revenue"),
-        lambda v: _div(v["gross_profit"], v["revenue"], "revenue", positive=True),
-        "רווח גולמי חלקי הכנסות",
-    ),
-    RatioDef(
-        "operating_margin",
-        "שיעור רווח תפעולי",
-        "profitability",
+        "higher",
+        D(threshold),
+        IND,
+        (numerator, "revenue"),
+        lambda v, n=numerator: div(v[n], v["revenue"]),
+    )
+
+
+def _growth(code: str, name_he: str, field: str, threshold: str, templates: frozenset[str]) -> Ratio:
+    return Ratio(
+        code,
+        name_he,
+        "growth",
         "percent",
-        ("operating_income_loss", "revenue"),
-        lambda v: _div(v["operating_income_loss"], v["revenue"], "revenue", positive=True),
-        "רווח תפעולי חלקי הכנסות",
-    ),
-    RatioDef(
-        "ebitda_margin",
-        "שיעור EBITDA",
-        "profitability",
+        "higher",
+        D(threshold),
+        templates,
+        (field,),
+        lambda v, f=field: growth(v[f], v[f"prior:{f}"]),
+        prior_inputs=(field,),
+    )
+
+
+def _reported(code: str, name_he: str) -> Ratio:
+    return Ratio(
+        code,
+        name_he,
+        "capital",
         "percent",
-        ("ebitda", "revenue"),
-        lambda v: _div(v["ebitda"], v["revenue"], "revenue", positive=True),
-        "EBITDA חלקי הכנסות",
-    ),
-    RatioDef(
-        "net_margin",
-        "שיעור רווח נקי",
-        "profitability",
+        "higher",
+        D("0.005"),
+        BANK,
+        (code,),
+        lambda v, c=code: v[c],
+        reported=True,
+    )
+
+
+# Thresholds follow plan.md §3.3 where it gives one; the rest were set by unit. Checked on Malam FY2021–FY2025
+# (task 4.3): they give a mix of stable, improved and deteriorated years rather than flagging every move
+# or none, e.g. gross margin 10.60% → 10.47% is stable while 11.24% → 10.60% is deteriorated. Bank
+# thresholds are per ratio, scaled to typical levels (a ~0.2% non-performing-loan ratio moves by 0.1pp).
+RATIOS: tuple[Ratio, ...] = (
+    # profitability (industrial)
+    _margin("gross_margin", "שיעור רווח גולמי", "gross_profit"),
+    _margin("operating_margin", "שיעור רווח תפעולי", "operating_income"),
+    _margin("ebitda_margin", "שיעור EBITDA", "ebitda"),
+    _margin("net_margin", "שיעור רווח נקי", "net_income_parent"),
+    # growth
+    _growth("revenue_growth", "צמיחה בהכנסות", "revenue", "0.03", IND),
+    _growth("net_income_growth", "צמיחה ברווח הנקי", "net_income_parent", "0.10", ALL),
+    _growth("eps_growth", "צמיחה ברווח למניה", "basic_eps", "0.10", ALL),
+    # returns (every template): parent's net income for ROE, consolidated for ROA (plan.md §3.1)
+    Ratio(
+        "roe",
+        "תשואה על ההון",
+        "returns",
         "percent",
-        ("net_income_loss", "revenue"),
-        lambda v: _div(v["net_income_loss"], v["revenue"], "revenue", positive=True),
-        "רווח נקי המיוחס לבעלי המניות חלקי הכנסות",
+        "higher",
+        D("0.015"),
+        ALL,
+        ("net_income_parent", "common_equity"),
+        lambda v: div(v["net_income_parent"], v["common_equity"], positive=True),
+        avg_inputs=("common_equity",),
     ),
-    RatioDef(
-        "free_cash_flow",
-        "תזרים מזומנים חופשי",
-        "cash_flow",
-        "money",
-        ("cash_from_operations", "capital_expenditure_cf"),
-        lambda v: v["cash_from_operations"] + v["capital_expenditure_cf"],  # capex is negative
-        "תזרים מפעילות שוטפת פחות השקעות ברכוש קבוע",
-    ),
-    RatioDef(
-        "free_cash_flow_margin",
-        "שיעור תזרים חופשי",
-        "cash_flow",
+    Ratio(
+        "roa",
+        "תשואה על הנכסים",
+        "returns",
         "percent",
-        ("cash_from_operations", "capital_expenditure_cf", "revenue"),
-        lambda v: _div(
-            v["cash_from_operations"] + v["capital_expenditure_cf"], v["revenue"], "revenue", positive=True
-        ),
-        "תזרים מזומנים חופשי חלקי הכנסות",
+        "higher",
+        D("0.005"),
+        ALL,
+        ("net_income_consolidated", "total_assets"),
+        lambda v: div(v["net_income_consolidated"], v["total_assets"], positive=True),
+        avg_inputs=("total_assets",),
     ),
-    RatioDef(
-        "cfo_to_net_income",
-        "תזרים שוטף לרווח נקי",
-        "cash_flow",
-        "multiple",
-        ("cash_from_operations", "consolidated_net_income"),
-        lambda v: _div(
-            v["cash_from_operations"], v["consolidated_net_income"], "consolidated net income", positive=True
-        ),
-        "תזרים מפעילות שוטפת חלקי רווח נקי מאוחד",
-    ),
-    RatioDef(
-        "debt_to_equity",
-        "חוב להון",
-        "leverage",
-        "multiple",
-        ("total_debt_bs", "total_equity"),
-        lambda v: _div(v["total_debt_bs"], v["total_equity"], "total equity", positive=True),
-        "סך חוב חלקי סך הון",
-    ),
-    RatioDef(
-        "net_debt_to_ebitda",
-        "חוב נטו ל-EBITDA",
-        "leverage",
-        "multiple",
-        ("net_debt", "ebitda"),
-        lambda v: _div(v["net_debt"], v["ebitda"], "EBITDA", positive=True),
-        "חוב נטו חלקי EBITDA",
-    ),
-    RatioDef(
-        "equity_to_assets",
-        "הון לסך מאזן",
-        "leverage",
-        "percent",
-        ("total_equity", "total_assets"),
-        lambda v: _div(v["total_equity"], v["total_assets"], "total assets", positive=True),
-        "סך הון חלקי סך נכסים",
-    ),
-    RatioDef(
-        "short_term_debt_share",
-        "שיעור החוב לזמן קצר",
-        "leverage",
-        "percent",
-        ("total_current_debt_bs", "total_debt_bs"),
-        lambda v: _div(v["total_current_debt_bs"], v["total_debt_bs"], "total debt", positive=True),
-        "חוב לזמן קצר חלקי סך חוב",
-    ),
-    RatioDef(
+    # liquidity (industrial)
+    Ratio(
         "current_ratio",
         "יחס שוטף",
         "liquidity",
-        "multiple",
-        ("total_current_assets", "total_current_liabilities"),
-        lambda v: _div(
-            v["total_current_assets"], v["total_current_liabilities"], "current liabilities", positive=True
-        ),
-        "נכסים שוטפים חלקי התחייבויות שוטפות",
+        "ratio",
+        "higher",
+        D("0.1"),
+        IND,
+        ("current_assets", "current_liabilities"),
+        lambda v: div(v["current_assets"], v["current_liabilities"], positive=True),
     ),
-    RatioDef(
-        "cash_ratio",
-        "יחס מזומנים",
+    Ratio(
+        "quick_ratio",
+        "יחס מהיר",
         "liquidity",
-        "multiple",
-        ("total_cash_and_short_term_investments", "total_current_liabilities"),
-        lambda v: _div(
-            v["total_cash_and_short_term_investments"],
-            v["total_current_liabilities"],
-            "current liabilities",
-            positive=True,
-        ),
-        "מזומנים והשקעות לזמן קצר חלקי התחייבויות שוטפות",
+        "ratio",
+        "higher",
+        D("0.1"),
+        IND,
+        ("cash", "receivables", "current_liabilities"),
+        lambda v: div(v["cash"] + v["receivables"], v["current_liabilities"], positive=True),
     ),
+    # leverage
+    Ratio(
+        "equity_to_assets",
+        "הון עצמי לסך נכסים",
+        "leverage",
+        "percent",
+        "higher",
+        D("0.02"),
+        ALL,
+        ("total_equity", "total_assets"),
+        lambda v: div(v["total_equity"], v["total_assets"], positive=True),
+    ),
+    Ratio(
+        "debt_to_equity",
+        "חוב להון",
+        "leverage",
+        "ratio",
+        "lower",
+        D("0.1"),
+        IND,
+        ("total_debt", "total_equity"),
+        lambda v: div(v["total_debt"], v["total_equity"], positive=True),
+    ),
+    # cash flow
+    Ratio(
+        "cfo_to_net_income",
+        "תזרים מפעילות שוטפת לרווח נקי",
+        "cash_flow",
+        "ratio",
+        "higher",
+        D("0.2"),
+        ALL,
+        ("cfo", "net_income_consolidated"),
+        lambda v: div(v["cfo"], v["net_income_consolidated"], positive=True),
+    ),
+    Ratio(
+        "free_cash_flow",
+        "תזרים מזומנים חופשי",
+        "cash_flow",
+        "amount",
+        "higher",
+        D("0.10"),
+        IND,
+        ("cfo", "capex"),
+        lambda v: v["cfo"] + v["capex"],  # capex is reported negative
+    ),
+    Ratio(
+        "fcf_margin",
+        "שיעור תזרים חופשי מההכנסות",
+        "cash_flow",
+        "percent",
+        "higher",
+        D("0.005"),
+        IND,
+        ("cfo", "capex", "revenue"),
+        lambda v: div(v["cfo"] + v["capex"], v["revenue"]),
+    ),
+    # credit (banks)
+    Ratio(
+        "loans_to_deposits",
+        "אשראי לפיקדונות",
+        "credit",
+        "percent",
+        "neutral",
+        D("0.02"),
+        BANK,
+        ("loans_net", "customer_deposits"),
+        lambda v: div(v["loans_net"], v["customer_deposits"], positive=True),
+    ),
+    Ratio(
+        "npl_ratio",
+        "שיעור חובות פגומים",
+        "credit",
+        "percent",
+        "lower",
+        D("0.001"),
+        BANK,
+        ("nonperforming_loans", "gross_loans"),
+        lambda v: div(v["nonperforming_loans"], v["gross_loans"], positive=True),
+    ),
+    Ratio(
+        "loan_loss_coverage",
+        "כיסוי חובות פגומים בהפרשה",
+        "credit",
+        "ratio",
+        "higher",
+        D("0.5"),
+        BANK,
+        ("loan_loss_allowance", "nonperforming_loans"),
+        lambda v: div(v["loan_loss_allowance"], v["nonperforming_loans"], positive=True),
+    ),
+    # capital (banks): as reported by the provider
+    _reported("cet1_ratio", "יחס הון עצמי רובד 1"),
+    _reported("tier1_ratio", "יחס הון רובד 1"),
+    _reported("total_capital_ratio", "יחס הון כולל"),
+    _reported("leverage_ratio", "יחס מינוף"),
 )
 
-RATIO_BY_CODE: dict[str, RatioDef] = {r.code: r for r in RATIOS}
+RATIO_BY_CODE: dict[str, Ratio] = {r.code: r for r in RATIOS}
+
+
+def ratios_for(template: str) -> tuple[Ratio, ...]:
+    return tuple(r for r in RATIOS if template in r.templates)
 
 
 class RatioValue(BaseModel):
     code: str
+    fiscal_year: int
+    value: Decimal | None
+    basis: Literal["computed", "reported"]
+    missing_reason: str | None = (
+        None  # missing_input:<field> | missing_prior_input:<field> | zero_denominator | negative_denominator | no_prior_year
+    )
+    missing_message_he: str | None = None
+    confidence: Confidence = "high"
+    failed_checks: list[
+        str
+    ] = []  # check ids; "<id>:<fy>" when it failed in another year (opening/prior values)
+    derived_inputs: list[str] = []  # "<field>:<fy>"
+    avg_used: bool = False
+    inputs: dict[str, Decimal] = {}  # field (closing) | "opening:<field>" | "prior:<field>" → value
+    delta: Decimal | None = None
+    status: Status = "na"
+    notes: list[str] = []
+
+
+class RatioSeries(BaseModel):
+    code: str
     name_he: str
     group: str
     unit: Unit
-    fiscal_year: int
-    value: str | None  # exact decimal string
-    inputs: dict[str, str | None]  # code -> exact value (None when missing)
-    reason: str | None  # why there is no value
-    confidence: Confidence
-    failed_checks: list[str]
+    direction: Direction
+    threshold: Decimal
+    values: dict[int, RatioValue]  # fiscal year → value
 
 
-class Change(BaseModel):
-    kind: Literal["FIN", "RATIO"]
-    code: str
-    name_he: str
-    unit: ChangeUnit
-    from_year: int
-    to_year: int
-    old: str | None
-    new: str | None
-    value: str | None  # exact decimal string: a fraction for percent/pp, a plain difference for multiples
-    reason: str | None
-    confidence: Confidence
-    failed_checks: list[str]
+def _missing_message(reason: str, template: str) -> str:
+    kind, _, fields = reason.partition(":")
+    label = ", ".join(field_def(template, f).label_he for f in fields.split(",")) if fields else ""
+    return {
+        "missing_input": f"חסר נתון: {label}",
+        "missing_prior_input": f"חסר נתון לשנה הקודמת: {label}",
+        "zero_denominator": "המכנה אפס",
+        "negative_denominator": "המכנה שלילי, ולכן היחס אינו משמעותי",
+        "no_prior_year": "אין נתוני שנה קודמת",
+    }[kind]
 
 
-def fin_unit(v: FinValue) -> Unit:
-    if v.code.endswith("_eps"):
-        return "per_share"
-    if v.statement == "supplemental" and ("shares" in v.code or "employees" in v.code):
-        return "count"
-    return "money"
+def _compute_one(ratio: Ratio, sheet: Sheet, fy: int, failed: dict[int, dict[str, list[str]]]) -> RatioValue:
+    used: list[Cell] = []
+    values: dict[str, Decimal] = {}  # what the formula sees (averages already applied)
+    shown: dict[str, Decimal] = {}  # what the output reports: closing, opening and prior values
+    avg_used = False
+    reason: str | None = None
+
+    missing = [n for n in ratio.inputs if sheet.value(fy, n) is None]
+    if missing:
+        reason = f"missing_input:{','.join(missing)}"
+    for name in ratio.inputs:
+        cell = sheet.cell(fy, name)
+        if cell is None or cell.value is None:
+            continue
+        used.append(cell)
+        values[name] = shown[name] = cell.value
+        if name in ratio.avg_inputs:
+            opening = sheet.cell(fy - 1, name)
+            if opening is not None and opening.value is not None:
+                used.append(opening)
+                shown[f"opening:{name}"] = opening.value
+                values[name] = (opening.value + cell.value) / 2
+                avg_used = True
+    for name in ratio.prior_inputs:
+        if fy - 1 not in sheet.cells:
+            reason = reason or "no_prior_year"
+            continue
+        prior = sheet.cell(fy - 1, name)
+        if prior is None or prior.value is None:
+            reason = reason or f"missing_prior_input:{name}"
+            continue
+        used.append(prior)
+        values[f"prior:{name}"] = shown[f"prior:{name}"] = prior.value
+
+    value: Decimal | None = None
+    if reason is None:
+        try:
+            value = ratio.fn(values)
+        except Uncomputable as exc:
+            reason = exc.reason
+
+    failed_checks: list[str] = []
+    derived: list[str] = []
+    notes: set[str] = set()
+    for cell in used if value is not None else []:  # confidence and notes describe a value
+        for check_id in failed.get(cell.fiscal_year, {}).get(cell.field, []):
+            label = check_id if cell.fiscal_year == fy else f"{check_id}:{cell.fiscal_year}"
+            if label not in failed_checks:
+                failed_checks.append(label)
+        if cell.basis == "derived":
+            derived.append(f"{cell.field}:{cell.fiscal_year}")
+        if cell.source_filing_type in NON_ANNUAL_FILING_TYPES:
+            notes.add("non_annual_source")
+    return RatioValue(
+        code=ratio.code,
+        fiscal_year=fy,
+        value=value,
+        basis="reported" if ratio.reported else "computed",
+        missing_reason=reason,
+        missing_message_he=_missing_message(reason, sheet.template) if reason else None,
+        confidence="low" if failed_checks or derived else "high",
+        failed_checks=failed_checks,
+        derived_inputs=derived,
+        avg_used=avg_used,
+        inputs=shown,
+        notes=sorted(notes),
+    )
 
 
-def _by_year(values: Iterable[FinValue]) -> dict[int, dict[str, Decimal]]:
-    out: dict[int, dict[str, Decimal]] = {}
-    for v in values:
-        out.setdefault(v.fiscal_year, {})[v.code] = v.value
-    return out
+def change(ratio: Ratio, current: Decimal | None, previous: Decimal | None) -> tuple[Decimal | None, Status]:
+    """Delta from the year before (relative for amounts) and its status."""
+    if current is None or previous is None:
+        return None, "na"
+    if ratio.unit == "amount":
+        if previous == 0:
+            return None, "na"
+        delta = (current - previous) / abs(previous)
+    else:
+        delta = current - previous
+    if abs(delta) < ratio.threshold:
+        return delta, "stable"
+    if ratio.direction == "neutral":
+        return delta, "changed"
+    better = delta > 0 if ratio.direction == "higher" else delta < 0
+    return delta, "improved" if better else "deteriorated"
 
 
-def compute_ratios(values: Iterable[FinValue], checks: list[CheckResult]) -> list[RatioValue]:
-    """Every core ratio for every fiscal year present, ordered by year then registry order."""
-    by_year = _by_year(values)
-    out: list[RatioValue] = []
-    for year in sorted(by_year):
-        present = by_year[year]
-        for r in RATIOS:
-            missing = [c for c in r.inputs if c not in present]
-            value: Decimal | None = None
-            reason: str | None = None
-            if missing:
-                reason = "missing input: " + ", ".join(missing)
-            else:
-                try:
-                    value = r.formula(present)
-                except NoValue as exc:
-                    reason = str(exc)
-            failed = failed_checks_for(r.inputs, year, checks)
-            out.append(
-                RatioValue(
-                    code=r.code,
-                    name_he=r.name_he,
-                    group=r.group,
-                    unit=r.unit,
-                    fiscal_year=year,
-                    value=decimal_str(value) if value is not None else None,
-                    inputs={c: (decimal_str(present[c]) if c in present else None) for c in r.inputs},
-                    reason=reason,
-                    confidence="low" if failed else "high",
-                    failed_checks=failed,
-                )
+def compute(sheet: Sheet, checks: dict[int, list[CheckResult]]) -> list[RatioSeries]:
+    """Every ratio of the sheet's template, for every fiscal year in the sheet, in registry order."""
+    failed = {fy: failed_by_cell(results) for fy, results in checks.items()}
+    series: list[RatioSeries] = []
+    for ratio in ratios_for(sheet.template):
+        values = {fy: _compute_one(ratio, sheet, fy, failed) for fy in sheet.years}
+        for fy, rv in values.items():
+            prev = values.get(fy - 1)
+            rv.delta, rv.status = change(ratio, rv.value, prev.value if prev else None)
+        series.append(
+            RatioSeries(
+                code=ratio.code,
+                name_he=ratio.name_he,
+                group=ratio.group,
+                unit=ratio.unit,
+                direction=ratio.direction,
+                threshold=ratio.threshold,
+                values=values,
             )
-    return out
-
-
-def change_value(
-    old: Decimal | None, new: Decimal | None, unit: ChangeUnit
-) -> tuple[Decimal | None, str | None]:
-    """The change from ``old`` to ``new`` in ``unit``, or ``None`` with a reason."""
-    if old is None or new is None:
-        return None, "a value is missing in one of the years"
-    if unit in ("pp", "multiple"):
-        return new - old, None
-    if old == 0:
-        return None, "the previous value is zero"
-    if (old < 0) != (new < 0) and new != 0:
-        return None, "the sign changed between the years"
-    with localcontext() as ctx:
-        ctx.prec = PRECISION
-        return (new - old) / abs(old), None
-
-
-def compute_changes(
-    values: Iterable[FinValue], ratios: Iterable[RatioValue], checks: list[CheckResult]
-) -> list[Change]:
-    """Changes between consecutive fiscal years for every normalized value and core ratio."""
-    values = list(values)
-    years = sorted({v.fiscal_year for v in values})
-    pairs = list(zip(years, years[1:], strict=False))
-    out: list[Change] = []
-
-    fin: dict[str, dict[int, FinValue]] = {}
-    for v in values:
-        fin.setdefault(v.code, {})[v.fiscal_year] = v
-    for code in sorted(fin):
-        for y0, y1 in pairs:
-            a, b = fin[code].get(y0), fin[code].get(y1)
-            if a is None and b is None:
-                continue
-            value, reason = change_value(a.value if a else None, b.value if b else None, "percent")
-            failed = sorted(
-                set(failed_checks_for([code], y0, checks)) | set(failed_checks_for([code], y1, checks))
-            )
-            label = (b or a).label  # type: ignore[union-attr]
-            out.append(
-                Change(
-                    kind="FIN",
-                    code=code,
-                    name_he=label,
-                    unit="percent",
-                    from_year=y0,
-                    to_year=y1,
-                    old=decimal_str(a.value) if a else None,
-                    new=decimal_str(b.value) if b else None,
-                    value=decimal_str(value) if value is not None else None,
-                    reason=reason,
-                    confidence="low" if failed else "high",
-                    failed_checks=failed,
-                )
-            )
-
-    by_code: dict[str, dict[int, RatioValue]] = {}
-    for r in ratios:
-        by_code.setdefault(r.code, {})[r.fiscal_year] = r
-    for definition in RATIOS:
-        series = by_code.get(definition.code, {})
-        for y0, y1 in pairs:
-            a, b = series.get(y0), series.get(y1)
-            old = Decimal(a.value) if a and a.value is not None else None
-            new = Decimal(b.value) if b and b.value is not None else None
-            value, reason = change_value(old, new, definition.change_unit)
-            failed = sorted(set(a.failed_checks if a else []) | set(b.failed_checks if b else []))
-            out.append(
-                Change(
-                    kind="RATIO",
-                    code=definition.code,
-                    name_he=definition.name_he,
-                    unit=definition.change_unit,
-                    from_year=y0,
-                    to_year=y1,
-                    old=decimal_str(old) if old is not None else None,
-                    new=decimal_str(new) if new is not None else None,
-                    value=decimal_str(value) if value is not None else None,
-                    reason=reason,
-                    confidence="low" if failed else "high",
-                    failed_checks=failed,
-                )
-            )
-    return out
+        )
+    return series

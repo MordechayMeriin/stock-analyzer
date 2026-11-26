@@ -6,8 +6,8 @@ import { ApiError, errorFrom, url } from './client'
 
 export interface SseHandlers<TDone> {
   onDelta?: (text: string) => void
-  /** `progress` events (the story run's steps). */
-  onProgress?: (progress: unknown) => void
+  /** Any other named event (for example the OSINT run's `progress`), with its parsed JSON payload. */
+  onEvent?: (event: string, payload: unknown) => void
   onDone: (done: TDone) => void
   onError: (error: ApiError) => void
 }
@@ -38,12 +38,17 @@ export function parseFrames(buffer: string, emit: (event: string, data: string) 
   return rest
 }
 
-export function postSse<TDone>(path: string, body: unknown, handlers: SseHandlers<TDone>): SseStream {
+export function postSse<TDone>(
+  path: string,
+  body: unknown,
+  handlers: SseHandlers<TDone>,
+  query?: Record<string, string | number | undefined | null>,
+): SseStream {
   const controller = new AbortController()
   const finished = (async (): Promise<'done' | 'error' | 'aborted'> => {
     let outcome: 'done' | 'error' | null = null
     try {
-      const res = await fetch(url(path), {
+      const res = await fetch(url(path, query), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
         body: JSON.stringify(body),
@@ -59,14 +64,13 @@ export function postSse<TDone>(path: string, body: unknown, handlers: SseHandler
       const emit = (event: string, data: string) => {
         const payload = JSON.parse(data)
         if (event === 'delta') handlers.onDelta?.(payload.text as string)
-        else if (event === 'progress') handlers.onProgress?.(payload)
         else if (event === 'done') {
           outcome = 'done'
           handlers.onDone(payload as TDone)
         } else if (event === 'error') {
           outcome = 'error'
           handlers.onError(new ApiError(payload.code, payload.message, 200))
-        }
+        } else handlers.onEvent?.(event, payload)
       }
       for (;;) {
         const { value, done } = await reader.read()

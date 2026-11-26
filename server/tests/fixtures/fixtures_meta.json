@@ -58,5 +58,36 @@
   "2024": 63741657,
   "2025": 32935334
  },
- "note": "style_b is a composite: page index i in the fixture is source page style_b_pages[i-1]"
+ "note": "style_b is a composite: page index i in the fixture is source page style_b_pages[i-1]",
+ "filings_fixtures": {
+  "rmli_dlekg_filings.json": {
+   "companies": {
+    "DLEKG": 6742,
+    "RMLI": 7010
+   },
+   "listed_at": "2026-11-23",
+   "fiscal_years": "2019-2026"
+  }
+ },
+ "financials_fixtures": {
+  "note": "trim_financials() of the cached provider financials responses (fiscal_period=FY), copied from the state store's kv_cache; no provider calls; the bank and insurer files are compact JSON to stay within the fixture budget",
+  "mltm_financials.json": {
+   "company_id": 6901,
+   "template": "industrial",
+   "fiscal_years": "2021-2025",
+   "fetched_at": "2026-11-11"
+  },
+  "lumi_financials.json": {
+   "company_id": 6889,
+   "template": "bank",
+   "fiscal_years": "2013, 2023-2025",
+   "fetched_at": "2026-11-26"
+  },
+  "harl_financials.json": {
+   "company_id": 6832,
+   "template": "insurer",
+   "fiscal_years": "2020-2025",
+   "fetched_at": "2026-11-26"
+  }
+ }
 }

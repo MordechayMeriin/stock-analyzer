@@ -1,9 +1,13 @@
-"""Report Markdown → page-cited paragraphs (plan.md §1.4, report-parsing spec).
+"""Report Markdown → paragraphs with pages (plan.md §1.4, report-parsing spec).
 
-Pipeline: detect the page style → split pages (page index = PDF page) → find footers and
-printed page numbers → check the printed/index offset per numbering run → strip footers,
-picture-text blocks and lines repeated on more than ``repeated_line_ratio`` of pages →
-split on blank lines (a whole table is one paragraph, headings stand alone) → normalize.
+Pipeline: detect the page style → split pages → record each page's head → find footers and
+printed page numbers → strip footers, picture-text blocks, lines repeated on more than
+``repeated_line_ratio`` of pages and running headers/footers at page edges → split on blank
+lines (a whole table is one paragraph, headings stand alone) → normalize.
+
+A page is a page of the provider's Markdown, not of the source PDF: the provider sometimes
+splits one printed page into several Markdown pages, so the page index is a position in the
+report file and nothing links to the PDF. The printed page number comes from the footer.
 
 Styles seen in provider Markdown (sometimes within one company):
 - **A**: ``<!-- page N -->`` markers (absolute page numbers), footers like
@@ -30,7 +34,7 @@ from stock_analyzer.ingest.normalize import normalize
 
 log = logging.getLogger(__name__)
 
-PARSER_VERSION = "1"
+PARSER_VERSION = "2"
 
 Style = Literal["A", "B"]
 
@@ -42,6 +46,8 @@ _IMAGE = re.compile(r"^\s*!\[[^\]]*\]\([^)]*\)\s*$")
 _FOOTNOTE_START = re.compile(r"^\s*(?:[¹²³⁴⁵⁶⁷⁸⁹⁰]+|\*{1,3}\s|\(\d{1,2}\)\s)")
 _PIPE_NUMBER = re.compile(r"\|\s*(\d{1,4})\s*(?=\||$)")
 _BARE_NUMBER = re.compile(r"^\s*(\d{1,3})\s*$")
+_DASH_NUMBER = re.compile(r"^\s*[-–]\s*(\d{1,3})\s*[-–]\s*$")
+_TRAILING_NUMBER = re.compile(r"[א-ת)]\s+(\d{1,3})\s*\|?\s*$")
 _HEADING = re.compile(r"^\s*(#{1,6})\s+\S")
 
 
@@ -65,18 +71,11 @@ class PageInfo(BaseModel):
     printed: int | None
     char_start: int
     char_end: int
-
-
-class OffsetRun(BaseModel):
-    first_page: int
-    last_page: int
-    offset: int  # page_index - page_printed
-
-
-class OffsetIssue(BaseModel):
-    page: int
-    printed: int
-    expected_printed: int
+    # the page's first content lines before footer/running-line stripping (chapter openers are
+    # read from here); images, comments, table rows and logo OCR (short Latin-only lines) excluded
+    head: list[str] = []
+    foot: list[str] = []  # the page's last content lines before stripping, same filtering as head
+    running_header: str | None = None  # running header/footer line removed from this page
 
 
 class ParsedReport(BaseModel):
@@ -87,9 +86,7 @@ class ParsedReport(BaseModel):
     parser_version: str = PARSER_VERSION
     pages: list[PageInfo]
     paragraphs: list[Paragraph]
-    offset_runs: list[OffsetRun]
-    numbering_restarts: list[int]  # pages where printed numbering restarts
-    offset_issues: list[OffsetIssue]
+    numbering_restarts: list[int]  # pages where the printed number does not increase
     repeated_lines: list[str]
     warnings: list[str] = []
 
@@ -118,6 +115,11 @@ class _Page:
     end: int
     lines: list[_Line] = field(default_factory=list)
     printed: int | None = None
+    head: list[str] = field(default_factory=list)
+    foot: list[str] = field(default_factory=list)
+    running_header: str | None = None
+    footer_lines: list[str] = field(default_factory=list)  # normalized lines the footer consumed
+    running: set[int] = field(default_factory=set)  # positions in ``lines`` of running lines
 
 
 def _lines(text: str, start: int, end: int) -> list[_Line]:
@@ -131,6 +133,11 @@ def _lines(text: str, start: int, end: int) -> list[_Line]:
 
 def _is_table_line(line: str) -> bool:
     return line.lstrip().startswith("|")
+
+
+def _is_table_block(block: list[_Line]) -> bool:
+    """A block is a table when it starts with a "|" line and some row closes with "|"."""
+    return _is_table_line(block[0].text) and any(ln.text.rstrip().endswith("|") for ln in block)
 
 
 def _is_page_rule(line: str) -> bool:
@@ -165,7 +172,7 @@ def _split_b(text: str) -> list[_Page]:
     for i, line in enumerate(lines):
         if _is_page_rule(line.text):
             nxt = next((n.text for n in lines[i + 1 :] if n.text.strip()), "")
-            if _FOOTNOTE_START.match(nxt) and _footer(seg_lines)[0] is None:
+            if _FOOTNOTE_START.match(nxt) and not _footer(seg_lines)[0]:
                 seg_lines.append(line)  # footnote rule inside a page
                 continue
             pages.append(_Page(index=len(pages) + 1, start=seg_start, end=line.start))
@@ -177,10 +184,43 @@ def _split_b(text: str) -> list[_Page]:
     return pages
 
 
-def _footer(lines: list[_Line]) -> tuple[int | None, int | None]:
-    """(position in ``lines`` of the footer line, printed number) among the last lines."""
+def _table_rows(lines: list[_Line]) -> set[int]:
+    """Positions of lines that are rows of a multi-line Markdown table block. A row's cell text
+    can wrap, so a continuation line ends with "|" without starting with one."""
+    rows: set[int] = set()
+    block: list[int] = []
+
+    def close() -> None:
+        if len(block) >= 2 and _is_table_line(lines[block[0]].text):
+            rows.update(
+                i for i in block if _is_table_line(lines[i].text) or lines[i].text.rstrip().endswith("|")
+            )
+        block.clear()
+
+    for i, ln in enumerate(lines):
+        if ln.text.strip():
+            block.append(i)
+        else:
+            close()
+    close()
+    return rows
+
+
+def _running_like(norm: str) -> bool:
+    """A running header/footer line such as "פרק א | תיאור עסקי התאגיד": short, has "|" and
+    letters, and no number."""
+    return "|" in norm and len(norm) <= 90 and bool(re.search(r"[א-ת]", norm)) and not re.search(r"\d", norm)
+
+
+def _footer(lines: list[_Line]) -> tuple[list[int], int | None]:
+    """(positions in ``lines`` of the footer lines, printed number) among the last lines.
+
+    Layouts (report-parsing spec: Page footer layouts): ``site | name | N``; a bare number on the
+    last line; a bare number followed by running-header lines; ``- N -``; a ``title | title N``
+    line. Numbers in table rows are never page numbers."""
     nonempty = [i for i, ln in enumerate(lines) if ln.text.strip()]
     tail = nonempty[-3:]
+    rows = _table_rows(lines)
 
     def neighbour(i: int, step: int) -> str:
         k = nonempty.index(i) + step
@@ -188,23 +228,134 @@ def _footer(lines: list[_Line]) -> tuple[int | None, int | None]:
 
     for i in reversed(tail):
         raw = lines[i].text
-        if _HEADING.match(raw):
+        if _HEADING.match(raw) or i in rows:
             continue
         norm = normalize(raw)
+        later = [j for j in tail if j > i]
+        if m := _DASH_NUMBER.match(norm):
+            if not later:
+                return [i], int(m.group(1))
+            continue
         if "|" in norm:
-            # a row inside a Markdown table (a table line next to another) is not a footer
-            if _is_table_line(raw) and (_is_table_line(neighbour(i, -1)) or _is_table_line(neighbour(i, 1))):
-                continue
             letters = re.search(r"[A-Za-z֐-׿]", norm)
             nums = [int(n) for n in _PIPE_NUMBER.findall(norm) if not 1900 <= int(n) <= 2100]
             if letters and nums:
-                return i, nums[-1]
+                return [i], nums[-1]
+            if letters and (m := _TRAILING_NUMBER.search(norm)) and not 1900 <= int(m.group(1)) <= 2100:
+                return [i], int(m.group(1))  # "פרק א | תיאור עסקי התאגיד 46"
             continue
         m = _BARE_NUMBER.match(norm)
+        if not m:
+            continue
         # a bare number ending a numbered list ("16 ...", then "17") is a list item, not a footer
-        if m and i == tail[-1] and not re.match(r"^\s*\d{1,3}[.)]?\s+\S", neighbour(i, -1)):
-            return i, int(m.group(1))
-    return None, None
+        if re.match(r"^\s*\d{1,3}[.)]?\s+\S", neighbour(i, -1)):
+            continue
+        if not later:
+            return [i], int(m.group(1))
+        if all(_running_like(normalize(lines[j].text)) for j in later):
+            return [i, *later], int(m.group(1))  # "49" above "פרק א | תיאור עסקי התאגיד"
+    return [], None
+
+
+_LOGO_OCR = re.compile(r"^[A-Za-z][A-Za-z .\-]{0,24}$")
+HEAD_LINES = 6
+
+
+FOOT_LINES = 3
+
+
+def _page_head(lines: list[_Line], limit: int = HEAD_LINES) -> list[str]:
+    """First content lines of a page: no table rows, no logo OCR ("ELYAL", "EVALUATION") and no
+    lines without letters."""
+    head: list[str] = []
+    for ln in lines:
+        if not ln.text.strip() or _is_table_line(ln.text):
+            continue
+        # like normalize_title, but trailing punctuation is kept: "title ." is a sentence end
+        text = re.sub(r"^(?:#+|[-*•]\s)\s*", "", normalize(ln.text)).strip()
+        if not text or _LOGO_OCR.match(text) or not re.search(r"[A-Za-zא-ת]", text):
+            continue
+        head.append(text)
+        if len(head) == limit:
+            break
+    return head
+
+
+def _page_foot(lines: list[_Line]) -> list[str]:
+    """Last content lines of a page (in page order), filtered like the head."""
+    return list(reversed(_page_head(list(reversed(lines)), FOOT_LINES)))
+
+
+RUNNING_EDGE = 3  # lines at each edge of a page that can be running headers/footers
+RUNNING_MAX_CHARS = 90
+RUNNING_MIN_RUN = 3  # consecutive pages a running line must cover at least once
+
+
+def _longest_run(indices: list[int]) -> int:
+    best = cur = 1 if indices else 0
+    for a, b in zip(indices, indices[1:], strict=False):
+        cur = cur + 1 if b == a + 1 else 1
+        best = max(best, cur)
+    return best
+
+
+_EDGE_NUMBERS = re.compile(r"^(?:\d{1,4}\s+)+|(?:\s+\d{1,4})+\s*\|?$")
+
+
+def _running_key(text: str) -> str:
+    """Key that ignores numbers glued to either end ("פרק א | תיאור עסקי התאגיד 46",
+    "2025 פרק ג | …"), so a running line matches its numberless form; inner numbers count."""
+    return " ".join(_EDGE_NUMBERS.sub(" ", normalize(text)).split()).strip(" -–|")
+
+
+def _running_candidate(text: str) -> bool:
+    """Short, has letters, and is not a sentence (running lines do not end with "." or ":")."""
+    return (
+        len(text) <= RUNNING_MAX_CHARS
+        and len(_running_key(text)) >= 3  # never a lone letter ("א"), which can mark a subsection
+        and not text.rstrip().endswith((".", ":"))
+        and bool(re.search(r"[A-Za-zא-ת]", text))
+    )
+
+
+def _edge_positions(lines: list[_Line]) -> list[int]:
+    content = [i for i, ln in enumerate(lines) if ln.text.strip() and not _is_table_line(ln.text)]
+    return sorted(set(content[:RUNNING_EDGE] + content[-RUNNING_EDGE:]))
+
+
+def _strip_running_lines(pages: list[_Page], min_pages: int) -> None:
+    """Remove running headers/footers: short lines at a page edge on at least ``min_pages`` pages.
+    Each page records the (first) running line removed from it."""
+    edges = {p.index: _edge_positions(p.lines) for p in pages}
+    on_pages: dict[str, list[int]] = {}
+    for p in pages:
+        keys = set()
+        # footer lines sat at the page edge too ("פרק א | תיאור עסקי התאגיד 46" read as a footer)
+        for text in [normalize(p.lines[i].text) for i in edges[p.index]] + p.footer_lines:
+            if _running_candidate(text):
+                keys.add(_running_key(text))
+        for key in keys:
+            on_pages.setdefault(key, []).append(p.index)
+    # a running line also covers consecutive pages; a generic heading at the top of scattered
+    # pages ("כללי", "(א)") does not
+    min_run = min(RUNNING_MIN_RUN, min_pages)
+    running = {k for k, idx in on_pages.items() if len(idx) >= min_pages and _longest_run(idx) >= min_run}
+    if not running:
+        return
+    for p in pages:
+        for text in p.footer_lines:
+            if p.running_header is None and _running_candidate(text) and _running_key(text) in running:
+                p.running_header = _running_key(text)
+        drop = []
+        for i in edges[p.index]:
+            text = normalize(p.lines[i].text)
+            if _running_candidate(text) and _running_key(text) in running:
+                drop.append(i)
+                if p.running_header is None:
+                    p.running_header = _running_key(text).lstrip("#").strip()
+        # kept in ``lines`` but marked: a stripped running-line block still takes its paragraph
+        # number, so the ids of the paragraphs after it do not shift (ids are positional)
+        p.running = set(drop)
 
 
 def _drop_pictures(lines: list[_Line]) -> list[_Line]:
@@ -225,28 +376,18 @@ def _drop_pictures(lines: list[_Line]) -> list[_Line]:
     return kept
 
 
-def _check_offsets(pages: list[_Page]) -> tuple[list[OffsetRun], list[int], list[OffsetIssue]]:
-    runs: list[OffsetRun] = []
+def _numbering_restarts(pages: list[_Page]) -> list[int]:
+    """Pages whose printed number does not increase over the previous numbered page (printed
+    numbering restarts per chapter)."""
     restarts: list[int] = []
-    issues: list[OffsetIssue] = []
-    prev_printed: int | None = None
+    prev: int | None = None
     for p in pages:
         if p.printed is None:
             continue
-        offset = p.index - p.printed
-        if runs and prev_printed is not None and p.printed >= prev_printed and offset == runs[-1].offset:
-            runs[-1].last_page = p.index
-        elif runs and prev_printed is not None and p.printed > prev_printed:
-            # numbering continues upward but the offset moved: an inconsistency within the run
-            issues.append(
-                OffsetIssue(page=p.index, printed=p.printed, expected_printed=p.index - runs[-1].offset)
-            )
-        else:
-            if runs:
-                restarts.append(p.index)
-            runs.append(OffsetRun(first_page=p.index, last_page=p.index, offset=offset))
-        prev_printed = p.printed
-    return runs, restarts, issues
+        if prev is not None and p.printed <= prev:
+            restarts.append(p.index)
+        prev = p.printed
+    return restarts
 
 
 def _blocks(lines: list[_Line]) -> list[list[_Line]]:
@@ -276,10 +417,11 @@ def _blocks(lines: list[_Line]) -> list[list[_Line]]:
         if first_tab is None:
             out.append(block)
             continue
-        last_tab = max(i for i, ln in enumerate(block) if ln.text.rstrip().endswith("|"))
-        if last_tab < first_tab:
-            out.append(block)
+        closing = [i for i, ln in enumerate(block) if i >= first_tab and ln.text.rstrip().endswith("|")]
+        if not closing:
+            out.append(block)  # a "|" line that never closes its row: plain text, not a table
             continue
+        last_tab = closing[-1]
         if first_tab > 0:
             out.append(block[:first_tab])
         out.append(block[first_tab : last_tab + 1])
@@ -292,7 +434,7 @@ def _merge_tables_across_blanks(blocks: list[list[_Line]]) -> list[list[_Line]]:
     """A table interrupted only by blank lines stays one paragraph."""
     merged: list[list[_Line]] = []
     for b in blocks:
-        if merged and _is_table_line(b[0].text) and _is_table_line(merged[-1][0].text):
+        if merged and _is_table_block(b) and _is_table_block(merged[-1]):
             merged[-1] = merged[-1] + b
         else:
             merged.append(b)
@@ -320,23 +462,14 @@ def parse_report(
     # per-page cleanup: pictures, footers
     for p in pages:
         lines = _drop_pictures(_lines(text, p.start, p.end))
-        pos, printed = _footer(lines)
-        if pos is not None:
+        p.head = _page_head(lines)
+        p.foot = _page_foot(lines)
+        footer, printed = _footer(lines)
+        if footer:
             p.printed = printed
-            lines = lines[:pos] + lines[pos + 1 :]
+            p.footer_lines = [normalize(lines[k].text) for k in footer]
+            lines = [ln for k, ln in enumerate(lines) if k not in footer]
         p.lines = lines
-
-    runs, restarts, issues = _check_offsets(pages)
-    for issue in issues:
-        log.warning(
-            "%s FY%s: printed page %s on page %s, expected %s",
-            ticker,
-            fiscal_year,
-            issue.printed,
-            issue.page,
-            issue.expected_printed,
-        )
-        warnings.append(f"page {issue.page}: printed {issue.printed}, expected {issue.expected_printed}")
 
     # repeated lines (page headers etc.), never table rows
     repeated: set[str] = set()
@@ -349,13 +482,22 @@ def parse_report(
         limit = settings.repeated_line_ratio * len(pages)
         repeated = {line for line, n in counts.items() if line and n > limit}
 
+    # running headers/footers at page edges, below the global threshold
+    _strip_running_lines(pages, settings.running_line_min_pages)
+
     paragraphs: list[Paragraph] = []
     for p in pages:
+        running = {id(p.lines[i]) for i in p.running}
         lines = [ln for ln in p.lines if not (ln.text.strip() and normalize(ln.text) in repeated)]
         n = 0
         for block in _merge_tables_across_blanks(_blocks(lines)):
+            kept = [ln for ln in block if id(ln) not in running]
+            if not any(ln.text.strip() for ln in kept):
+                n += 1  # a running header/footer: stripped, but its number is used up
+                continue
+            block = kept
             raw = "\n".join(ln.text for ln in block)
-            in_table = _is_table_line(block[0].text)
+            in_table = _is_table_block(block)
             norm = normalize(raw, keep_newlines=in_table)
             if not norm:
                 continue
@@ -387,11 +529,20 @@ def parse_report(
         fiscal_year=fiscal_year,
         filing_id=filing_id,
         style=style,
-        pages=[PageInfo(index=p.index, printed=p.printed, char_start=p.start, char_end=p.end) for p in pages],
+        pages=[
+            PageInfo(
+                index=p.index,
+                printed=p.printed,
+                char_start=p.start,
+                char_end=p.end,
+                head=p.head,
+                foot=p.foot,
+                running_header=p.running_header,
+            )
+            for p in pages
+        ],
         paragraphs=paragraphs,
-        offset_runs=runs,
-        numbering_restarts=restarts,
-        offset_issues=issues,
+        numbering_restarts=_numbering_restarts(pages),
         repeated_lines=sorted(repeated),
         warnings=warnings,
     )

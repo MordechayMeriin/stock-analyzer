@@ -68,16 +68,11 @@ def stream(llm: LLM, prepared: PreparedQuestion) -> Iterator[StreamEvent]:
     yield from llm.stream_text("main", prepared.system, prepared.user, purpose="playground")
 
 
-def citations(prepared: PreparedQuestion) -> dict[str, str | None]:
-    return {p.pid: p.citation_url for p in prepared.paragraphs}
-
-
 __all__ = [
     "PreparedQuestion",
     "prepare",
     "resolve_llm",
     "stream",
-    "citations",
     "DoneEvent",
     "estimate_tokens",
 ]

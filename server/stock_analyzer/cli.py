@@ -1,6 +1,7 @@
 """Command-line interface (typer). Thin adapter over ``services`` (design D4).
 
-Commands: fetch, usage, structure, fin-raw, ratios, compare, story, db init.
+Commands: fetch, usage, structure, parse-check, fin-raw, ratios, compare, story, osint, companies list|add|remove,
+db init.
 """
 
 from __future__ import annotations
@@ -72,6 +73,66 @@ def usage(mode: ModeOpt = "live") -> None:
     typer.echo()
 
 
+companies_app = typer.Typer(no_args_is_help=True, help="Tracked companies (companies.yaml plus added ones)")
+app.add_typer(companies_app, name="companies")
+
+
+@companies_app.command("list")
+def companies_list() -> None:
+    """Tracked companies with their source: registry (companies.yaml) or added (state store)."""
+    from stock_analyzer.services import companies
+
+    try:
+        rows = companies.list_tracked(_ctx())
+    except AnalyzerError as exc:
+        _fail(exc)
+        return
+    for c in rows:
+        typer.echo(
+            f"{c.ticker:<10} {c.fr_company_id:>8}  {c.source:<8}  {c.name_he}  {c.name_en or ''}".rstrip()
+        )
+
+
+@companies_app.command("add")
+def companies_add(
+    fr_id: Annotated[int, typer.Option("--fr-id", help="Provider company id (from search)")],
+    ticker: Annotated[str, typer.Option("--ticker", help="Exchange ticker, stored upper-case")],
+    name_he: Annotated[str, typer.Option("--name-he", help="Hebrew name")],
+    name_en: Annotated[str | None, typer.Option("--name-en", help="English name")] = None,
+    isin: Annotated[str | None, typer.Option("--isin", help="ISIN")] = None,
+) -> None:
+    """Start tracking a company (live mode; writes to the active state store). Nothing is fetched."""
+    from pydantic import ValidationError
+
+    from stock_analyzer.services import companies
+    from stock_analyzer.services.models import AddCompanyIn
+
+    try:
+        body = AddCompanyIn(fr_company_id=fr_id, ticker=ticker, name_he=name_he, name_en=name_en, isin=isin)
+        out = companies.add(_ctx("live"), body)
+    except ValidationError as exc:
+        fields = ", ".join(str(e["loc"][0]) for e in exc.errors())
+        typer.secho(f"error [validation_error]: invalid {fields}", fg=typer.colors.RED, err=True)
+        raise typer.Exit(1) from None
+    except (AnalyzerError, ValueError) as exc:
+        _fail(exc)
+        return
+    typer.echo(f"now tracking {out.ticker} (provider company {out.fr_company_id}, {out.name_he})")
+
+
+@companies_app.command("remove")
+def companies_remove(ticker: str) -> None:
+    """Stop tracking a company added at runtime (live mode). Cached data is kept."""
+    from stock_analyzer.services import companies
+
+    try:
+        companies.remove(_ctx("live"), ticker)
+    except (AnalyzerError, ValueError) as exc:
+        _fail(exc)
+        return
+    typer.echo(f"stopped tracking {ticker.strip().upper()}; its cached data is kept")
+
+
 db_app = typer.Typer(no_args_is_help=True, help="State store database (Postgres backend)")
 app.add_typer(db_app, name="db")
 
@@ -104,7 +165,10 @@ def db_init() -> None:
             f"schema {store.schema!r} was already present; applied again to add any new tables, existing data kept"
         )
     else:
-        typer.echo(f"created schema {store.schema!r}: kv_cache, reports, financials_snapshots, usage_log")
+        typer.echo(
+            f"created schema {store.schema!r}: kv_cache, reports, financials_snapshots, usage_log, "
+            "tracked_companies"
+        )
 
 
 def render_structure(out) -> list[str]:
@@ -159,7 +223,8 @@ def structure(
     )
     typer.echo(
         f"business sections: {c['business_sections']} (TOC entries {c['business_toc_entries']}, matched "
-        f"{c['business_sections_matched_from_toc']}), subsections: {c['subsections']}"
+        f"{c['business_sections_matched_from_toc']}; source: {c['business_sections_source']}), "
+        f"subsections: {c['subsections']}"
     )
     typer.echo(
         f"directors' headings: {c['directors_headings']}, auditor's reports: {c['auditor_reports']}, "
@@ -169,6 +234,62 @@ def structure(
     typer.echo(f"paragraphs in chapters: {c['paragraphs_in_chapters']}/{c['paragraphs']}")
     for warning in out.warnings:
         typer.secho(f"warning: {warning}", fg=typer.colors.YELLOW)
+
+
+SCORE_HEADER = (
+    f"{'TICKER':<7}{'FY':<6}{'PAGES':>6}{'PRINTED':>8}  {'CHAPTERS':<9}{'SECTIONS':>9}{'TOC':>8}"
+    f"{'NOTES':>7}{'STMTS':>6}{'WARN':>6}{'SEC':>7}  MISSING / ERROR"
+)
+
+
+def render_score_row(row) -> str:
+    """One scorecard line (shared by the CLI and its tests)."""
+    head = f"{row.ticker:<7}{row.fiscal_year:<6}"
+    if row.error:
+        return f"{head}{'':>6}{'':>8}  {'':<9}{'':>9}{'':>8}{'':>7}{'':>6}{'':>6}{row.seconds:>7.1f}  ERROR {row.error}"
+    chapters = f"{len(row.chapters_found)}/{len(row.chapters_found) + len(row.chapters_missing)}"
+    toc = f"{row.business_toc_matched}/{row.business_toc_entries}"
+    notes = []
+    if row.business_sections_source != "toc":
+        notes.append(f"sections from {row.business_sections_source.replace('_', ' ')}")
+    if row.chapters_missing:
+        notes.append("missing: " + ", ".join(row.chapters_missing))
+    if row.chapters_duplicated:
+        notes.append("duplicated: " + ", ".join(row.chapters_duplicated))
+    return (
+        f"{head}{row.pages:>6}{row.pages_printed:>8}  {chapters:<9}{row.business_sections:>9}{toc:>8}"
+        f"{row.notes:>7}{row.statements:>6}{row.warnings:>6}{row.seconds:>7.1f}  {'; '.join(notes)}"
+    ).rstrip()
+
+
+@app.command("parse-check")
+def parse_check(
+    ticker: Annotated[str | None, typer.Argument(help="Only this ticker")] = None,
+    fiscal_year: Annotated[int | None, typer.Argument(help="Only this fiscal year")] = None,
+) -> None:
+    """Parse every stored report (or the ones named) and print a coverage row per report.
+
+    Stored data only: no provider calls. Exits 1 if any report fails to parse.
+    """
+    from stock_analyzer.services import scorecard
+
+    try:
+        rows = scorecard.scorecard(_ctx("cached"), ticker, fiscal_year)
+    except (AnalyzerError, MissingCredential, ValueError) as exc:
+        _fail(exc)
+        return
+    if not rows:
+        typer.echo("no stored reports")
+        return
+    typer.echo(SCORE_HEADER)
+    for row in rows:
+        line = render_score_row(row)
+        if row.error:
+            typer.secho(line, fg=typer.colors.RED)
+        else:
+            typer.echo(line)
+    if any(r.error for r in rows):
+        raise typer.Exit(1)
 
 
 def _fmt_decimal(raw: str | None) -> str:
@@ -217,75 +338,132 @@ def _fmt_ratio(raw: str | None, unit: str) -> str:
     from decimal import Decimal
 
     d = Decimal(raw)
-    if unit in ("percent", "pp"):
-        return f"{d * 100:.2f}" + ("%" if unit == "percent" else "pp")
-    if unit == "money":
-        return f"{d / 1_000_000:,.1f}M"
+    if unit == "percent":
+        return f"{d * 100:.2f}%"
+    if unit == "amount":
+        return f"{d:,.0f}"
     return f"{d:.2f}"
 
 
-def render_ratios(out) -> list[str]:
-    """Text lines for :class:`RatiosOut`; shared by the CLI and the CLI/API parity test."""
-    years = sorted(out.years)
-    by = {(r.code, r.fiscal_year): r for r in out.ratios}
-    codes = list(dict.fromkeys(r.code for r in out.ratios))
-    lines = [
-        f"{out.ticker} — core ratios, currency {out.currency}" + (f", as of {out.as_of}" if out.as_of else "")
-    ]
-    lines.append(f"{'':28}" + "".join(f"{'FY' + str(y):>14}" for y in years))
-    for code in codes:
-        cells = []
-        for y in years:
-            r = by.get((code, y))
-            cell = _fmt_ratio(r.value, r.unit) if r else "—"
-            cells.append(f"{cell + (' *' if r and r.confidence == 'low' else '  '):>14}")
-        lines.append(f"{code:28}" + "".join(cells))
-    lines.append("* low confidence: an input is in a failed data-quality check")
-    if len(years) >= 2:
-        y0, y1 = years[-2], years[-1]
-        lines.append("")
-        lines.append(f"changes FY{y0} → FY{y1}")
-        for c in out.changes:
-            if (c.from_year, c.to_year) == (y0, y1):
-                note = f"  ({c.reason})" if c.reason else ""
-                low = f"  * {', '.join(c.failed_checks)}" if c.confidence == "low" else ""
-                lines.append(f"  {c.code:26}{_fmt_ratio(c.value, c.unit):>12}{low}{note}")
-    failed = [ch for ch in out.checks if ch.status == "fail"]
-    lines.append("")
-    lines.append("failed checks" if failed else "no failed checks")
-    for ch in failed:
-        lines.append(
-            f"  FY{ch.fiscal_year} {ch.check_id}: {ch.description_he} — "
-            f"expected {_fmt_decimal(ch.expected)}, actual {_fmt_decimal(ch.actual)} (tolerance {ch.tolerance})"
-        )
-    not_run = sorted(
-        {f"{ch.check_id}" for ch in out.checks if ch.status == "not_run" and ch.fiscal_year == years[-1]}
-    )
-    if not_run:
-        lines.append(f"  not run for FY{years[-1]} (missing inputs): {', '.join(not_run)}")
-    return lines
-
-
-@app.command()
-def ratios(
+@app.command("ratios")
+def ratios_cmd(
     ticker: str,
     mode: ModeOpt = "cached",
     as_of: Annotated[
         str | None, typer.Option("--as-of", help="Only values available by this date (YYYY-MM-DD)")
     ] = None,
 ) -> None:
-    """Print core ratios per fiscal year with changes, confidence and failed data-quality checks."""
+    """Print a company's financial ratios by group and fiscal year (* = low confidence)."""
     from datetime import date
 
-    from stock_analyzer.services import analysis
+    from stock_analyzer.services import ratios as ratio_service
 
     try:
         cutoff = date.fromisoformat(as_of) if as_of else None
-        out = analysis.ratios(_ctx(mode), ticker, as_of=cutoff)
+        out = ratio_service.ratios(_ctx(mode), ticker, as_of=cutoff)
     except (AnalyzerError, MissingCredential, ValueError) as exc:
         _fail(exc)
         return
-    for line in render_ratios(out):
+    years = [str(y) for y in out.years]
+    width = max((len(r.name_he) for g in out.groups for r in g.ratios), default=10) + 2
+    typer.echo(
+        f"{out.ticker} — template {out.template}, currency {out.currency}"
+        + (f", as of {out.as_of}" if out.as_of else "")
+    )
+    for group in out.groups:
+        typer.echo("")
+        typer.echo(f"{group.label} ({group.group})")
+        typer.echo(f"{'':{width}}" + "".join(f"{('FY' + y):>16}" for y in years))
+        for r in group.ratios:
+            cells = []
+            for y in years:
+                v = r.values[y]
+                mark = "*" if v.value is not None and v.confidence == "low" else " "
+                cells.append(f"{_fmt_ratio(v.value, r.unit) + mark:>16}")
+            typer.echo(f"{r.name_he:{width}}" + "".join(cells))
+    failed = {y: [c.id for c in out.checks[y] if c.status == "failed"] for y in years}
+    typer.echo("")
+    typer.echo(
+        "* low confidence. Failed checks: "
+        + ("; ".join(f"FY{y} {', '.join(ids)}" for y, ids in failed.items() if ids) or "none")
+    )
+
+
+def render_osint(result) -> list[str]:
+    """Text view of an OSINT research result: labels, risks, strengths, then numbered sources."""
+    from stock_analyzer.osint.models import AREA_INFO
+
+    card = result.scorecard
+    lines = [
+        f"{result.ticker} — {result.company_name}",
+        f"window {result.window_start} to {result.run_date} ({result.window_months} months), model {result.model}"
+        + (" [stored result]" if result.from_cache else ""),
+        "",
+        f"Overall: {card.overall_label.upper()}",
+        f"  {card.overall_rationale}",
+        "",
+        "Areas:",
+    ]
+    for a in card.areas:
+        ids = f" [{', '.join(a.finding_ids)}]" if a.finding_ids else ""
+        lines.append(f"  {a.area} ({AREA_INFO[a.area][0]}): {a.label}{ids}")
+        if a.assessment:
+            lines.append(f"    {a.assessment}")
+    for title, points in (("Risks", card.risks), ("Strengths", card.strengths)):
+        lines += ["", f"{title}:"]
+        lines += [f"  {i}. {p.text} [{', '.join(p.finding_ids)}]" for i, p in enumerate(points, 1)] or [
+            "  none"
+        ]
+    lines += ["", "Summary:", f"  {card.summary_he}", "", "Sources:"]
+    for f in result.findings:
+        tags = [f.area, f.signal, f.published_at or "undated"] + (
+            ["filing-derived"] if f.derived_from_filing else []
+        )
+        lines.append(f"  {f.id} [{', '.join(tags)}] {f.claim}")
+        lines.append(f"      {f.source_url}")
+    d = result.dropped
+    cost = f"${result.cost_usd:.4f}" if result.cost_usd is not None else "unknown"
+    lines += [
+        "",
+        f"searches {result.searches_used}/{result.search_limit} · dropped: blocked {d.get('blocked', 0)}, "
+        f"not from a search {d.get('not_searched', 0)}, outside window {d.get('outside_window', 0)} · cost {cost}",
+    ]
+    return lines
+
+
+@app.command("osint")
+def osint_cmd(
+    ticker: str,
+    months: Annotated[
+        int | None, typer.Option("--months", help="Research window in months (default 36)")
+    ] = None,
+    as_json: Annotated[bool, typer.Option("--json", help="Print the full result as JSON")] = False,
+    mode: Annotated[
+        str | None, typer.Option("--mode", help="live or cached (default: live unless ALLOW_LIVE=false)")
+    ] = None,
+) -> None:
+    """OSINT stability research from open sources (never the official filings).
+
+    Live mode always searches the web afresh and costs OpenRouter credit; cached mode (or ALLOW_LIVE=false)
+    prints the latest stored result.
+    """
+    from stock_analyzer.osint.agents import NoFindings
+    from stock_analyzer.services import osint
+
+    if hasattr(sys.stdout, "reconfigure"):  # model text can hold characters the console code page lacks
+        sys.stdout.reconfigure(errors="replace")
+    settings = get_settings()
+    try:
+        ctx = Ctx(settings, mode=mode or ("live" if settings.allow_live else "cached"))  # type: ignore[arg-type]
+        result = osint.run_research(ctx, ticker, months)
+    except (AnalyzerError, MissingCredential, NoFindings, ValueError) as exc:
+        _fail(exc)
+        return
+    if as_json:
+        json.dump(result.model_dump(mode="json"), sys.stdout, ensure_ascii=False, indent=2)
+        typer.echo()
+        return
+    for line in render_osint(result):
         typer.echo(line)
 
 
@@ -361,7 +539,7 @@ def render_story(run) -> list[str]:
     lines += ["", "== ציטוטים"]
     for pid, c in sorted(run.citations.items()):
         page = f"עמ' {c.page_printed}" if c.page_printed is not None else f"עמוד {c.page_index} בקובץ"
-        lines.append(f"[{pid}] FY{c.fiscal_year} {page}  {c.url or ''}".rstrip())
+        lines.append(f"[{pid}] FY{c.fiscal_year} {page}")
     return lines
 
 

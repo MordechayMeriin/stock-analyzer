@@ -1,176 +1,119 @@
-"""Data-quality checks (financial-analysis spec, plan.md §3.2)."""
-
-from __future__ import annotations
+"""Data-quality checks (canonical-financials spec: Data-quality checks)."""
 
 import json
+from datetime import UTC, datetime
 from decimal import Decimal
 
 import pytest
 
-from stock_analyzer.config import Settings
-from stock_analyzer.fin.checks import CHECK_IDS, failed_checks_for, run_checks
-from stock_analyzer.fin.normalize import FinValue, normalize_financials
+from stock_analyzer.fin.canonical import Code, build_sheet, field_def
+from stock_analyzer.fin.checks import CHECKS, failed_by_cell, run_checks
+from stock_analyzer.fin.normalize import FinValue, financials_template, normalize_financials
 from tests.conftest import FIXTURES
 
-TOL = Settings().check_tolerances
+
+def results_for(name: str) -> dict[int, dict[str, object]]:
+    data = json.loads((FIXTURES / name).read_text())
+    sheet = build_sheet(normalize_financials(data), financials_template(data))
+    return {fy: {r.id: r for r in rs} for fy, rs in run_checks(sheet).items()}
 
 
 @pytest.fixture(scope="module")
-def malam() -> list[FinValue]:
-    return normalize_financials(json.loads((FIXTURES / "mltm_financials.json").read_text(encoding="utf-8")))
+def malam():
+    return results_for("mltm_financials.json")
 
 
-def fv(code: str, value: str | int, year: int = 2025) -> FinValue:
-    return FinValue(
-        code=code,
-        label=code,
-        statement="income",
-        fiscal_year=year,
-        value=Decimal(value),
-        currency="ILS",
-        raw_value=None,
-        scale=None,
-        available_at=None,
-        source_filing_id=None,
+def reported(template: str, values: dict[str, Decimal]) -> list[FinValue]:
+    """FinValues under each field's own provider code (its first Code source)."""
+    out = []
+    for name, value in values.items():
+        code = next(s.code for s in field_def(template, name).sources if isinstance(s, Code))
+        out.append(
+            FinValue(
+                code=code,
+                label=code,
+                statement="balance_sheet",
+                fiscal_year=2025,
+                value=value,
+                currency="ILS",
+                raw_value=None,
+                scale=None,
+                available_at=datetime(2026, 3, 1, tzinfo=UTC),
+                source_filing_id=1,
+            )
+        )
+    return out
+
+
+@pytest.mark.parametrize("check", CHECKS, ids=lambda c: c.id)
+@pytest.mark.parametrize("off_by", [Decimal(0), Decimal(100_000)])
+def test_each_check_passes_and_fails(check, off_by):
+    template = sorted(check.templates)[0]
+    inputs = {name: Decimal(1_000_000 * (i + 2)) for i, name in enumerate(check.inputs)}
+    left = check.right(*inputs.values()) + off_by
+    sheet = build_sheet(reported(template, {check.left: left, **inputs}), template)
+    result = next(r for r in run_checks(sheet)[2025] if r.id == check.id)
+    assert result.status == ("passed" if off_by == 0 else "failed")
+    if off_by:
+        assert result.difference == off_by and result.left == left and result.right == left - off_by
+
+
+def test_tolerance_absorbs_rounding():
+    check = next(c for c in CHECKS if c.id == "BS1")
+    sheet = build_sheet(
+        reported(
+            "industrial",
+            {
+                "total_assets": Decimal(1_000_400),
+                "total_liabilities": Decimal(600_000),
+                "total_equity": Decimal(400_000),
+            },
+        ),
+        "industrial",
     )
+    assert next(r for r in run_checks(sheet)[2025] if r.id == check.id).status == "passed"
 
 
-def one(check_id: str, **values) -> str:
-    (result,) = [r for r in run_checks([fv(c, x) for c, x in values.items()], TOL) if r.check_id == check_id]
-    return result.status
+def test_cash_flow_identity_fails(malam):
+    cf1 = malam[2025]["CF1"]
+    assert cf1.status == "failed"
+    assert cf1.right == Decimal("38856000") and cf1.left == Decimal("3798000")
+    assert cf1.difference == Decimal("-35058000")
 
 
-def test_malam_fy2025_fails_exactly_the_expected_checks(malam):
-    fy2025 = [r for r in run_checks(malam, TOL) if r.fiscal_year == 2025]
-    assert [r.check_id for r in fy2025] == list(CHECK_IDS)
-    assert {r.check_id for r in fy2025 if r.status == "fail"} == {"CF1", "CF2", "IS3", "BS4", "BS5"}
-    assert {r.check_id for r in fy2025 if r.status == "pass"} == {"BS1", "BS2", "BS3", "IS1", "IS2"}
+def test_equity_identity_fails(malam):
+    bs5 = malam[2025]["BS5"]
+    assert bs5.status == "failed" and bs5.left == Decimal("762392000") and bs5.right == Decimal("771976000")
 
 
-def test_malam_fy2024_is_consistent_where_data_exists(malam):
-    fy2024 = {r.check_id: r.status for r in run_checks(malam, TOL) if r.fiscal_year == 2024}
-    assert fy2024["CF1"] == "pass" and fy2024["BS4"] == "pass" and fy2024["BS5"] == "pass"
-    assert fy2024["IS3"] == "not_run"  # no net interest expense before FY2025
-    assert fy2024["BS2"] == "not_run"  # no debt breakdown before FY2025
+def test_balance_sheet_balances(malam):
+    assert malam[2025]["BS1"].status == "passed"
 
 
-def test_failure_detail(malam):
-    (cf1,) = [r for r in run_checks(malam, TOL) if r.fiscal_year == 2025 and r.check_id == "CF1"]
-    assert cf1.status == "fail"
-    assert cf1.inputs["cash_from_operations"] == "174728000"
-    assert cf1.expected == "3798000"  # the change in cash
-    assert cf1.actual == "38856000"  # CFO + CFI + CFF
-    assert cf1.tolerance == "0.02"
-    assert cf1.missing == []
+def test_failed_cells_point_at_their_checks(malam):
+    data = json.loads((FIXTURES / "mltm_financials.json").read_text())
+    sheet = build_sheet(normalize_financials(data), financials_template(data))
+    by_cell = failed_by_cell(run_checks(sheet)[2025])
+    assert by_cell["common_equity"] == ["BS5"] and by_cell["cfo"] == ["CF1"]
 
 
-def test_missing_input_is_not_run_not_passed():
-    status = one("BS1", total_assets=100, total_liabilities=60)
-    assert status == "not_run"
-    (r,) = [r for r in run_checks([fv("total_assets", 100)], TOL) if r.check_id == "BS1"]
-    assert r.missing == ["total_liabilities", "total_equity"] and r.expected is None
+def test_bank_and_insurer_identities_hold():
+    leumi = results_for("lumi_financials.json")[2024]
+    assert leumi["BS1"].status == "passed" and leumi["BS5"].status == "passed"
+    assert leumi["IS2"].status == "not_applicable"  # FY2024 income statement has net income only
+    assert "BS2" not in leumi and "CF1" not in leumi  # industrial-only checks
+    harel = results_for("harl_financials.json")[2025]
+    assert {harel[c].status for c in ("BS1", "BS5", "IS2")} == {"passed"}
 
 
-@pytest.mark.parametrize(
-    ("check_id", "good", "bad"),
-    [
-        (
-            "BS1",
-            {"total_assets": 100, "total_liabilities": 60, "total_equity": 40},
-            {"total_assets": 100, "total_liabilities": 60, "total_equity": 30},
-        ),
-        (
-            "BS2",
-            {"total_debt_bs": 100, "total_current_debt_bs": 30, "total_non_current_debt_bs": 70},
-            {"total_debt_bs": 100, "total_current_debt_bs": 30, "total_non_current_debt_bs": 50},
-        ),
-        (
-            "BS3",
-            {"net_debt": 60, "total_debt_bs": 100, "total_cash_and_short_term_investments": 40},
-            {"net_debt": 90, "total_debt_bs": 100, "total_cash_and_short_term_investments": 40},
-        ),
-        (
-            "BS4",
-            {
-                "total_current_assets": 100,
-                "cash_and_equivalents": 30,
-                "total_receivables": 50,
-                "inventory": 10,
-            },
-            {
-                "total_current_assets": 100,
-                "cash_and_equivalents": 30,
-                "total_receivables": 10,
-                "inventory": 5,
-            },
-        ),
-        (
-            "BS5",
-            {"total_equity": 105, "total_common_equity": 100, "minority_interest": 5},
-            {"total_equity": 95, "total_common_equity": 100, "minority_interest": 5},
-        ),
-        (
-            "IS1",
-            {"gross_profit": 40, "revenue": 100, "cost_of_revenue": 60},
-            {"gross_profit": 45, "revenue": 100, "cost_of_revenue": 60},
-        ),
-        (
-            "IS2",
-            {"net_income_loss": 90, "consolidated_net_income": 100, "minority_interest_in_earnings": 10},
-            {"net_income_loss": 100, "consolidated_net_income": 100, "minority_interest_in_earnings": 10},
-        ),
-        (
-            "IS3",
-            {
-                "operating_income_loss": 100,
-                "net_interest_expense": 20,
-                "earnings_before_tax_including_unusual_items": 78,
-            },
-            {
-                "operating_income_loss": 100,
-                "net_interest_expense": 20,
-                "earnings_before_tax_including_unusual_items": 50,
-            },
-        ),
-        (
-            "CF1",
-            {
-                "cash_from_operations": 100,
-                "cash_from_investing": -40,
-                "cash_from_financing": -30,
-                "net_change_in_cash_cf": 30,
-            },
-            {
-                "cash_from_operations": 100,
-                "cash_from_investing": -40,
-                "cash_from_financing": -30,
-                "net_change_in_cash_cf": 5,
-            },
-        ),
-        (
-            "CF2",
-            {"cash_from_investing": -50, "capital_expenditure_cf": -30, "cash_acquisitions_cf": -20},
-            {"cash_from_investing": -30, "capital_expenditure_cf": -30, "cash_acquisitions_cf": -20},
-        ),
-    ],
-)
-def test_each_check_passes_and_fails(check_id, good, bad):
-    assert one(check_id, **good) == "pass"
-    assert one(check_id, **bad) == "fail"
+# -- task 3.2
 
 
-def test_bs4_fails_when_parts_exceed_the_total():
-    assert one("BS4", total_current_assets=100, cash_and_equivalents=80, total_receivables=40) == "fail"
+def test_derived_common_equity_makes_its_check_not_applicable(malam):
+    bs5 = malam[2023]["BS5"]
+    assert bs5.status == "not_applicable" and "common_equity" in (bs5.reason or "")
 
 
-def test_cf2_passes_when_capex_is_the_only_investing_item():
-    assert one("CF2", cash_from_investing=-30, capital_expenditure_cf=-30) == "pass"
-    assert one("CF2", cash_from_investing=-30, capital_expenditure_cf=-30, cash_acquisitions_cf=0) == "pass"
-
-
-def test_failed_checks_for_matches_inputs_and_year(malam):
-    results = run_checks(malam, TOL)
-    assert set(failed_checks_for(["cash_from_operations"], 2025, results)) == {"CF1"}
-    assert set(failed_checks_for(["capital_expenditure_cf"], 2025, results)) == {"CF2"}
-    assert failed_checks_for(["revenue", "gross_profit"], 2025, results) == []
-    assert failed_checks_for(["cash_from_operations"], 2024, results) == []
+def test_missing_cell_makes_check_not_applicable(malam):
+    bs2 = malam[2021]["BS2"]
+    assert bs2.status == "not_applicable" and bs2.reason.startswith("missing:")

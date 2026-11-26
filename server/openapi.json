@@ -1,6 +1,60 @@
 {
   "components": {
     "schemas": {
+      "AddCompanyIn": {
+        "description": "A company to start tracking, usually taken from a provider search hit.",
+        "properties": {
+          "fr_company_id": {
+            "description": "Provider company id (from search)",
+            "exclusiveMinimum": 0.0,
+            "title": "Fr Company Id",
+            "type": "integer"
+          },
+          "isin": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Za-z]{2}[A-Za-z0-9]{9}[0-9]$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Isin"
+          },
+          "name_en": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name En"
+          },
+          "name_he": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Name He",
+            "type": "string"
+          },
+          "ticker": {
+            "description": "1-15 Latin letters, digits, dots or hyphens; stored upper-case",
+            "pattern": "^[A-Za-z0-9.\\-]{1,15}$",
+            "title": "Ticker",
+            "type": "string"
+          }
+        },
+        "required": [
+          "fr_company_id",
+          "ticker",
+          "name_he"
+        ],
+        "title": "AddCompanyIn",
+        "type": "object"
+      },
       "AlignedSection": {
         "properties": {
           "key": {
@@ -52,116 +106,50 @@
         "title": "AlignedSection",
         "type": "object"
       },
-      "Change": {
+      "AreaAssessment": {
         "properties": {
-          "code": {
-            "title": "Code",
-            "type": "string"
-          },
-          "confidence": {
+          "area": {
             "enum": [
-              "high",
-              "low"
+              "news",
+              "market",
+              "credit",
+              "operations",
+              "labor_government",
+              "competition_macro"
             ],
-            "title": "Confidence",
+            "title": "Area",
             "type": "string"
           },
-          "failed_checks": {
+          "assessment": {
+            "description": "Hebrew, two or three sentences.",
+            "title": "Assessment",
+            "type": "string"
+          },
+          "finding_ids": {
             "items": {
               "type": "string"
             },
-            "title": "Failed Checks",
+            "title": "Finding Ids",
             "type": "array"
           },
-          "from_year": {
-            "title": "From Year",
-            "type": "integer"
-          },
-          "kind": {
+          "label": {
             "enum": [
-              "FIN",
-              "RATIO"
+              "stable",
+              "watch",
+              "fragile",
+              "insufficient_data"
             ],
-            "title": "Kind",
+            "title": "Label",
             "type": "string"
-          },
-          "name_he": {
-            "title": "Name He",
-            "type": "string"
-          },
-          "new": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "New"
-          },
-          "old": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Old"
-          },
-          "reason": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Reason"
-          },
-          "to_year": {
-            "title": "To Year",
-            "type": "integer"
-          },
-          "unit": {
-            "enum": [
-              "percent",
-              "pp",
-              "multiple"
-            ],
-            "title": "Unit",
-            "type": "string"
-          },
-          "value": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Value"
           }
         },
         "required": [
-          "kind",
-          "code",
-          "name_he",
-          "unit",
-          "from_year",
-          "to_year",
-          "old",
-          "new",
-          "value",
-          "reason",
-          "confidence",
-          "failed_checks"
+          "area",
+          "label",
+          "assessment",
+          "finding_ids"
         ],
-        "title": "Change",
+        "title": "AreaAssessment",
         "type": "object"
       },
       "ChangeNote": {
@@ -230,66 +218,16 @@
         "title": "ChangeNote",
         "type": "object"
       },
-      "CheckResult": {
+      "CheckOut": {
         "properties": {
-          "actual": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Actual"
-          },
-          "check_id": {
-            "title": "Check Id",
-            "type": "string"
-          },
-          "description_he": {
-            "title": "Description He",
-            "type": "string"
-          },
-          "expected": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Expected"
-          },
-          "fiscal_year": {
-            "title": "Fiscal Year",
-            "type": "integer"
-          },
-          "inputs": {
-            "additionalProperties": {
-              "type": "string"
-            },
-            "title": "Inputs",
-            "type": "object"
-          },
-          "missing": {
+          "cells": {
             "items": {
               "type": "string"
             },
-            "title": "Missing",
+            "title": "Cells",
             "type": "array"
           },
-          "status": {
-            "enum": [
-              "pass",
-              "fail",
-              "not_run"
-            ],
-            "title": "Status",
-            "type": "string"
-          },
-          "tolerance": {
+          "difference": {
             "anyOf": [
               {
                 "type": "string"
@@ -298,21 +236,66 @@
                 "type": "null"
               }
             ],
-            "title": "Tolerance"
+            "title": "Difference"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "label_he": {
+            "title": "Label He",
+            "type": "string"
+          },
+          "left": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Left"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "right": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Right"
+          },
+          "status": {
+            "enum": [
+              "passed",
+              "failed",
+              "not_applicable"
+            ],
+            "title": "Status",
+            "type": "string"
           }
         },
         "required": [
-          "check_id",
-          "fiscal_year",
+          "id",
+          "label_he",
           "status",
-          "description_he",
-          "inputs",
-          "missing",
-          "expected",
-          "actual",
-          "tolerance"
+          "cells"
         ],
-        "title": "CheckResult",
+        "title": "CheckOut",
         "type": "object"
       },
       "Citation": {
@@ -350,25 +333,13 @@
           "paragraph_id": {
             "title": "Paragraph Id",
             "type": "string"
-          },
-          "url": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Url"
           }
         },
         "required": [
           "paragraph_id",
           "fiscal_year",
           "page_index",
-          "page_printed",
-          "url"
+          "page_printed"
         ],
         "title": "Citation",
         "type": "object"
@@ -405,6 +376,15 @@
             "title": "Name He",
             "type": "string"
           },
+          "source": {
+            "description": "registry: data/companies.yaml; added: added at runtime (removable)",
+            "enum": [
+              "registry",
+              "added"
+            ],
+            "title": "Source",
+            "type": "string"
+          },
           "ticker": {
             "title": "Ticker",
             "type": "string"
@@ -413,7 +393,8 @@
         "required": [
           "ticker",
           "name_he",
-          "fr_company_id"
+          "fr_company_id",
+          "source"
         ],
         "title": "CompanyOut",
         "type": "object"
@@ -543,6 +524,15 @@
           "business_sections_matched_from_toc": {
             "title": "Business Sections Matched From Toc",
             "type": "integer"
+          },
+          "business_sections_source": {
+            "default": "toc",
+            "enum": [
+              "toc",
+              "body_numbering"
+            ],
+            "title": "Business Sections Source",
+            "type": "string"
           },
           "business_toc_entries": {
             "title": "Business Toc Entries",
@@ -769,6 +759,7 @@
               "multiple",
               "count",
               "per_share",
+              "days",
               "number"
             ],
             "title": "Unit",
@@ -810,17 +801,6 @@
             "title": "Cached",
             "type": "boolean"
           },
-          "document_url": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Document Url"
-          },
           "file_extension": {
             "anyOf": [
               {
@@ -858,6 +838,18 @@
             ],
             "title": "Fiscal Year"
           },
+          "processing_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The provider's Markdown processing status as given (COMPLETED, QUEUED, ...); null if none",
+            "title": "Processing Status"
+          },
           "release_datetime": {
             "anyOf": [
               {
@@ -877,17 +869,6 @@
           "title": {
             "title": "Title",
             "type": "string"
-          },
-          "viewer_url": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Viewer Url"
           }
         },
         "required": [
@@ -897,8 +878,6 @@
           "release_datetime",
           "file_extension",
           "file_size",
-          "document_url",
-          "viewer_url",
           "selected",
           "cached"
         ],
@@ -1128,6 +1107,24 @@
             "title": "Fiscal Year",
             "type": "integer"
           },
+          "markdown_availability": {
+            "anyOf": [
+              {
+                "enum": [
+                  "available",
+                  "unknown",
+                  "processing",
+                  "failed"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Whether the provider has Markdown for the selected filing: available (COMPLETED), unknown (no status), processing (PENDING/QUEUED/PROCESSING) or failed (FAILED/SKIPPED). Null when no filing is selected.",
+            "title": "Markdown Availability"
+          },
           "report_cached": {
             "title": "Report Cached",
             "type": "boolean"
@@ -1223,6 +1220,89 @@
           "storage"
         ],
         "title": "HealthOut",
+        "type": "object"
+      },
+      "KeptFinding": {
+        "properties": {
+          "area": {
+            "enum": [
+              "news",
+              "market",
+              "credit",
+              "operations",
+              "labor_government",
+              "competition_macro"
+            ],
+            "title": "Area",
+            "type": "string"
+          },
+          "claim": {
+            "description": "One factual statement, in English or Hebrew.",
+            "title": "Claim",
+            "type": "string"
+          },
+          "confidence": {
+            "enum": [
+              "high",
+              "medium",
+              "low"
+            ],
+            "title": "Confidence",
+            "type": "string"
+          },
+          "derived_from_filing": {
+            "description": "True when the source only restates figures from the company's official reports.",
+            "title": "Derived From Filing",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "published_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Publish date of the source, YYYY-MM-DD, or null if unknown.",
+            "title": "Published At"
+          },
+          "signal": {
+            "description": "What the fact says about the company's stability.",
+            "enum": [
+              "positive",
+              "negative",
+              "neutral"
+            ],
+            "title": "Signal",
+            "type": "string"
+          },
+          "source_title": {
+            "title": "Source Title",
+            "type": "string"
+          },
+          "source_url": {
+            "description": "Exact URL of a web_search result that supports the claim.",
+            "title": "Source Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "claim",
+          "signal",
+          "confidence",
+          "source_url",
+          "source_title",
+          "published_at",
+          "derived_from_filing",
+          "id",
+          "area"
+        ],
+        "title": "KeptFinding",
         "type": "object"
       },
       "ManagementClaim": {
@@ -1432,9 +1512,50 @@
         "title": "NodeParagraphsOut",
         "type": "object"
       },
-      "PageParagraphsOut": {
+      "OsintEvents": {
+        "description": "Documentation of the OSINT run stream: ``event: progress|done|error`` with these JSON payloads.",
         "properties": {
-          "citation_url": {
+          "done": {
+            "$ref": "#/components/schemas/ResearchResult"
+          },
+          "error": {
+            "$ref": "#/components/schemas/ErrorOut"
+          },
+          "progress": {
+            "$ref": "#/components/schemas/OsintProgress"
+          }
+        },
+        "required": [
+          "progress",
+          "done",
+          "error"
+        ],
+        "title": "OsintEvents",
+        "type": "object"
+      },
+      "OsintProgress": {
+        "description": "One progress report from a running research (streamed by the API).",
+        "properties": {
+          "area": {
+            "anyOf": [
+              {
+                "enum": [
+                  "news",
+                  "market",
+                  "credit",
+                  "operations",
+                  "labor_government",
+                  "competition_macro"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Area"
+          },
+          "query": {
             "anyOf": [
               {
                 "type": "string"
@@ -1443,8 +1564,58 @@
                 "type": "null"
               }
             ],
-            "title": "Citation Url"
+            "title": "Query"
           },
+          "search_limit": {
+            "title": "Search Limit",
+            "type": "integer"
+          },
+          "searches_used": {
+            "title": "Searches Used",
+            "type": "integer"
+          },
+          "step": {
+            "enum": [
+              "orchestrator",
+              "search",
+              "area_start",
+              "area_done",
+              "synthesis"
+            ],
+            "title": "Step",
+            "type": "string"
+          }
+        },
+        "required": [
+          "step",
+          "searches_used",
+          "search_limit"
+        ],
+        "title": "OsintProgress",
+        "type": "object"
+      },
+      "OsintRunIn": {
+        "description": "Body of a live OSINT research run. ``months`` defaults to the server's window (36).",
+        "properties": {
+          "months": {
+            "anyOf": [
+              {
+                "maximum": 120.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Months"
+          }
+        },
+        "title": "OsintRunIn",
+        "type": "object"
+      },
+      "PageParagraphsOut": {
+        "properties": {
           "fiscal_year": {
             "title": "Fiscal Year",
             "type": "integer"
@@ -1488,7 +1659,6 @@
           "fiscal_year",
           "page_index",
           "page_printed",
-          "citation_url",
           "node_ids",
           "paragraphs"
         ],
@@ -1558,17 +1728,6 @@
       },
       "ParagraphOut": {
         "properties": {
-          "citation_url": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Citation Url"
-          },
           "heading_level": {
             "title": "Heading Level",
             "type": "integer"
@@ -1612,8 +1771,7 @@
           "page_index",
           "page_printed",
           "heading_level",
-          "in_table",
-          "citation_url"
+          "in_table"
         ],
         "title": "ParagraphOut",
         "type": "object"
@@ -1633,20 +1791,6 @@
       },
       "PlaygroundDone": {
         "properties": {
-          "citations": {
-            "additionalProperties": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ]
-            },
-            "title": "Citations",
-            "type": "object"
-          },
           "latency_ms": {
             "title": "Latency Ms",
             "type": "integer"
@@ -1670,8 +1814,7 @@
           "model",
           "usage",
           "latency_ms",
-          "paragraph_ids",
-          "citations"
+          "paragraph_ids"
         ],
         "title": "PlaygroundDone",
         "type": "object"
@@ -1779,6 +1922,28 @@
         "title": "PlaygroundUsage",
         "type": "object"
       },
+      "Point": {
+        "properties": {
+          "finding_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Finding Ids",
+            "type": "array"
+          },
+          "text": {
+            "description": "Hebrew, one sentence.",
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text",
+          "finding_ids"
+        ],
+        "title": "Point",
+        "type": "object"
+      },
       "ProfileItem": {
         "properties": {
           "fact_ids": {
@@ -1821,13 +1986,93 @@
         "title": "ProfileItem",
         "type": "object"
       },
-      "RatioValue": {
+      "RatioGroupOut": {
+        "properties": {
+          "group": {
+            "title": "Group",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "ratios": {
+            "items": {
+              "$ref": "#/components/schemas/RatioSeriesOut"
+            },
+            "title": "Ratios",
+            "type": "array"
+          }
+        },
+        "required": [
+          "group",
+          "label",
+          "ratios"
+        ],
+        "title": "RatioGroupOut",
+        "type": "object"
+      },
+      "RatioSeriesOut": {
         "properties": {
           "code": {
             "title": "Code",
             "type": "string"
           },
+          "direction": {
+            "enum": [
+              "higher",
+              "lower",
+              "neutral"
+            ],
+            "title": "Direction",
+            "type": "string"
+          },
+          "name_he": {
+            "title": "Name He",
+            "type": "string"
+          },
+          "threshold": {
+            "title": "Threshold",
+            "type": "string"
+          },
+          "unit": {
+            "enum": [
+              "percent",
+              "ratio",
+              "amount",
+              "days"
+            ],
+            "title": "Unit",
+            "type": "string"
+          },
+          "values": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/RatioValueOut"
+            },
+            "title": "Values",
+            "type": "object"
+          }
+        },
+        "required": [
+          "code",
+          "name_he",
+          "unit",
+          "direction",
+          "threshold",
+          "values"
+        ],
+        "title": "RatioSeriesOut",
+        "type": "object"
+      },
+      "RatioValueOut": {
+        "properties": {
+          "avg_used": {
+            "default": false,
+            "title": "Avg Used",
+            "type": "boolean"
+          },
           "confidence": {
+            "default": "high",
             "enum": [
               "high",
               "low"
@@ -1835,40 +2080,7 @@
             "title": "Confidence",
             "type": "string"
           },
-          "failed_checks": {
-            "items": {
-              "type": "string"
-            },
-            "title": "Failed Checks",
-            "type": "array"
-          },
-          "fiscal_year": {
-            "title": "Fiscal Year",
-            "type": "integer"
-          },
-          "group": {
-            "title": "Group",
-            "type": "string"
-          },
-          "inputs": {
-            "additionalProperties": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ]
-            },
-            "title": "Inputs",
-            "type": "object"
-          },
-          "name_he": {
-            "title": "Name He",
-            "type": "string"
-          },
-          "reason": {
+          "delta": {
             "anyOf": [
               {
                 "type": "string"
@@ -1877,17 +2089,72 @@
                 "type": "null"
               }
             ],
-            "title": "Reason"
+            "title": "Delta"
           },
-          "unit": {
-            "enum": [
-              "money",
-              "percent",
-              "multiple",
-              "count",
-              "per_share"
+          "derived_inputs": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Derived Inputs",
+            "type": "array"
+          },
+          "failed_checks": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Failed Checks",
+            "type": "array"
+          },
+          "inputs": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "default": {},
+            "title": "Inputs",
+            "type": "object"
+          },
+          "missing_message_he": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
             ],
-            "title": "Unit",
+            "title": "Missing Message He"
+          },
+          "missing_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Missing Reason"
+          },
+          "notes": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Notes",
+            "type": "array"
+          },
+          "status": {
+            "default": "na",
+            "enum": [
+              "improved",
+              "deteriorated",
+              "changed",
+              "stable",
+              "na"
+            ],
+            "title": "Status",
             "type": "string"
           },
           "value": {
@@ -1903,22 +2170,12 @@
           }
         },
         "required": [
-          "code",
-          "name_he",
-          "group",
-          "unit",
-          "fiscal_year",
-          "value",
-          "inputs",
-          "reason",
-          "confidence",
-          "failed_checks"
+          "value"
         ],
-        "title": "RatioValue",
+        "title": "RatioValueOut",
         "type": "object"
       },
       "RatiosOut": {
-        "description": "Core ratios, their year-over-year changes and the data-quality checks (financial-analysis spec).",
         "properties": {
           "as_of": {
             "anyOf": [
@@ -1931,19 +2188,15 @@
             ],
             "title": "As Of"
           },
-          "changes": {
-            "items": {
-              "$ref": "#/components/schemas/Change"
-            },
-            "title": "Changes",
-            "type": "array"
-          },
           "checks": {
-            "items": {
-              "$ref": "#/components/schemas/CheckResult"
+            "additionalProperties": {
+              "items": {
+                "$ref": "#/components/schemas/CheckOut"
+              },
+              "type": "array"
             },
             "title": "Checks",
-            "type": "array"
+            "type": "object"
           },
           "currency": {
             "anyOf": [
@@ -1956,12 +2209,16 @@
             ],
             "title": "Currency"
           },
-          "ratios": {
+          "groups": {
             "items": {
-              "$ref": "#/components/schemas/RatioValue"
+              "$ref": "#/components/schemas/RatioGroupOut"
             },
-            "title": "Ratios",
+            "title": "Groups",
             "type": "array"
+          },
+          "template": {
+            "title": "Template",
+            "type": "string"
           },
           "ticker": {
             "title": "Ticker",
@@ -1977,11 +2234,11 @@
         },
         "required": [
           "ticker",
+          "template",
           "currency",
           "years",
           "as_of",
-          "ratios",
-          "changes",
+          "groups",
           "checks"
         ],
         "title": "RatiosOut",
@@ -2091,6 +2348,149 @@
           "unchanged_sections"
         ],
         "title": "RenderedStory",
+        "type": "object"
+      },
+      "ResearchResult": {
+        "properties": {
+          "company_name": {
+            "title": "Company Name",
+            "type": "string"
+          },
+          "cost_usd": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cost Usd"
+          },
+          "dropped": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Dropped",
+            "type": "object"
+          },
+          "findings": {
+            "items": {
+              "$ref": "#/components/schemas/KeptFinding"
+            },
+            "title": "Findings",
+            "type": "array"
+          },
+          "from_cache": {
+            "default": false,
+            "title": "From Cache",
+            "type": "boolean"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "run_date": {
+            "format": "date",
+            "title": "Run Date",
+            "type": "string"
+          },
+          "scorecard": {
+            "$ref": "#/components/schemas/Scorecard"
+          },
+          "search_limit": {
+            "title": "Search Limit",
+            "type": "integer"
+          },
+          "searches_used": {
+            "title": "Searches Used",
+            "type": "integer"
+          },
+          "ticker": {
+            "title": "Ticker",
+            "type": "string"
+          },
+          "window_months": {
+            "title": "Window Months",
+            "type": "integer"
+          },
+          "window_start": {
+            "format": "date",
+            "title": "Window Start",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ticker",
+          "company_name",
+          "run_date",
+          "window_months",
+          "window_start",
+          "model",
+          "scorecard",
+          "findings",
+          "dropped",
+          "searches_used",
+          "search_limit",
+          "cost_usd"
+        ],
+        "title": "ResearchResult",
+        "type": "object"
+      },
+      "Scorecard": {
+        "properties": {
+          "areas": {
+            "items": {
+              "$ref": "#/components/schemas/AreaAssessment"
+            },
+            "title": "Areas",
+            "type": "array"
+          },
+          "overall_label": {
+            "enum": [
+              "stable",
+              "watch",
+              "fragile"
+            ],
+            "title": "Overall Label",
+            "type": "string"
+          },
+          "overall_rationale": {
+            "description": "Hebrew, two or three sentences.",
+            "title": "Overall Rationale",
+            "type": "string"
+          },
+          "risks": {
+            "description": "Top three risks, most important first.",
+            "items": {
+              "$ref": "#/components/schemas/Point"
+            },
+            "title": "Risks",
+            "type": "array"
+          },
+          "strengths": {
+            "description": "Top three strengths, most important first.",
+            "items": {
+              "$ref": "#/components/schemas/Point"
+            },
+            "title": "Strengths",
+            "type": "array"
+          },
+          "summary_he": {
+            "description": "Hebrew summary of the company's stability, one paragraph.",
+            "title": "Summary He",
+            "type": "string"
+          }
+        },
+        "required": [
+          "overall_label",
+          "overall_rationale",
+          "areas",
+          "risks",
+          "strengths",
+          "summary_he"
+        ],
+        "title": "Scorecard",
         "type": "object"
       },
       "Segment": {
@@ -2493,17 +2893,6 @@
           "coverage": {
             "$ref": "#/components/schemas/Coverage"
           },
-          "document_url": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Document Url"
-          },
           "filing_id": {
             "title": "Filing Id",
             "type": "integer"
@@ -2557,7 +2946,6 @@
           "ticker",
           "fiscal_year",
           "filing_id",
-          "document_url",
           "page_count",
           "page_style",
           "nodes",
@@ -2823,6 +3211,64 @@
         "tags": [
           "companies"
         ]
+      },
+      "post": {
+        "description": "Adds a provider company to the tracked companies. Refused in cached mode (`live_required`), on a cached-only server (`live_disabled`) and when the ticker or provider id is already tracked (`company_already_tracked`). Nothing is fetched from the provider.",
+        "operationId": "add_company_api_companies_post",
+        "parameters": [
+          {
+            "description": "cached: local data only, no provider calls. live: fetch what is missing (if the server allows).",
+            "in": "query",
+            "name": "mode",
+            "required": false,
+            "schema": {
+              "default": "cached",
+              "description": "cached: local data only, no provider calls. live: fetch what is missing (if the server allows).",
+              "enum": [
+                "cached",
+                "live"
+              ],
+              "title": "Mode",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddCompanyIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompanyOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Start tracking a company (live mode only)",
+        "tags": [
+          "companies"
+        ]
       }
     },
     "/api/companies/search": {
@@ -2890,6 +3336,56 @@
       }
     },
     "/api/companies/{ticker}": {
+      "delete": {
+        "description": "Companies from data/companies.yaml cannot be removed (`company_not_removable`). Cached reports, financials and usage records are kept.",
+        "operationId": "remove_company_api_companies__ticker__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ticker",
+            "required": true,
+            "schema": {
+              "title": "Ticker",
+              "type": "string"
+            }
+          },
+          {
+            "description": "cached: local data only, no provider calls. live: fetch what is missing (if the server allows).",
+            "in": "query",
+            "name": "mode",
+            "required": false,
+            "schema": {
+              "default": "cached",
+              "description": "cached: local data only, no provider calls. live: fetch what is missing (if the server allows).",
+              "enum": [
+                "cached",
+                "live"
+              ],
+              "title": "Mode",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Stop tracking a runtime-added company (live mode only)",
+        "tags": [
+          "companies"
+        ]
+      },
       "get": {
         "operationId": "get_company_api_companies__ticker__get",
         "parameters": [
@@ -3155,6 +3651,159 @@
         ]
       }
     },
+    "/api/companies/{ticker}/osint": {
+      "get": {
+        "description": "Open-source stability research, never based on official filings. Returns the latest stored result for the ticker and window in either mode; `not_cached` (409) when none is stored.",
+        "operationId": "get_osint_api_companies__ticker__osint_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ticker",
+            "required": true,
+            "schema": {
+              "title": "Ticker",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Research window in months (default: the server's, 36)",
+            "in": "query",
+            "name": "months",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 120,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Research window in months (default: the server's, 36)",
+              "title": "Months"
+            }
+          },
+          {
+            "description": "cached: local data only, no provider calls. live: fetch what is missing (if the server allows).",
+            "in": "query",
+            "name": "mode",
+            "required": false,
+            "schema": {
+              "default": "cached",
+              "description": "cached: local data only, no provider calls. live: fetch what is missing (if the server allows).",
+              "enum": [
+                "cached",
+                "live"
+              ],
+              "title": "Mode",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResearchResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Latest stored OSINT stability research (never calls a provider)",
+        "tags": [
+          "osint"
+        ]
+      },
+      "post": {
+        "description": "Searches the web afresh and costs OpenRouter credit (about $1); takes several minutes. Refused before the stream starts with `live_required` (cached mode), `live_disabled` (cached-only server), `missing_credential`, `company_not_found`, or `research_in_progress` (a run for this ticker and window is already running in this server process). The run continues if the client disconnects.",
+        "operationId": "run_osint_api_companies__ticker__osint_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ticker",
+            "required": true,
+            "schema": {
+              "title": "Ticker",
+              "type": "string"
+            }
+          },
+          {
+            "description": "cached: local data only, no provider calls. live: fetch what is missing (if the server allows).",
+            "in": "query",
+            "name": "mode",
+            "required": false,
+            "schema": {
+              "default": "cached",
+              "description": "cached: local data only, no provider calls. live: fetch what is missing (if the server allows).",
+              "enum": [
+                "cached",
+                "live"
+              ],
+              "title": "Mode",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/OsintRunIn"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OsintEvents"
+                }
+              }
+            },
+            "description": "text/event-stream of `progress` events, then one `done` (or `error`) event. Payload schemas are listed in OsintEvents."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Run fresh OSINT stability research (live mode, streamed)",
+        "tags": [
+          "osint"
+        ]
+      }
+    },
     "/api/companies/{ticker}/ratios": {
       "get": {
         "operationId": "get_ratios_api_companies__ticker__ratios_get",
@@ -3226,7 +3875,7 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Core ratios, year-over-year changes and data-quality checks",
+        "summary": "Financial ratios by group and year, with confidence and data-quality checks",
         "tags": [
           "companies"
         ]
@@ -3234,6 +3883,7 @@
     },
     "/api/companies/{ticker}/reports/{fiscal_year}/nodes/{node_id}": {
       "get": {
+        "description": "An uncached report is fetched in live mode. If the provider has no Markdown for the selected filing (not processed yet, or not convertible), the request fails with 409 `report_not_processed`.",
         "operationId": "get_node_api_companies__ticker__reports__fiscal_year__nodes__node_id__get",
         "parameters": [
           {
@@ -3312,6 +3962,7 @@
     },
     "/api/companies/{ticker}/reports/{fiscal_year}/pages/{page_index}": {
       "get": {
+        "description": "An uncached report is fetched in live mode. If the provider has no Markdown for the selected filing (not processed yet, or not convertible), the request fails with 409 `report_not_processed`.",
         "operationId": "get_page_api_companies__ticker__reports__fiscal_year__pages__page_index__get",
         "parameters": [
           {
@@ -3383,7 +4034,7 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Paragraphs of a page (PDF page index)",
+        "summary": "Paragraphs of a page (Markdown page index)",
         "tags": [
           "reports"
         ]
@@ -3391,6 +4042,7 @@
     },
     "/api/companies/{ticker}/reports/{fiscal_year}/structure": {
       "get": {
+        "description": "An uncached report is fetched in live mode. If the provider has no Markdown for the selected filing (not processed yet, or not convertible), the request fails with 409 `report_not_processed`.",
         "operationId": "get_structure_api_companies__ticker__reports__fiscal_year__structure_get",
         "parameters": [
           {

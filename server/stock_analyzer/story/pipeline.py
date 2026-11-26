@@ -30,8 +30,8 @@ from stock_analyzer.diff.align import AlignedSection, Comparison, Report, compar
 from stock_analyzer.errors import NotCached, StoryTooLarge, StoryVerificationFailed
 from stock_analyzer.ingest.structure import STRUCTURE_VERSION
 from stock_analyzer.services import filings as filings_service
+from stock_analyzer.services import ratios as ratios_service
 from stock_analyzer.services import reports
-from stock_analyzer.services.analysis import recent_values
 from stock_analyzer.services.context import Ctx
 from stock_analyzer.store import Store
 from stock_analyzer.story.agents import (
@@ -52,7 +52,7 @@ from stock_analyzer.story.agents import (
     storyteller_agent,
     storyteller_input,
 )
-from stock_analyzer.story.facts import Fact, FactRegistry, registry_from_values
+from stock_analyzer.story.facts import Fact, FactRegistry, registry_from_analysis
 from stock_analyzer.story.models import Story
 from stock_analyzer.story.reading import ReadBudget, ReportLibrary
 from stock_analyzer.story.render import RenderedFinding, RenderedParagraph, render_finding, render_paragraph
@@ -67,7 +67,6 @@ class Citation(BaseModel):
     fiscal_year: int
     page_index: int
     page_printed: int | None
-    url: str | None
     node_id: str | None = None  # the deepest report section holding the paragraph (reader deep link)
 
 
@@ -135,7 +134,6 @@ class PreparedStory:
     as_of: date
     years: list[int]
     filing_ids: dict[int, int]
-    document_urls: dict[int, str | None]
     context: StoryContext
     comparison: Comparison
     describe_text: str
@@ -164,8 +162,8 @@ def prepare_story(ctx: Ctx, ticker: str, *, as_of: date | None = None) -> Prepar
         title_threshold=s.diff_title_match_threshold,
         content_threshold=s.diff_content_match_threshold,
     )
-    values = recent_values(ctx, company.ticker, as_of=cutoff, max_years=None)
-    registry, _checks = registry_from_values(values, years, s.check_tolerances, library.paragraphs)
+    analysis = ratios_service.analyze(ctx, company.ticker, as_of=cutoff)
+    registry = registry_from_analysis(analysis, years, library.paragraphs)
     story_ctx = StoryContext(settings=s, registry=registry, library=library, years=years)
 
     describe_text = describe_input(story_ctx)
@@ -190,7 +188,6 @@ def prepare_story(ctx: Ctx, ticker: str, *, as_of: date | None = None) -> Prepar
         as_of=cutoff,
         years=years,
         filing_ids={y: meta.filing_id for y, (_p, _s, meta) in loaded.items()},
-        document_urls={y: meta.document_url for y, (_p, _s, meta) in loaded.items()},
         context=story_ctx,
         comparison=comparison,
         describe_text=describe_text,
@@ -338,7 +335,6 @@ async def _build(prep: PreparedStory, make_model: ModelFactory, emit) -> StoryRu
     citations = {}
     for pid in sorted(cited):
         p = ctx.library.paragraphs[pid]
-        url = prep.document_urls.get(p.fiscal_year)
         _, structure = ctx.library.reports[p.fiscal_year]
         holders = [n for n in structure.nodes if n.para_range[0] <= p.seq <= n.para_range[1]]
         node = max(holders, key=lambda n: n.level, default=None)
@@ -347,7 +343,6 @@ async def _build(prep: PreparedStory, make_model: ModelFactory, emit) -> StoryRu
             fiscal_year=p.fiscal_year,
             page_index=p.page_index,
             page_printed=p.page_printed,
-            url=reports.citation_url(url, p.page_index),
             node_id=node.node_id if node else None,
         )
     return StoryRun(

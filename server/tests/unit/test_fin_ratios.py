@@ -1,163 +1,189 @@
-"""Core ratios, changes and confidence (financial-analysis spec)."""
-
-from __future__ import annotations
+"""Ratio registry and engine (financial-ratios spec)."""
 
 import json
 from decimal import Decimal
 
 import pytest
 
-from stock_analyzer.config import Settings
+from stock_analyzer.fin.canonical import build_sheet
 from stock_analyzer.fin.checks import run_checks
-from stock_analyzer.fin.normalize import FinValue, normalize_financials
-from stock_analyzer.fin.ratios import RATIOS, change_value, compute_changes, compute_ratios
+from stock_analyzer.fin.normalize import financials_template, normalize_financials
+from stock_analyzer.fin.ratios import RATIO_BY_CODE, RATIOS, change, compute, div, growth, ratios_for
 from tests.conftest import FIXTURES
 
-TOL = Settings().check_tolerances
+Q = Decimal("0.0001")
+
+
+def series_for(name: str) -> dict[str, object]:
+    data = json.loads((FIXTURES / name).read_text())
+    sheet = build_sheet(normalize_financials(data), financials_template(data))
+    return {s.code: s for s in compute(sheet, run_checks(sheet))}
 
 
 @pytest.fixture(scope="module")
-def malam() -> list[FinValue]:
-    return normalize_financials(json.loads((FIXTURES / "mltm_financials.json").read_text(encoding="utf-8")))
+def malam():
+    return series_for("mltm_financials.json")
 
 
 @pytest.fixture(scope="module")
-def malam_ratios(malam):
-    checks = run_checks(malam, TOL)
-    return {(r.code, r.fiscal_year): r for r in compute_ratios(malam, checks)}, checks
+def leumi():
+    return series_for("lumi_financials.json")
 
 
-def fv(code: str, value: str | int, year: int = 2025, statement: str = "income") -> FinValue:
-    return FinValue(
-        code=code,
-        label=code,
-        statement=statement,
-        fiscal_year=year,
-        value=Decimal(value),
-        currency="ILS",
-        raw_value=None,
-        scale=None,
-        available_at=None,
-        source_filing_id=None,
+@pytest.fixture(scope="module")
+def harel():
+    return series_for("harl_financials.json")
+
+
+# -- task 4.1: arithmetic, averages, missing values, confidence, change
+
+
+def test_malam_gross_margin(malam):
+    v = malam["gross_margin"].values[2025]
+    assert v.value.quantize(Q) == Decimal("0.1047") and v.basis == "computed"
+    assert v.inputs == {"gross_profit": Decimal("433386000"), "revenue": Decimal("4138004000")}
+
+
+def test_roe_with_an_average(malam):
+    v = malam["roe"].values[2025]
+    assert v.avg_used and v.value.quantize(Q) == Decimal("0.1003")
+    assert set(v.inputs) == {"net_income_parent", "common_equity", "opening:common_equity"}
+
+
+def test_oldest_year_uses_the_closing_balance(malam):
+    v = malam["roe"].values[2021]
+    assert v.value is not None and not v.avg_used and "opening:common_equity" not in v.inputs
+
+
+def test_missing_input_names_it(malam):
+    v = malam["quick_ratio"].values[2021]
+    assert v.value is None and "receivables" in v.missing_reason
+    assert "לקוחות וחייבים" in v.missing_message_he
+
+
+def test_no_prior_year_for_growth(malam):
+    v = malam["revenue_growth"].values[2021]
+    assert v.value is None and v.missing_reason == "no_prior_year" and v.status == "na"
+
+
+def test_failed_equity_check_lowers_confidence(malam):
+    v = malam["roe"].values[2025]
+    assert v.confidence == "low" and "BS5" in v.failed_checks
+    assert malam["gross_margin"].values[2025].confidence == "high"
+
+
+def test_derived_input_lowers_confidence(malam):
+    v = malam["roe"].values[2024]
+    assert v.confidence == "low" and "common_equity:2023" in v.derived_inputs
+
+
+def test_missing_values_carry_no_confidence_flags(leumi):
+    v = leumi["npl_ratio"].values[2024]
+    assert v.value is None and v.confidence == "high" and v.failed_checks == [] and v.derived_inputs == []
+
+
+def test_change_beyond_the_threshold():
+    gross = RATIO_BY_CODE["gross_margin"]
+    assert change(gross, Decimal("0.10"), Decimal("0.11")) == (Decimal("-0.01"), "deteriorated")
+    assert change(gross, Decimal("0.12"), Decimal("0.11"))[1] == "improved"
+    assert change(gross, Decimal("0.1047"), Decimal("0.1060"))[1] == "stable"
+    assert change(RATIO_BY_CODE["debt_to_equity"], Decimal("1.2"), Decimal("1.0"))[1] == "deteriorated"
+    assert change(RATIO_BY_CODE["loans_to_deposits"], Decimal("0.80"), Decimal("0.70"))[1] == "changed"
+    assert change(gross, None, Decimal("0.1")) == (None, "na")
+
+
+def test_amount_change_is_relative():
+    fcf = RATIO_BY_CODE["free_cash_flow"]
+    assert change(fcf, Decimal(110), Decimal(100)) == (Decimal("0.1"), "improved")
+    assert change(fcf, Decimal(105), Decimal(100))[1] == "stable"
+
+
+def test_denominator_reasons():
+    from stock_analyzer.fin.ratios import Uncomputable
+
+    with pytest.raises(Uncomputable, match="zero_denominator"):
+        div(Decimal(1), Decimal(0))
+    with pytest.raises(Uncomputable, match="negative_denominator"):
+        div(Decimal(1), Decimal(-2), positive=True)
+    with pytest.raises(Uncomputable, match="negative_denominator"):
+        growth(Decimal(5), Decimal(-1))
+    assert div(Decimal(1), Decimal(-2)) == Decimal("-0.5")
+
+
+def test_values_are_exact_decimals(malam):
+    assert all(
+        isinstance(v.value, Decimal) for s in malam.values() for v in s.values.values() if v.value is not None
     )
 
 
-def pct(value: str, places: int = 2) -> Decimal:
-    return round(Decimal(value) * 100, places)
+# -- task 4.2: registry and templates
 
 
-def test_malam_fy2025_core_ratios(malam_ratios):
-    r, _ = malam_ratios
-
-    def val(code: str) -> str:
-        return r[(code, 2025)].value
-
-    assert pct(val("gross_margin")) == Decimal("10.47")
-    assert pct(val("operating_margin")) == Decimal("5.30")
-    assert pct(val("ebitda_margin")) == Decimal("7.91")
-    assert pct(val("net_margin")) == Decimal("1.79")
-    assert round(Decimal(val("current_ratio")), 2) == Decimal("1.18")
-    assert round(Decimal(val("cash_ratio")), 2) == Decimal("0.37")
-    assert round(Decimal(val("debt_to_equity")), 2) == Decimal("0.90")
-    assert round(Decimal(val("net_debt_to_ebitda")), 2) == Decimal("0.60")
-    assert pct(val("equity_to_assets"), 1) == Decimal("29.0")
-    assert pct(val("short_term_debt_share"), 1) == Decimal("64.7")
-    assert round(Decimal(val("free_cash_flow")) / 1_000_000, 1) == Decimal("65.5")
-    assert pct(val("free_cash_flow_margin")) == Decimal("1.58")
+def test_registry_entry():
+    gross = RATIO_BY_CODE["gross_margin"]
+    assert (gross.name_he, gross.group, gross.unit, gross.direction) == (
+        "שיעור רווח גולמי",
+        "profitability",
+        "percent",
+        "higher",
+    )
+    assert gross.threshold == Decimal("0.005") and gross.templates == frozenset({"industrial"})
 
 
-def test_every_ratio_records_its_inputs(malam_ratios):
-    r, _ = malam_ratios
-    fcf = r[("free_cash_flow", 2025)]
-    assert fcf.inputs == {"cash_from_operations": "174728000", "capital_expenditure_cf": "-109210000"}
-    assert fcf.value == "65518000"  # capex is negative, so FCF = CFO + capex
-    assert {r.code for r in RATIOS} == {code for code, year in r if year == 2025}
+def test_each_template_gets_exactly_its_ratios():
+    core = {"roe", "roa", "equity_to_assets", "net_income_growth", "eps_growth", "cfo_to_net_income"}
+    industrial = core | {
+        "gross_margin", "operating_margin", "ebitda_margin", "net_margin", "revenue_growth",
+        "current_ratio", "quick_ratio", "debt_to_equity", "free_cash_flow", "fcf_margin",
+    }  # fmt: skip
+    bank = core | {"loans_to_deposits", "npl_ratio", "loan_loss_coverage"} | {
+        "cet1_ratio", "tier1_ratio", "total_capital_ratio", "leverage_ratio",
+    }  # fmt: skip
+    assert {r.code for r in ratios_for("industrial")} == industrial
+    assert {r.code for r in ratios_for("bank")} == bank
+    assert {r.code for r in ratios_for("insurer")} == core
+    assert len({r.code for r in RATIOS}) == len(RATIOS)
 
 
-def test_values_are_exact_decimals_not_floats(malam_ratios):
-    r, _ = malam_ratios
-    for ratio in r.values():
-        assert ratio.value is None or "e" not in ratio.value.lower()
+def test_insurer_ratios(harel):
+    assert "roe" in harel and "gross_margin" not in harel and "net_margin" not in harel
+    v = harel["roe"].values[2021]
+    assert v.avg_used and "opening:common_equity" in v.inputs  # FY2021 averages with FY2020
 
 
-def test_missing_input_has_no_value_with_reason():
-    ratios = compute_ratios([fv("revenue", 100), fv("net_debt", 50)], [])
-    by = {x.code: x for x in ratios}
-    assert by["ebitda_margin"].value is None and "ebitda" in by["ebitda_margin"].reason
-    assert by["net_debt_to_ebitda"].value is None and "ebitda" in by["net_debt_to_ebitda"].reason
+def test_bank_ratios(leumi):
+    assert leumi["loans_to_deposits"].values[2024].value.quantize(Q) == Decimal("0.7367")
+    assert "gross_margin" not in leumi
 
 
-def test_zero_denominator_has_no_value_with_reason():
-    ratios = compute_ratios([fv("total_current_assets", 100), fv("total_current_liabilities", 0)], [])
-    (current,) = [x for x in ratios if x.code == "current_ratio"]
-    assert current.value is None and "zero" in current.reason
+def test_cet1_passes_through(leumi):
+    v = leumi["cet1_ratio"].values[2024]
+    assert v.value == Decimal("0.1198") and v.basis == "reported"
 
 
-def test_negative_equity_base_is_not_meaningful():
-    ratios = compute_ratios([fv("total_debt_bs", 100), fv("total_equity", -20)], [])
-    (de,) = [x for x in ratios if x.code == "debt_to_equity"]
-    assert de.value is None and "negative" in de.reason
+# -- task 4.3: calibration on Malam
 
 
-def test_malam_revenue_change(malam, malam_ratios):
-    r, checks = malam_ratios
-    changes = compute_changes(malam, r.values(), checks)
-    (rev,) = [c for c in changes if c.kind == "FIN" and c.code == "revenue" and c.to_year == 2025]
-    assert rev.from_year == 2024 and rev.unit == "percent"
-    assert round(Decimal(rev.value) * 100, 2) == Decimal("9.43")
-    assert rev.old == "3781339000" and rev.new == "4138004000"
+def test_malam_series(malam):
+    gross = malam["gross_margin"].values
+    assert sorted(gross) == [2021, 2022, 2023, 2024, 2025] and all(
+        v.value is not None for v in gross.values()
+    )
+    assert gross[2024].value.quantize(Q) == Decimal("0.1060") and gross[2025].status == "stable"
+    assert gross[2024].status == "deteriorated"  # 11.24% → 10.60%
 
 
-def test_margin_change_is_in_points():
-    values = [
-        fv("gross_profit", "10.60", 2024),
-        fv("revenue", "100", 2024),
-        fv("gross_profit", "10.47", 2025),
-        fv("revenue", "100", 2025),
+def test_thresholds_give_a_mix_of_statuses(malam):
+    statuses = [
+        v.status for s in malam.values() for fy, v in s.values.items() if fy >= 2022 and v.status != "na"
     ]
-    ratios = compute_ratios(values, [])
-    (gm,) = [c for c in compute_changes(values, ratios, []) if c.kind == "RATIO" and c.code == "gross_margin"]
-    assert gm.unit == "pp"
-    assert round(Decimal(gm.value) * 100, 2) == Decimal("-0.13")
+    assert {"stable", "improved", "deteriorated"} <= set(statuses)
+    assert max(statuses.count(s) for s in set(statuses)) < 0.6 * len(statuses)
 
 
-def test_change_rules():
-    assert change_value(Decimal(-100), Decimal(50), "percent") == (None, "the sign changed between the years")
-    assert change_value(Decimal(0), Decimal(50), "percent") == (None, "the previous value is zero")
-    assert change_value(None, Decimal(50), "percent")[0] is None
-    assert change_value(Decimal(-100), Decimal(-150), "percent")[0] == Decimal("-0.5")  # a loss deepens
-    assert change_value(Decimal(100), Decimal(0), "percent")[0] == Decimal(-1)
-    assert change_value(Decimal(0), Decimal("0.05"), "pp")[0] == Decimal(
-        "0.05"
-    )  # margin from zero: +5 points
-    assert change_value(Decimal("1.2"), Decimal("0.9"), "multiple")[0] == Decimal("-0.3")
-
-
-def test_net_income_sign_change_has_no_value():
-    values = [fv("net_income_loss", -10, 2024), fv("net_income_loss", 20, 2025)]
-    (ni,) = [c for c in compute_changes(values, [], []) if c.code == "net_income_loss"]
-    assert ni.value is None and "sign" in ni.reason
-
-
-def test_free_cash_flow_is_low_confidence_on_cf1(malam_ratios):
-    r, _ = malam_ratios
-    for code in ("free_cash_flow", "free_cash_flow_margin"):
-        assert r[(code, 2025)].confidence == "low"
-        assert "CF1" in r[(code, 2025)].failed_checks
-
-
-def test_gross_margin_is_high_confidence(malam_ratios):
-    r, _ = malam_ratios
-    gm = r[("gross_margin", 2025)]
-    assert gm.confidence == "high" and gm.failed_checks == []
-
-
-def test_change_confidence_takes_both_years(malam, malam_ratios):
-    r, checks = malam_ratios
-    changes = compute_changes(malam, r.values(), checks)
-    (fcf,) = [c for c in changes if c.kind == "RATIO" and c.code == "free_cash_flow" and c.to_year == 2025]
-    assert fcf.confidence == "low" and "CF1" in fcf.failed_checks
-    (fcf_prev,) = [
-        c for c in changes if c.kind == "RATIO" and c.code == "free_cash_flow" and c.to_year == 2024
-    ]
-    assert fcf_prev.confidence == "high"
+def test_non_annual_source_note(malam, leumi):
+    assert leumi["equity_to_assets"].values[2025].notes == [
+        "non_annual_source"
+    ]  # FY2025 from an interim report
+    assert leumi["equity_to_assets"].values[2024].notes == []
+    assert malam["gross_margin"].values[2023].notes == []  # annual report filed under the generic RNS type

@@ -3,33 +3,46 @@
 from __future__ import annotations
 
 from datetime import date
+from typing import NamedTuple
 
-from stock_analyzer.companies import resolve_ticker
 from stock_analyzer.fin.normalize import (
     STATEMENT_LABELS_HE,
     STATEMENT_ORDER,
     FinValue,
     check_currency,
     decimal_str,
+    financials_template,
     normalize_financials,
 )
 from stock_analyzer.fin.normalize import (
     as_of as filter_as_of,
 )
+from stock_analyzer.services.companies import resolve_company
 from stock_analyzer.services.context import Ctx
 from stock_analyzer.services.models import FinancialsOut, FinItemOut, FinStatementOut
 
 
+class CompanyFinancials(NamedTuple):
+    template: str | None  # provider statement template; None = not in the cached response
+    values: list[FinValue]
+
+
+def company_financials(ctx: Ctx, ticker: str, *, as_of: date | None = None) -> CompanyFinancials:
+    """A company's normalized values (filtered to ``as_of``) and its provider template."""
+    company = resolve_company(ctx, ticker)
+    data = ctx.fr.get_financials(company.fr_company_id)
+    values = normalize_financials(data)
+    return CompanyFinancials(financials_template(data), filter_as_of(values, as_of) if as_of else values)
+
+
 def fin_values(ctx: Ctx, ticker: str, *, as_of: date | None = None) -> list[FinValue]:
-    company = resolve_ticker(ctx.settings.companies_file, ticker)
-    values = normalize_financials(ctx.fr.get_financials(company.fr_company_id))
-    return filter_as_of(values, as_of) if as_of else values
+    return company_financials(ctx, ticker, as_of=as_of).values
 
 
 def financials(
     ctx: Ctx, ticker: str, *, as_of: date | None = None, max_years: int | None = None
 ) -> FinancialsOut:
-    company = resolve_ticker(ctx.settings.companies_file, ticker)
+    company = resolve_company(ctx, ticker)
     values = fin_values(ctx, company.ticker, as_of=as_of)
     currency = check_currency(values)
     limit = max_years or ctx.settings.fin_max_years

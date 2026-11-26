@@ -1,0 +1,375 @@
+{
+ "note": "Trimmed 10-K rows (FY2019+) for Delek Group (6742) and Rami Levy (7010) from the cached provider filing lists of 2026-11-23, keeping the fields selection reads.",
+ "results": [
+  {
+   "id": 61844613,
+   "company_id": 6742,
+   "title": "דו\"ח שנתי – נאמנות למחזיקי אגרות החוב (סדרה לז'), הרמטיק",
+   "fiscal_year": 2026,
+   "release_datetime": "2026-06-15T15:48:03.747000+00:00",
+   "file_extension": "PDF",
+   "file_size": 132318,
+   "processing_status": "COMPLETED"
+  },
+  {
+   "id": 33037599,
+   "company_id": 6742,
+   "title": "Periodic and annual report for 2025",
+   "fiscal_year": 2025,
+   "release_datetime": "2026-03-25T07:19:03.763000+00:00",
+   "file_extension": "HTM",
+   "file_size": 133370,
+   "processing_status": "COMPLETED"
+  },
+  {
+   "id": 33037602,
+   "company_id": 6742,
+   "title": "Periodic and annual report for 2025",
+   "fiscal_year": 2025,
+   "release_datetime": "2026-03-25T07:19:03.763000+00:00",
+   "file_extension": "PDF",
+   "file_size": 18742411,
+   "processing_status": "COMPLETED"
+  },
+  {
+   "id": 61335802,
+   "company_id": 6742,
+   "title": "דוח תקופתי ושנתי לשנת 2024",
+   "fiscal_year": 2024,
+   "release_datetime": "2025-03-26T07:23:01.053000+00:00",
+   "file_extension": "PDF",
+   "file_size": 15567010,
+   "processing_status": "COMPLETED"
+  },
+  {
+   "id": 61335800,
+   "company_id": 6742,
+   "title": "דוח תקופתי ושנתי לשנת 2024",
+   "fiscal_year": 2024,
+   "release_datetime": "2025-03-26T07:23:01.053000+00:00",
+   "file_extension": "HTM",
+   "file_size": 134465,
+   "processing_status": "COMPLETED"
+  },
+  {
+   "id": 61330467,
+   "company_id": 6742,
+   "title": "דוח תקופתי ושנתי לשנת 2023 - צירוף מכתב רואי החשבון כאמור, בעמוד האחרון לפרק ג'",
+   "fiscal_year": 2023,
+   "release_datetime": "2024-04-07T13:54:13.817000+00:00",
+   "file_extension": "PDF",
+   "file_size": 11885072,
+   "processing_status": "QUEUED"
+  },
+  {
+   "id": 61330437,
+   "company_id": 6742,
+   "title": "דוח תקופתי ושנתי לשנת 2023 - צירוף מכתב רואי החשבון כאמור, בעמוד האחרון לפרק ג'",
+   "fiscal_year": 2023,
+   "release_datetime": "2024-04-07T13:54:13.817000+00:00",
+   "file_extension": "HTM",
+   "file_size": 118189,
+   "processing_status": "COMPLETED"
+  },
+  {
+   "id": 61747014,
+   "company_id": 6742,
+   "title": "מצגת לסקירת הדוחות הכספיים ליום 31.12.23",
+   "fiscal_year": 2023,
+   "release_datetime": "2024-03-27T10:30:13.423000+00:00",
+   "file_extension": "PDF",
+   "file_size": 4397488,
+   "processing_status": "COMPLETED"
+  },
+  {
+   "id": 61325650,
+   "company_id": 6742,
+   "title": "דוח תקופתי ושנתי לשנת 2023",
+   "fiscal_year": 2023,
+   "release_datetime": "2024-03-27T07:16:15.827000+00:00",
+   "file_extension": "HTM",
+   "file_size": 114779,
+   "processing_status": "COMPLETED"
+  },
+  {
+   "id": 61325682,
+   "company_id": 6742,
+   "title": "דוח תקופתי ושנתי לשנת 2023",
+   "fiscal_year": 2023,
+   "release_datetime": "2024-03-27T07:16:15.827000+00:00",
+   "file_extension": "PDF",
+   "file_size": 11817527,
+   "processing_status": "QUEUED"
+  },
+  {
+   "id": 61484752,
+   "company_id": 6742,
+   "title": "מצגת משקיעים",
+   "fiscal_year": 2022,
+   "release_datetime": "2023-03-30T09:11:13.620000+00:00",
+   "file_extension": "PDF",
+   "file_size": 4476991,
+   "processing_status": "COMPLETED"
+  },
+  {
+   "id": 61484341,
+   "company_id": 6742,
+   "title": "דוח תקופתי ושנתי לשנת 2022",
+   "fiscal_year": 2022,
+   "release_datetime": "2023-03-30T07:04:22.217000+00:00",
+   "file_extension": "HTM",
+   "file_size": 113677,
+   "processing_status": "COMPLETED"
+  },
+  {
+   "id": 61484419,
+   "company_id": 6742,
+   "title": "דוח תקופתי ושנתי לשנת 2022",
+   "fiscal_year": 2022,
+   "release_datetime": "2023-03-30T07:04:22.217000+00:00",
+   "file_extension": "PDF",
+   "file_size": 15584795,
+   "processing_status": "QUEUED"
+  },
+  {
+   "id": 61497250,
+   "company_id": 6742,
+   "title": "מצגת משקיעים-דוחות כספיים שנת 2021",
+   "fiscal_year": 2021,
+   "release_datetime": "2022-03-30T09:18:30.963000+00:00",
+   "file_extension": "PDF",
+   "file_size": 1319185,
+   "processing_status": "COMPLETED"
+  },
+  {
+   "id": 61496425,
+   "company_id": 6742,
+   "title": "דוח תקופתי ושנתי לשנת 2021",
+   "fiscal_year": 2021,
+   "release_datetime": "2022-03-30T05:45:28.713000+00:00",
+   "file_extension": "HTM",
+   "file_size": 105771,
+   "processing_status": "COMPLETED"
+  },
+  {
+   "id": 61496477,
+   "company_id": 6742,
+   "title": "דוח תקופתי ושנתי לשנת 2021",
+   "fiscal_year": 2021,
+   "release_datetime": "2022-03-30T05:45:28.713000+00:00",
+   "file_extension": "PDF",
+   "file_size": 13664794,
+   "processing_status": "QUEUED"
+  },
+  {
+   "id": 61995876,
+   "company_id": 6742,
+   "title": "דוח תקופתי ושנתי לשנת 2020",
+   "fiscal_year": 2020,
+   "release_datetime": "2021-03-31T08:43:26.800000+00:00",
+   "file_extension": "PDF",
+   "file_size": 15746411,
+   "processing_status": "QUEUED"
+  },
+  {
+   "id": 61995825,
+   "company_id": 6742,
+   "title": "דוח תקופתי ושנתי לשנת 2020",
+   "fiscal_year": 2020,
+   "release_datetime": "2021-03-31T08:43:26.800000+00:00",
+   "file_extension": "HTM",
+   "file_size": 116357,
+   "processing_status": "COMPLETED"
+  },
+  {
+   "id": 62063657,
+   "company_id": 6742,
+   "title": "דוח נאמן אגח למחזיקי אגח יח' לשנת 2019, רזניק",
+   "fiscal_year": 2019,
+   "release_datetime": "2020-07-29T11:16:29.327000+00:00",
+   "file_extension": "PDF",
+   "file_size": 139912,
+   "processing_status": "COMPLETED"
+  },
+  {
+   "id": 61989306,
+   "company_id": 6742,
+   "title": "דוח תקופתי ושנתי לשנת 2019",
+   "fiscal_year": 2019,
+   "release_datetime": "2020-05-03T08:43:19.540000+00:00",
+   "file_extension": "HTM",
+   "file_size": 112716,
+   "processing_status": "COMPLETED"
+  },
+  {
+   "id": 61989401,
+   "company_id": 6742,
+   "title": "דוח תקופתי ושנתי לשנת 2019",
+   "fiscal_year": 2019,
+   "release_datetime": "2020-05-03T08:43:19.540000+00:00",
+   "file_extension": "PDF",
+   "file_size": 16144596,
+   "processing_status": "QUEUED"
+  },
+  {
+   "id": 33051170,
+   "company_id": 7010,
+   "title": "Periodic and annual report for 2025",
+   "fiscal_year": 2025,
+   "release_datetime": "2026-03-26T17:21:06.037000+00:00",
+   "file_extension": "PDF",
+   "file_size": 9747139,
+   "processing_status": "COMPLETED"
+  },
+  {
+   "id": 33051168,
+   "company_id": 7010,
+   "title": "Periodic and annual report for 2025",
+   "fiscal_year": 2025,
+   "release_datetime": "2026-03-26T17:21:06.037000+00:00",
+   "file_extension": "HTM",
+   "file_size": 132241,
+   "processing_status": "COMPLETED"
+  },
+  {
+   "id": 61337033,
+   "company_id": 7010,
+   "title": "דוח תקופתי ושנתי לשנת 2024",
+   "fiscal_year": 2024,
+   "release_datetime": "2025-03-27T13:07:01.157000+00:00",
+   "file_extension": "PDF",
+   "file_size": 14456209,
+   "processing_status": "QUEUED"
+  },
+  {
+   "id": 61337001,
+   "company_id": 7010,
+   "title": "דוח תקופתי ושנתי לשנת 2024",
+   "fiscal_year": 2024,
+   "release_datetime": "2025-03-27T13:07:01.157000+00:00",
+   "file_extension": "HTM",
+   "file_size": 128818,
+   "processing_status": "COMPLETED"
+  },
+  {
+   "id": 61330341,
+   "company_id": 7010,
+   "title": "דוח תקופתי ושנתי לשנת 2023 - תיקון טעות סופר",
+   "fiscal_year": 2023,
+   "release_datetime": "2024-04-01T20:04:16.267000+00:00",
+   "file_extension": "PDF",
+   "file_size": 29186954,
+   "processing_status": "QUEUED"
+  },
+  {
+   "id": 61330278,
+   "company_id": 7010,
+   "title": "דוח תקופתי ושנתי לשנת 2023 - תיקון טעות סופר",
+   "fiscal_year": 2023,
+   "release_datetime": "2024-04-01T20:04:16.267000+00:00",
+   "file_extension": "HTM",
+   "file_size": 114877,
+   "processing_status": "COMPLETED"
+  },
+  {
+   "id": 61325734,
+   "company_id": 7010,
+   "title": "דוח תקופתי ושנתי לשנת 2023",
+   "fiscal_year": 2023,
+   "release_datetime": "2024-03-27T11:57:14.607000+00:00",
+   "file_extension": "HTM",
+   "file_size": 112074,
+   "processing_status": "COMPLETED"
+  },
+  {
+   "id": 61325806,
+   "company_id": 7010,
+   "title": "דוח תקופתי ושנתי לשנת 2023",
+   "fiscal_year": 2023,
+   "release_datetime": "2024-03-27T11:57:14.607000+00:00",
+   "file_extension": "PDF",
+   "file_size": 29186933,
+   "processing_status": "QUEUED"
+  },
+  {
+   "id": 61479231,
+   "company_id": 7010,
+   "title": "דוח תקופתי ושנתי לשנת 2022",
+   "fiscal_year": 2022,
+   "release_datetime": "2023-03-28T13:09:17.947000+00:00",
+   "file_extension": "HTM",
+   "file_size": 110795,
+   "processing_status": "COMPLETED"
+  },
+  {
+   "id": 61479315,
+   "company_id": 7010,
+   "title": "דוח תקופתי ושנתי לשנת 2022",
+   "fiscal_year": 2022,
+   "release_datetime": "2023-03-28T13:09:17.947000+00:00",
+   "file_extension": "PDF",
+   "file_size": 28992973,
+   "processing_status": "QUEUED"
+  },
+  {
+   "id": 61495644,
+   "company_id": 7010,
+   "title": "דוח תקופתי ושנתי לשנת 2021",
+   "fiscal_year": 2021,
+   "release_datetime": "2022-03-29T16:55:08.867000+00:00",
+   "file_extension": "HTM",
+   "file_size": 105525,
+   "processing_status": "COMPLETED"
+  },
+  {
+   "id": 61495650,
+   "company_id": 7010,
+   "title": "דוח תקופתי ושנתי לשנת 2021",
+   "fiscal_year": 2021,
+   "release_datetime": "2022-03-29T16:55:08.867000+00:00",
+   "file_extension": "PDF",
+   "file_size": 12093687,
+   "processing_status": "QUEUED"
+  },
+  {
+   "id": 61980176,
+   "company_id": 7010,
+   "title": "דוח תקופתי ושנתי לשנת 2020",
+   "fiscal_year": 2020,
+   "release_datetime": "2021-03-24T19:00:35.610000+00:00",
+   "file_extension": "HTM",
+   "file_size": 105500,
+   "processing_status": "COMPLETED"
+  },
+  {
+   "id": 61980228,
+   "company_id": 7010,
+   "title": "דוח תקופתי ושנתי לשנת 2020",
+   "fiscal_year": 2020,
+   "release_datetime": "2021-03-24T19:00:35.610000+00:00",
+   "file_extension": "PDF",
+   "file_size": 21281853,
+   "processing_status": "QUEUED"
+  },
+  {
+   "id": 61973545,
+   "company_id": 7010,
+   "title": "דוח תקופתי ושנתי לשנת 2019",
+   "fiscal_year": 2019,
+   "release_datetime": "2020-03-30T17:29:31.630000+00:00",
+   "file_extension": "HTM",
+   "file_size": 110953,
+   "processing_status": "COMPLETED"
+  },
+  {
+   "id": 61973549,
+   "company_id": 7010,
+   "title": "דוח תקופתי ושנתי לשנת 2019",
+   "fiscal_year": 2019,
+   "release_datetime": "2020-03-30T17:29:31.630000+00:00",
+   "file_extension": "PDF",
+   "file_size": 7675548,
+   "processing_status": "QUEUED"
+  }
+ ]
+}

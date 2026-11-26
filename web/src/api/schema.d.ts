@@ -14,7 +14,11 @@ export interface paths {
         /** Tracked companies */
         get: operations["list_companies_api_companies_get"];
         put?: never;
-        post?: never;
+        /**
+         * Start tracking a company (live mode only)
+         * @description Adds a provider company to the tracked companies. Refused in cached mode (`live_required`), on a cached-only server (`live_disabled`) and when the ticker or provider id is already tracked (`company_already_tracked`). Nothing is fetched from the provider.
+         */
+        post: operations["add_company_api_companies_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -49,7 +53,11 @@ export interface paths {
         get: operations["get_company_api_companies__ticker__get"];
         put?: never;
         post?: never;
-        delete?: never;
+        /**
+         * Stop tracking a runtime-added company (live mode only)
+         * @description Companies from data/companies.yaml cannot be removed (`company_not_removable`). Cached reports, financials and usage records are kept.
+         */
+        delete: operations["remove_company_api_companies__ticker__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -106,6 +114,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/companies/{ticker}/osint": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Latest stored OSINT stability research (never calls a provider)
+         * @description Open-source stability research, never based on official filings. Returns the latest stored result for the ticker and window in either mode; `not_cached` (409) when none is stored.
+         */
+        get: operations["get_osint_api_companies__ticker__osint_get"];
+        put?: never;
+        /**
+         * Run fresh OSINT stability research (live mode, streamed)
+         * @description Searches the web afresh and costs OpenRouter credit (about $1); takes several minutes. Refused before the stream starts with `live_required` (cached mode), `live_disabled` (cached-only server), `missing_credential`, `company_not_found`, or `research_in_progress` (a run for this ticker and window is already running in this server process). The run continues if the client disconnects.
+         */
+        post: operations["run_osint_api_companies__ticker__osint_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/companies/{ticker}/ratios": {
         parameters: {
             query?: never;
@@ -113,7 +145,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Core ratios, year-over-year changes and data-quality checks */
+        /** Financial ratios by group and year, with confidence and data-quality checks */
         get: operations["get_ratios_api_companies__ticker__ratios_get"];
         put?: never;
         post?: never;
@@ -130,7 +162,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Paragraphs of a structure node */
+        /**
+         * Paragraphs of a structure node
+         * @description An uncached report is fetched in live mode. If the provider has no Markdown for the selected filing (not processed yet, or not convertible), the request fails with 409 `report_not_processed`.
+         */
         get: operations["get_node_api_companies__ticker__reports__fiscal_year__nodes__node_id__get"];
         put?: never;
         post?: never;
@@ -147,7 +182,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Paragraphs of a page (PDF page index) */
+        /**
+         * Paragraphs of a page (Markdown page index)
+         * @description An uncached report is fetched in live mode. If the provider has no Markdown for the selected filing (not processed yet, or not convertible), the request fails with 409 `report_not_processed`.
+         */
         get: operations["get_page_api_companies__ticker__reports__fiscal_year__pages__page_index__get"];
         put?: never;
         post?: never;
@@ -164,7 +202,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Report structure tree */
+        /**
+         * Report structure tree
+         * @description An uncached report is fetched in live mode. If the provider has no Markdown for the selected filing (not processed yet, or not convertible), the request fails with 409 `report_not_processed`.
+         */
         get: operations["get_structure_api_companies__ticker__reports__fiscal_year__structure_get"];
         put?: never;
         post?: never;
@@ -247,6 +288,28 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * AddCompanyIn
+         * @description A company to start tracking, usually taken from a provider search hit.
+         */
+        AddCompanyIn: {
+            /**
+             * Fr Company Id
+             * @description Provider company id (from search)
+             */
+            fr_company_id: number;
+            /** Isin */
+            isin?: string | null;
+            /** Name En */
+            name_en?: string | null;
+            /** Name He */
+            name_he: string;
+            /**
+             * Ticker
+             * @description 1-15 Latin letters, digits, dots or hyphens; stored upper-case
+             */
+            ticker: string;
+        };
         /** AlignedSection */
         AlignedSection: {
             /** Key */
@@ -264,41 +327,25 @@ export interface components {
             /** Title */
             title: string;
         };
-        /** Change */
-        Change: {
-            /** Code */
-            code: string;
+        /** AreaAssessment */
+        AreaAssessment: {
             /**
-             * Confidence
+             * Area
              * @enum {string}
              */
-            confidence: "high" | "low";
-            /** Failed Checks */
-            failed_checks: string[];
-            /** From Year */
-            from_year: number;
+            area: "news" | "market" | "credit" | "operations" | "labor_government" | "competition_macro";
             /**
-             * Kind
+             * Assessment
+             * @description Hebrew, two or three sentences.
+             */
+            assessment: string;
+            /** Finding Ids */
+            finding_ids: string[];
+            /**
+             * Label
              * @enum {string}
              */
-            kind: "FIN" | "RATIO";
-            /** Name He */
-            name_he: string;
-            /** New */
-            new: string | null;
-            /** Old */
-            old: string | null;
-            /** Reason */
-            reason: string | null;
-            /** To Year */
-            to_year: number;
-            /**
-             * Unit
-             * @enum {string}
-             */
-            unit: "percent" | "pp" | "multiple";
-            /** Value */
-            value: string | null;
+            label: "stable" | "watch" | "fragile" | "insufficient_data";
         };
         /** ChangeNote */
         ChangeNote: {
@@ -325,31 +372,27 @@ export interface components {
             /** What Changed He */
             what_changed_he: string;
         };
-        /** CheckResult */
-        CheckResult: {
-            /** Actual */
-            actual: string | null;
-            /** Check Id */
-            check_id: string;
-            /** Description He */
-            description_he: string;
-            /** Expected */
-            expected: string | null;
-            /** Fiscal Year */
-            fiscal_year: number;
-            /** Inputs */
-            inputs: {
-                [key: string]: string;
-            };
-            /** Missing */
-            missing: string[];
+        /** CheckOut */
+        CheckOut: {
+            /** Cells */
+            cells: string[];
+            /** Difference */
+            difference?: string | null;
+            /** Id */
+            id: string;
+            /** Label He */
+            label_he: string;
+            /** Left */
+            left?: string | null;
+            /** Reason */
+            reason?: string | null;
+            /** Right */
+            right?: string | null;
             /**
              * Status
              * @enum {string}
              */
-            status: "pass" | "fail" | "not_run";
-            /** Tolerance */
-            tolerance: string | null;
+            status: "passed" | "failed" | "not_applicable";
         };
         /** Citation */
         Citation: {
@@ -363,8 +406,6 @@ export interface components {
             page_printed: number | null;
             /** Paragraph Id */
             paragraph_id: string;
-            /** Url */
-            url: string | null;
         };
         /** CompanyOut */
         CompanyOut: {
@@ -376,6 +417,12 @@ export interface components {
             name_en?: string | null;
             /** Name He */
             name_he: string;
+            /**
+             * Source
+             * @description registry: data/companies.yaml; added: added at runtime (removable)
+             * @enum {string}
+             */
+            source: "registry" | "added";
             /** Ticker */
             ticker: string;
         };
@@ -418,6 +465,12 @@ export interface components {
             business_sections: number;
             /** Business Sections Matched From Toc */
             business_sections_matched_from_toc: number;
+            /**
+             * Business Sections Source
+             * @default toc
+             * @enum {string}
+             */
+            business_sections_source: "toc" | "body_numbering";
             /** Business Toc Entries */
             business_toc_entries: number;
             /** Chapters Duplicated */
@@ -493,7 +546,7 @@ export interface components {
              * Unit
              * @enum {string}
              */
-            unit: "money" | "percent" | "pp" | "multiple" | "count" | "per_share" | "number";
+            unit: "money" | "percent" | "pp" | "multiple" | "count" | "per_share" | "days" | "number";
             /** Value */
             value: string | null;
             /** Years */
@@ -503,8 +556,6 @@ export interface components {
         FilingOut: {
             /** Cached */
             cached: boolean;
-            /** Document Url */
-            document_url: string | null;
             /** File Extension */
             file_extension: string | null;
             /** File Size */
@@ -513,14 +564,17 @@ export interface components {
             filing_id: number;
             /** Fiscal Year */
             fiscal_year: number | null;
+            /**
+             * Processing Status
+             * @description The provider's Markdown processing status as given (COMPLETED, QUEUED, ...); null if none
+             */
+            processing_status?: string | null;
             /** Release Datetime */
             release_datetime: string | null;
             /** Selected */
             selected: boolean;
             /** Title */
             title: string;
-            /** Viewer Url */
-            viewer_url: string | null;
         };
         /** FilingsOut */
         FilingsOut: {
@@ -603,6 +657,11 @@ export interface components {
             filings: components["schemas"]["FilingOut"][];
             /** Fiscal Year */
             fiscal_year: number;
+            /**
+             * Markdown Availability
+             * @description Whether the provider has Markdown for the selected filing: available (COMPLETED), unknown (no status), processing (PENDING/QUEUED/PROCESSING) or failed (FAILED/SKIPPED). Null when no filing is selected.
+             */
+            markdown_availability?: ("available" | "unknown" | "processing" | "failed") | null;
             /** Report Cached */
             report_cached: boolean;
             /** Selected Filing Id */
@@ -637,6 +696,49 @@ export interface components {
             storage: components["schemas"]["StorageHealth"];
             /** Version */
             version: string;
+        };
+        /** KeptFinding */
+        KeptFinding: {
+            /**
+             * Area
+             * @enum {string}
+             */
+            area: "news" | "market" | "credit" | "operations" | "labor_government" | "competition_macro";
+            /**
+             * Claim
+             * @description One factual statement, in English or Hebrew.
+             */
+            claim: string;
+            /**
+             * Confidence
+             * @enum {string}
+             */
+            confidence: "high" | "medium" | "low";
+            /**
+             * Derived From Filing
+             * @description True when the source only restates figures from the company's official reports.
+             */
+            derived_from_filing: boolean;
+            /** Id */
+            id: string;
+            /**
+             * Published At
+             * @description Publish date of the source, YYYY-MM-DD, or null if unknown.
+             */
+            published_at: string | null;
+            /**
+             * Signal
+             * @description What the fact says about the company's stability.
+             * @enum {string}
+             */
+            signal: "positive" | "negative" | "neutral";
+            /** Source Title */
+            source_title: string;
+            /**
+             * Source Url
+             * @description Exact URL of a web_search result that supports the claim.
+             */
+            source_url: string;
         };
         /** ManagementClaim */
         ManagementClaim: {
@@ -700,10 +802,44 @@ export interface components {
             /** Ticker */
             ticker: string;
         };
+        /**
+         * OsintEvents
+         * @description Documentation of the OSINT run stream: ``event: progress|done|error`` with these JSON payloads.
+         */
+        OsintEvents: {
+            done: components["schemas"]["ResearchResult"];
+            error: components["schemas"]["ErrorOut"];
+            progress: components["schemas"]["OsintProgress"];
+        };
+        /**
+         * OsintProgress
+         * @description One progress report from a running research (streamed by the API).
+         */
+        OsintProgress: {
+            /** Area */
+            area?: ("news" | "market" | "credit" | "operations" | "labor_government" | "competition_macro") | null;
+            /** Query */
+            query?: string | null;
+            /** Search Limit */
+            search_limit: number;
+            /** Searches Used */
+            searches_used: number;
+            /**
+             * Step
+             * @enum {string}
+             */
+            step: "orchestrator" | "search" | "area_start" | "area_done" | "synthesis";
+        };
+        /**
+         * OsintRunIn
+         * @description Body of a live OSINT research run. ``months`` defaults to the server's window (36).
+         */
+        OsintRunIn: {
+            /** Months */
+            months?: number | null;
+        };
         /** PageParagraphsOut */
         PageParagraphsOut: {
-            /** Citation Url */
-            citation_url: string | null;
             /** Fiscal Year */
             fiscal_year: number;
             /** Node Ids */
@@ -740,8 +876,6 @@ export interface components {
         };
         /** ParagraphOut */
         ParagraphOut: {
-            /** Citation Url */
-            citation_url: string | null;
             /** Heading Level */
             heading_level: number;
             /** In Table */
@@ -764,10 +898,6 @@ export interface components {
         };
         /** PlaygroundDone */
         PlaygroundDone: {
-            /** Citations */
-            citations: {
-                [key: string]: string | null;
-            };
             /** Latency Ms */
             latency_ms: number;
             /** Model */
@@ -811,6 +941,16 @@ export interface components {
             /** Output Tokens */
             output_tokens: number;
         };
+        /** Point */
+        Point: {
+            /** Finding Ids */
+            finding_ids: string[];
+            /**
+             * Text
+             * @description Hebrew, one sentence.
+             */
+            text: string;
+        };
         /** ProfileItem */
         ProfileItem: {
             /**
@@ -828,52 +968,102 @@ export interface components {
              */
             topic: "business_line" | "products" | "customers" | "markets" | "scale" | "other";
         };
-        /** RatioValue */
-        RatioValue: {
+        /** RatioGroupOut */
+        RatioGroupOut: {
+            /** Group */
+            group: string;
+            /** Label */
+            label: string;
+            /** Ratios */
+            ratios: components["schemas"]["RatioSeriesOut"][];
+        };
+        /** RatioSeriesOut */
+        RatioSeriesOut: {
             /** Code */
             code: string;
             /**
-             * Confidence
+             * Direction
              * @enum {string}
              */
-            confidence: "high" | "low";
-            /** Failed Checks */
-            failed_checks: string[];
-            /** Fiscal Year */
-            fiscal_year: number;
-            /** Group */
-            group: string;
-            /** Inputs */
-            inputs: {
-                [key: string]: string | null;
-            };
+            direction: "higher" | "lower" | "neutral";
             /** Name He */
             name_he: string;
-            /** Reason */
-            reason: string | null;
+            /** Threshold */
+            threshold: string;
             /**
              * Unit
              * @enum {string}
              */
-            unit: "money" | "percent" | "multiple" | "count" | "per_share";
+            unit: "percent" | "ratio" | "amount" | "days";
+            /** Values */
+            values: {
+                [key: string]: components["schemas"]["RatioValueOut"];
+            };
+        };
+        /** RatioValueOut */
+        RatioValueOut: {
+            /**
+             * Avg Used
+             * @default false
+             */
+            avg_used: boolean;
+            /**
+             * Confidence
+             * @default high
+             * @enum {string}
+             */
+            confidence: "high" | "low";
+            /** Delta */
+            delta?: string | null;
+            /**
+             * Derived Inputs
+             * @default []
+             */
+            derived_inputs: string[];
+            /**
+             * Failed Checks
+             * @default []
+             */
+            failed_checks: string[];
+            /**
+             * Inputs
+             * @default {}
+             */
+            inputs: {
+                [key: string]: string;
+            };
+            /** Missing Message He */
+            missing_message_he?: string | null;
+            /** Missing Reason */
+            missing_reason?: string | null;
+            /**
+             * Notes
+             * @default []
+             */
+            notes: string[];
+            /**
+             * Status
+             * @default na
+             * @enum {string}
+             */
+            status: "improved" | "deteriorated" | "changed" | "stable" | "na";
             /** Value */
             value: string | null;
         };
-        /**
-         * RatiosOut
-         * @description Core ratios, their year-over-year changes and the data-quality checks (financial-analysis spec).
-         */
+        /** RatiosOut */
         RatiosOut: {
             /** As Of */
             as_of: string | null;
-            /** Changes */
-            changes: components["schemas"]["Change"][];
             /** Checks */
-            checks: components["schemas"]["CheckResult"][];
+            checks: {
+                [key: string]: components["schemas"]["CheckOut"][];
+            };
             /** Currency */
             currency: string | null;
-            /** Ratios */
-            ratios: components["schemas"]["RatioValue"][];
+            /** Groups */
+            groups: components["schemas"]["RatioGroupOut"][];
+            /** Template */
+            template: string;
             /** Ticker */
             ticker: string;
             /** Years */
@@ -910,6 +1100,75 @@ export interface components {
             what_changed: components["schemas"]["RenderedParagraph"][];
             /** What It Does */
             what_it_does: components["schemas"]["RenderedParagraph"][];
+        };
+        /** ResearchResult */
+        ResearchResult: {
+            /** Company Name */
+            company_name: string;
+            /** Cost Usd */
+            cost_usd: number | null;
+            /** Dropped */
+            dropped: {
+                [key: string]: number;
+            };
+            /** Findings */
+            findings: components["schemas"]["KeptFinding"][];
+            /**
+             * From Cache
+             * @default false
+             */
+            from_cache: boolean;
+            /** Model */
+            model: string;
+            /**
+             * Run Date
+             * Format: date
+             */
+            run_date: string;
+            scorecard: components["schemas"]["Scorecard"];
+            /** Search Limit */
+            search_limit: number;
+            /** Searches Used */
+            searches_used: number;
+            /** Ticker */
+            ticker: string;
+            /** Window Months */
+            window_months: number;
+            /**
+             * Window Start
+             * Format: date
+             */
+            window_start: string;
+        };
+        /** Scorecard */
+        Scorecard: {
+            /** Areas */
+            areas: components["schemas"]["AreaAssessment"][];
+            /**
+             * Overall Label
+             * @enum {string}
+             */
+            overall_label: "stable" | "watch" | "fragile";
+            /**
+             * Overall Rationale
+             * @description Hebrew, two or three sentences.
+             */
+            overall_rationale: string;
+            /**
+             * Risks
+             * @description Top three risks, most important first.
+             */
+            risks: components["schemas"]["Point"][];
+            /**
+             * Strengths
+             * @description Top three strengths, most important first.
+             */
+            strengths: components["schemas"]["Point"][];
+            /**
+             * Summary He
+             * @description Hebrew summary of the company's stability, one paragraph.
+             */
+            summary_he: string;
         };
         /** Segment */
         Segment: {
@@ -1083,8 +1342,6 @@ export interface components {
         /** StructureOut */
         StructureOut: {
             coverage: components["schemas"]["Coverage"];
-            /** Document Url */
-            document_url: string | null;
             /** Filing Id */
             filing_id: number;
             /** Fiscal Year */
@@ -1207,6 +1464,42 @@ export interface operations {
             };
         };
     };
+    add_company_api_companies_post: {
+        parameters: {
+            query?: {
+                /** @description cached: local data only, no provider calls. live: fetch what is missing (if the server allows). */
+                mode?: "cached" | "live";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddCompanyIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CompanyOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     search_companies_api_companies_search_get: {
         parameters: {
             query: {
@@ -1262,6 +1555,38 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["CompanyOut"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_company_api_companies__ticker__delete: {
+        parameters: {
+            query?: {
+                /** @description cached: local data only, no provider calls. live: fetch what is missing (if the server allows). */
+                mode?: "cached" | "live";
+            };
+            header?: never;
+            path: {
+                ticker: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
@@ -1367,6 +1692,80 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["FinancialsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_osint_api_companies__ticker__osint_get: {
+        parameters: {
+            query?: {
+                /** @description Research window in months (default: the server's, 36) */
+                months?: number | null;
+                /** @description cached: local data only, no provider calls. live: fetch what is missing (if the server allows). */
+                mode?: "cached" | "live";
+            };
+            header?: never;
+            path: {
+                ticker: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResearchResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    run_osint_api_companies__ticker__osint_post: {
+        parameters: {
+            query?: {
+                /** @description cached: local data only, no provider calls. live: fetch what is missing (if the server allows). */
+                mode?: "cached" | "live";
+            };
+            header?: never;
+            path: {
+                ticker: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["OsintRunIn"] | null;
+            };
+        };
+        responses: {
+            /** @description text/event-stream of `progress` events, then one `done` (or `error`) event. Payload schemas are listed in OsintEvents. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OsintEvents"];
                 };
             };
             /** @description Validation Error */

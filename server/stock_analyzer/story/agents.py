@@ -364,15 +364,18 @@ def explain_input(ctx: StoryContext, fiscal_year: int) -> str | None:
     return f"Fiscal year: {fiscal_year}\n\n## Directors' report: explanations of the results\n\n{_text(paragraphs)}"
 
 
+# canonical sheet fields (fin/canonical.py)
 CORE_FIN_CODES = (
     "revenue",
     "gross_profit",
-    "operating_income_loss",
-    "net_income_loss",
-    "cash_from_operations",
+    "operating_income",
+    "net_income_parent",
+    "cfo",
+    "capex",
     "total_assets",
     "total_equity",
-    "total_debt_bs",
+    "total_debt",
+    "net_debt",
 )
 
 

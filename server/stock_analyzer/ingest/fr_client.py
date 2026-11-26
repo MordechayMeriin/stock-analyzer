@@ -221,6 +221,21 @@ class FRClient:
     def is_cached(self, path: str, params: Mapping[str, Any] | None = None) -> bool:
         return self.cache_key(path, params) in self.cache
 
+    def cached_at(self, path: str, params: Mapping[str, Any] | None = None) -> datetime | None:
+        """When the cached response for this request was fetched; ``None`` if not cached.
+
+        Reads the cache directly: no network call and no usage record.
+        """
+        params = {k: v for k, v in (params or {}).items() if v is not None}
+        cached = self.cache.get(self.cache_key(path, params))
+        if cached is None:
+            return None
+        try:
+            fetched = datetime.fromisoformat(str(cached["fetched_at"]))
+        except (KeyError, ValueError):
+            return None
+        return fetched if fetched.tzinfo else fetched.replace(tzinfo=UTC)
+
     def request(
         self,
         path: str,
@@ -342,25 +357,35 @@ class FRClient:
         ).json_body()
         return [CompanyMatch.model_validate(row) for row in data.get("results", [])]
 
-    def list_filings(self, company_id: int, *, filing_type: str = "10-K") -> list[Filing]:
+    @staticmethod
+    def _filings_params(company_id: int, filing_type: str, page: int) -> dict[str, Any]:
+        return {
+            "company": company_id,
+            "type": filing_type,
+            "ordering": "-release_datetime",
+            "view": "full",
+            "page_size": 100,
+            "page": page,
+        }
+
+    def list_filings(
+        self, company_id: int, *, filing_type: str = "10-K", refresh: bool | None = None
+    ) -> list[Filing]:
+        """Every filing of a type, newest first. ``refresh=True`` re-fetches every page (live mode)."""
         filings: list[Filing] = []
         page = 1
         while True:
             data = self.request(
-                "/filings/",
-                {
-                    "company": company_id,
-                    "type": filing_type,
-                    "ordering": "-release_datetime",
-                    "view": "full",
-                    "page_size": 100,
-                    "page": page,
-                },
+                "/filings/", self._filings_params(company_id, filing_type, page), refresh=refresh
             ).json_body()
             filings.extend(Filing.model_validate(row) for row in data.get("results", []))
             if not data.get("next"):
                 return filings
             page += 1
+
+    def filings_cached_at(self, company_id: int, *, filing_type: str = "10-K") -> datetime | None:
+        """When the company's cached filing list (its first page) was fetched; ``None`` if not cached."""
+        return self.cached_at("/filings/", self._filings_params(company_id, filing_type, 1))
 
     def get_markdown(self, filing_id: int) -> str:
         """Full report Markdown in as few billed calls as possible, length-verified."""

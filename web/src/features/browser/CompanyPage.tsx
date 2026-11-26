@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { BookText, ExternalLink, FileText, MessageSquare, Table2 } from 'lucide-react'
+import { BookText, ChartLine, FileText, MessageSquare, ShieldCheck, Table2 } from 'lucide-react'
 import { Link, useParams } from 'react-router-dom'
 
 import { api, type FiscalYearFilings } from '@/api/client'
@@ -11,8 +11,18 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { formatBytes, formatDate } from '@/lib/format'
 
+/** Why a year's uncached report cannot be read: the provider has no Markdown for it. */
+function unavailableReason(year: FiscalYearFilings): 'processing' | 'failed' | null {
+  if (year.report_cached) return null
+  if (year.markdown_availability === 'processing' || year.markdown_availability === 'failed') {
+    return year.markdown_availability
+  }
+  return null
+}
+
 function YearCard({ ticker, year }: { ticker: string; year: FiscalYearFilings }) {
   const selected = year.filings.find((f) => f.selected)
+  const unavailable = unavailableReason(year)
   return (
     <Card data-testid={`year-${year.fiscal_year}`}>
       <CardHeader>
@@ -30,6 +40,16 @@ function YearCard({ ticker, year }: { ticker: string; year: FiscalYearFilings })
             </Badge>
           )}
           {year.selection_error && <Badge variant="destructive">אין דוח מלא</Badge>}
+          {unavailable === 'processing' && (
+            <Badge variant="warning" data-testid="not-processed-badge">
+              טרם עובד אצל הספק
+            </Badge>
+          )}
+          {unavailable === 'failed' && (
+            <Badge variant="destructive" data-testid="conversion-failed-badge">
+              הספק לא הצליח להמיר
+            </Badge>
+          )}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -48,16 +68,21 @@ function YearCard({ ticker, year }: { ticker: string; year: FiscalYearFilings })
                 <bdi className="font-mono">#{f.filing_id}</bdi> · <bdi>{f.file_extension}</bdi> ·{' '}
                 <bdi>{formatBytes(f.file_size)}</bdi> · <bdi>{formatDate(f.release_datetime)}</bdi>
               </span>
-              {f.document_url && (
-                <a href={f.document_url} target="_blank" rel="noreferrer" className="text-primary inline-flex items-center gap-0.5 text-xs underline">
-                  מסמך <ExternalLink className="size-3" aria-hidden />
-                </a>
-              )}
             </li>
           ))}
         </ul>
         {year.selection_error && <p className="text-destructive text-sm">{year.selection_error}</p>}
-        {selected && (
+        {unavailable === 'processing' && (
+          <p className="text-muted-foreground text-sm" data-testid="unavailable-reason">
+            ספק הדיווחים טרם המיר את הדוח לטקסט, ולכן אי אפשר עדיין לקרוא אותו או לשאול עליו.
+          </p>
+        )}
+        {unavailable === 'failed' && (
+          <p className="text-destructive text-sm" data-testid="unavailable-reason">
+            ספק הדיווחים לא הצליח להמיר את הדוח לטקסט, ולכן אי אפשר לקרוא אותו או לשאול עליו.
+          </p>
+        )}
+        {selected && !unavailable && (
           <div className="flex flex-wrap gap-2">
             <Button asChild size="sm">
               <Link to={`/${ticker}/${year.fiscal_year}/report`}>
@@ -97,6 +122,16 @@ export function CompanyPage() {
             <Button asChild variant="outline" size="sm">
               <Link to={`/${ticker}/financials`}>
                 <Table2 aria-hidden /> נתונים כספיים
+              </Link>
+            </Button>
+            <Button asChild variant="outline" size="sm">
+              <Link to={`/${ticker}/ratios`} data-testid="ratios-link">
+                <ChartLine aria-hidden /> יחסים פיננסיים
+              </Link>
+            </Button>
+            <Button asChild variant="outline" size="sm">
+              <Link to={`/${ticker}/osint`} data-testid="osint-link">
+                <ShieldCheck aria-hidden /> יציבות (OSINT)
               </Link>
             </Button>
           </div>

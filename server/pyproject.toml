@@ -51,7 +51,7 @@ filterwarnings = [
     "ignore:Using `httpx` with `starlette.testclient` is deprecated",
 ]
 markers = [
-    "live_data: needs full cached Malam reports under DATA_DIR (skipped otherwise)",
+    "live_data: needs full stored reports (DATA_DIR, or the DATABASE_URL store); skipped otherwise",
 ]
 
 [tool.ruff]
