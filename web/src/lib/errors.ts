@@ -11,6 +11,7 @@ export const ERROR_MESSAGES: Record<string, string> = {
   company_not_removable: 'לא ניתן להסיר חברה מרשימת המעקב הקבועה.',
   company_not_found: 'החברה אינה במעקב.',
   validation_error: 'אחד השדות אינו תקין.',
+  osint_no_findings: 'המחקר לא מצא ממצאים מאומתים.',
 }
 
 export function errorCode(error: unknown): string {

@@ -55,6 +55,52 @@
         "title": "AddCompanyIn",
         "type": "object"
       },
+      "AreaAssessment": {
+        "properties": {
+          "area": {
+            "enum": [
+              "news",
+              "market",
+              "credit",
+              "operations",
+              "labor_government",
+              "competition_macro"
+            ],
+            "title": "Area",
+            "type": "string"
+          },
+          "assessment": {
+            "description": "Hebrew, two or three sentences.",
+            "title": "Assessment",
+            "type": "string"
+          },
+          "finding_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Finding Ids",
+            "type": "array"
+          },
+          "label": {
+            "enum": [
+              "stable",
+              "watch",
+              "fragile",
+              "insufficient_data"
+            ],
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "area",
+          "label",
+          "assessment",
+          "finding_ids"
+        ],
+        "title": "AreaAssessment",
+        "type": "object"
+      },
       "CheckOut": {
         "properties": {
           "cells": {
@@ -747,6 +793,89 @@
         "title": "HealthOut",
         "type": "object"
       },
+      "KeptFinding": {
+        "properties": {
+          "area": {
+            "enum": [
+              "news",
+              "market",
+              "credit",
+              "operations",
+              "labor_government",
+              "competition_macro"
+            ],
+            "title": "Area",
+            "type": "string"
+          },
+          "claim": {
+            "description": "One factual statement, in English or Hebrew.",
+            "title": "Claim",
+            "type": "string"
+          },
+          "confidence": {
+            "enum": [
+              "high",
+              "medium",
+              "low"
+            ],
+            "title": "Confidence",
+            "type": "string"
+          },
+          "derived_from_filing": {
+            "description": "True when the source only restates figures from the company's official reports.",
+            "title": "Derived From Filing",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "published_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Publish date of the source, YYYY-MM-DD, or null if unknown.",
+            "title": "Published At"
+          },
+          "signal": {
+            "description": "What the fact says about the company's stability.",
+            "enum": [
+              "positive",
+              "negative",
+              "neutral"
+            ],
+            "title": "Signal",
+            "type": "string"
+          },
+          "source_title": {
+            "title": "Source Title",
+            "type": "string"
+          },
+          "source_url": {
+            "description": "Exact URL of a web_search result that supports the claim.",
+            "title": "Source Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "claim",
+          "signal",
+          "confidence",
+          "source_url",
+          "source_title",
+          "published_at",
+          "derived_from_filing",
+          "id",
+          "area"
+        ],
+        "title": "KeptFinding",
+        "type": "object"
+      },
       "NodeOut": {
         "properties": {
           "chapter": {
@@ -1168,6 +1297,28 @@
         "title": "PlaygroundUsage",
         "type": "object"
       },
+      "Point": {
+        "properties": {
+          "finding_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Finding Ids",
+            "type": "array"
+          },
+          "text": {
+            "description": "Hebrew, one sentence.",
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text",
+          "finding_ids"
+        ],
+        "title": "Point",
+        "type": "object"
+      },
       "RatioGroupOut": {
         "properties": {
           "group": {
@@ -1424,6 +1575,149 @@
           "checks"
         ],
         "title": "RatiosOut",
+        "type": "object"
+      },
+      "ResearchResult": {
+        "properties": {
+          "company_name": {
+            "title": "Company Name",
+            "type": "string"
+          },
+          "cost_usd": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cost Usd"
+          },
+          "dropped": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Dropped",
+            "type": "object"
+          },
+          "findings": {
+            "items": {
+              "$ref": "#/components/schemas/KeptFinding"
+            },
+            "title": "Findings",
+            "type": "array"
+          },
+          "from_cache": {
+            "default": false,
+            "title": "From Cache",
+            "type": "boolean"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "run_date": {
+            "format": "date",
+            "title": "Run Date",
+            "type": "string"
+          },
+          "scorecard": {
+            "$ref": "#/components/schemas/Scorecard"
+          },
+          "search_limit": {
+            "title": "Search Limit",
+            "type": "integer"
+          },
+          "searches_used": {
+            "title": "Searches Used",
+            "type": "integer"
+          },
+          "ticker": {
+            "title": "Ticker",
+            "type": "string"
+          },
+          "window_months": {
+            "title": "Window Months",
+            "type": "integer"
+          },
+          "window_start": {
+            "format": "date",
+            "title": "Window Start",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ticker",
+          "company_name",
+          "run_date",
+          "window_months",
+          "window_start",
+          "model",
+          "scorecard",
+          "findings",
+          "dropped",
+          "searches_used",
+          "search_limit",
+          "cost_usd"
+        ],
+        "title": "ResearchResult",
+        "type": "object"
+      },
+      "Scorecard": {
+        "properties": {
+          "areas": {
+            "items": {
+              "$ref": "#/components/schemas/AreaAssessment"
+            },
+            "title": "Areas",
+            "type": "array"
+          },
+          "overall_label": {
+            "enum": [
+              "stable",
+              "watch",
+              "fragile"
+            ],
+            "title": "Overall Label",
+            "type": "string"
+          },
+          "overall_rationale": {
+            "description": "Hebrew, two or three sentences.",
+            "title": "Overall Rationale",
+            "type": "string"
+          },
+          "risks": {
+            "description": "Top three risks, most important first.",
+            "items": {
+              "$ref": "#/components/schemas/Point"
+            },
+            "title": "Risks",
+            "type": "array"
+          },
+          "strengths": {
+            "description": "Top three strengths, most important first.",
+            "items": {
+              "$ref": "#/components/schemas/Point"
+            },
+            "title": "Strengths",
+            "type": "array"
+          },
+          "summary_he": {
+            "description": "Hebrew summary of the company's stability, one paragraph.",
+            "title": "Summary He",
+            "type": "string"
+          }
+        },
+        "required": [
+          "overall_label",
+          "overall_rationale",
+          "areas",
+          "risks",
+          "strengths",
+          "summary_he"
+        ],
+        "title": "Scorecard",
         "type": "object"
       },
       "StorageHealth": {
@@ -2074,6 +2368,162 @@
         "summary": "Normalized financials by statement and year",
         "tags": [
           "companies"
+        ]
+      }
+    },
+    "/api/companies/{ticker}/osint": {
+      "get": {
+        "description": "Returns the latest stored research result for the ticker and window. Never searches the web or calls an LLM, in any mode. Fails with 409 `not_cached` when the company has not been researched yet.",
+        "operationId": "get_research_api_companies__ticker__osint_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ticker",
+            "required": true,
+            "schema": {
+              "title": "Ticker",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Research window in months. Defaults to the server's OSINT_WINDOW_MONTHS (36).",
+            "in": "query",
+            "name": "months",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 120,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Research window in months. Defaults to the server's OSINT_WINDOW_MONTHS (36).",
+              "title": "Months"
+            }
+          },
+          {
+            "description": "cached: local data only, no provider calls. live: fetch what is missing (if the server allows).",
+            "in": "query",
+            "name": "mode",
+            "required": false,
+            "schema": {
+              "default": "cached",
+              "description": "cached: local data only, no provider calls. live: fetch what is missing (if the server allows).",
+              "enum": [
+                "cached",
+                "live"
+              ],
+              "title": "Mode",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResearchResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Latest stored OSINT stability scorecard",
+        "tags": [
+          "osint"
+        ]
+      },
+      "post": {
+        "description": "Researches the company afresh from open sources (never its official filings), stores the result as the latest one and returns it. Spends LLM and web-search credit and takes minutes. Refused in cached mode (`live_required`) and on a cached-only server (`live_disabled`). A run whose findings all fail verification fails with 422 `osint_no_findings`.",
+        "operationId": "run_research_api_companies__ticker__osint_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ticker",
+            "required": true,
+            "schema": {
+              "title": "Ticker",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Research window in months. Defaults to the server's OSINT_WINDOW_MONTHS (36).",
+            "in": "query",
+            "name": "months",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 120,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Research window in months. Defaults to the server's OSINT_WINDOW_MONTHS (36).",
+              "title": "Months"
+            }
+          },
+          {
+            "description": "cached: local data only, no provider calls. live: fetch what is missing (if the server allows).",
+            "in": "query",
+            "name": "mode",
+            "required": false,
+            "schema": {
+              "default": "cached",
+              "description": "cached: local data only, no provider calls. live: fetch what is missing (if the server allows).",
+              "enum": [
+                "cached",
+                "live"
+              ],
+              "title": "Mode",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResearchResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Run OSINT stability research (live mode only)",
+        "tags": [
+          "osint"
         ]
       }
     },

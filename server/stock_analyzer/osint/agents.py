@@ -33,6 +33,7 @@ from agents.usage import Usage as AgentUsage
 from openai.types.responses import ResponseFunctionToolCall, ResponseOutputMessage, ResponseOutputText
 
 from stock_analyzer.config import MissingCredential, Settings
+from stock_analyzer.errors import AnalyzerError
 from stock_analyzer.osint.models import (
     AREA_INFO,
     AREAS,
@@ -51,7 +52,7 @@ Role = Literal["orchestrator", "specialist", "synthesizer"]
 ModelFactory = Callable[[Role, Area | None], Model]
 
 
-class NoFindings(RuntimeError):
+class NoFindings(AnalyzerError):
     """The run produced no finding that passed verification, so there is nothing to score."""
 
     code = "osint_no_findings"

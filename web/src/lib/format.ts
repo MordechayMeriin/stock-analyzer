@@ -42,6 +42,10 @@ export function formatUsd(value: number | null | undefined): string {
 
 export function formatDate(iso: string | null | undefined): string {
   if (!iso) return '—'
+  // A bare date is a calendar day, not an instant: new Date('2026-11-26') is UTC midnight, which
+  // shows as the previous day west of UTC.
+  const day = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso)
+  if (day) return `${day[3]}.${day[2]}.${day[1]}`
   const d = new Date(iso)
   return Number.isNaN(d.getTime())
     ? iso

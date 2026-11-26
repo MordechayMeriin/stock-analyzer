@@ -48,6 +48,19 @@ def cached_result(ctx: Ctx, ticker: str, months: int) -> ResearchResult | None:
     return result
 
 
+def latest_research(ctx: Ctx, ticker: str, months: int | None = None) -> ResearchResult:
+    """The latest stored result for a tracked company and window. Never searches or calls an LLM."""
+    months = months or ctx.settings.osint_window_months
+    if months < 1:
+        raise ValueError("months must be at least 1")
+    company = resolve_company(ctx, ticker)
+    if (stored := cached_result(ctx, company.ticker, months)) is None:
+        raise NotCached(
+            f"no stored OSINT result for {company.ticker} ({months} months); run the research first"
+        )
+    return stored
+
+
 def run_research(
     ctx: Ctx,
     ticker: str,
