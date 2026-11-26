@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import date
-from typing import NamedTuple
+from typing import NamedTuple, TypedDict
 
 from stock_analyzer.fin.normalize import (
     STATEMENT_LABELS_HE,
@@ -27,12 +27,22 @@ class CompanyFinancials(NamedTuple):
     values: list[FinValue]
 
 
-def company_financials(ctx: Ctx, ticker: str, *, as_of: date | None = None) -> CompanyFinancials:
-    """A company's normalized values (filtered to ``as_of``) and its provider template."""
-    company = resolve_company(ctx, ticker)
-    data = ctx.fr.get_financials(company.fr_company_id)
+class AnnualStatements(TypedDict):
+    currency: str | None
+    years: list[int]
+    statements: list[FinStatementOut]
+    available_at: dict[str, str | None]
+
+
+def _issuer_financials(ctx: Ctx, company_id: int, as_of: date | None) -> CompanyFinancials:
+    data = ctx.fr.get_financials(company_id)
     values = normalize_financials(data)
     return CompanyFinancials(financials_template(data), filter_as_of(values, as_of) if as_of else values)
+
+
+def company_financials(ctx: Ctx, ticker: str, *, as_of: date | None = None) -> CompanyFinancials:
+    """A company's normalized values (filtered to ``as_of``) and its provider template."""
+    return _issuer_financials(ctx, resolve_company(ctx, ticker).fr_company_id, as_of)
 
 
 def fin_values(ctx: Ctx, ticker: str, *, as_of: date | None = None) -> list[FinValue]:
@@ -43,7 +53,14 @@ def financials(
     ctx: Ctx, ticker: str, *, as_of: date | None = None, max_years: int | None = None
 ) -> FinancialsOut:
     company = resolve_company(ctx, ticker)
-    values = fin_values(ctx, company.ticker, as_of=as_of)
+    data = annual_statements(ctx, company.fr_company_id, as_of=as_of, max_years=max_years)
+    return FinancialsOut(ticker=company.ticker, as_of=as_of.isoformat() if as_of else None, **data)
+
+
+def annual_statements(
+    ctx: Ctx, company_id: int, *, as_of: date | None = None, max_years: int | None = None
+) -> AnnualStatements:
+    values = _issuer_financials(ctx, company_id, as_of).values
     currency = check_currency(values)
     limit = max_years or ctx.settings.fin_max_years
     years = sorted({v.fiscal_year for v in values}, reverse=True)[:limit]
@@ -74,11 +91,4 @@ def financials(
     for y in years:
         stamps = [v.available_at for v in values if v.fiscal_year == y and v.available_at]
         available[str(y)] = min(stamps).isoformat() if stamps else None
-    return FinancialsOut(
-        ticker=company.ticker,
-        currency=currency,
-        years=years,
-        as_of=as_of.isoformat() if as_of else None,
-        statements=statements,
-        available_at=available,
-    )
+    return AnnualStatements(currency=currency, years=years, statements=statements, available_at=available)

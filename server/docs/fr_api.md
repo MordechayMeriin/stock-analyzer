@@ -26,6 +26,14 @@ responses read during development. Re-check this file when the schema version ch
 - **Fields read (full view `Company`):** `id`, `name`, `ticker`, `isins`, `primary_isin`, `country_code`.
 - An unmatched search returns `200` with `results: []`, not an error.
 
+### Company profiles and the peer directory
+- `GET /companies/{id}/` supplies the target's `sub_industry.code` (ISIC class) and optional
+  `country_code`. Keep class codes as strings to preserve leading zeroes.
+- `GET /companies/` with `countries=IL`, `listing_status=LISTED`, `sub_industry=<code>` and
+  `view=full` returns candidate IDs, names, tickers, countries, listing statuses and classes.
+  Additional countries use comma-separated codes. Read every page before applying the peer limit.
+  [Company profile](https://docs.financialreports.eu/api-10374070) · [Directory](https://docs.financialreports.eu/api-10374069)
+
 ### `list_filings(company_id)` → `GET /filings/`
 - **Cost:** 1 credit.
 - **Params used:** `company=<id>`, `type=10-K` (one filing-type code; unknown codes → 400),

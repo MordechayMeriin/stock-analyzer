@@ -104,6 +104,23 @@ uv run stock-analyzer usage                        # provider credits + LLM spen
 `--mode cached` (default for reading commands) never calls the provider; `fetch` is always live.
 Always let `fetch` save the financials (never pass `--no-financials`): ratios are computed from them.
 
+### Peer financials
+
+From `server/`, run the command in live mode to populate the cache, then replay the same query offline.
+
+```bash
+uv run --env-file ../.env stock-analyzer peer-financials MLTM --mode live
+uv run --env-file ../.env stock-analyzer peer-financials MLTM
+uv run --env-file ../.env stock-analyzer peer-financials MLTM --mode live --limit 5 --peer-country GB --peer-country DE
+```
+
+By default, the JSON contains up to five listed Israeli issuers in the target's exact ISIC sub-industry, ordered by provider
+ID. Named foreign markets fill remaining places. `domestic_count` counts all eligible Israeli issuers before
+the limit. Zero Israeli matches gives `no_domestic_matches`. A missing classification gives
+`missing_sub_industry` and a null count. Each selected issuer's annual statements carry its own reporting
+currency. Live mode can spend credits on the directory and one financial request per uncached selected issuer.
+See the [offline peer evaluator](docs/peer_evaluation.md) for reviewed examples.
+
 ### Ratios
 
 `ratios` (and `GET /api/companies/{ticker}/ratios`) standardizes the cached financials into a canonical
