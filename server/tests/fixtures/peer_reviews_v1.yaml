@@ -1,0 +1,52 @@
+reviewed_on: "2026-11-26"
+reviewer: Codex testing agent
+targets:
+  MLTM:
+    reference: Malam Team designs, integrates and operates IT infrastructure and enterprise systems for customers in Israel.
+    source: https://www.malamteam.com/systems-integration-development/?lang=en
+    judgements:
+      910001:
+        judgement: accepted
+        reason: Matrix sells implementation, integration and consulting services to Israeli enterprises and public sector customers, overlapping with Malam Team's core IT services.
+        source: https://www.matrix-globalservices.com/wp-content/uploads/Matrix_Q4_2025_Financial-statement_English.pdf
+      910003:
+        judgement: accepted
+        reason: ONE develops and integrates enterprise software and computing infrastructure for corporate customers in Israel, overlapping with Malam Team's integration work.
+        source: https://one1.global/wp-content/uploads/2025/11/ONE-Q3_2025_ENG.pdf
+  GRID:
+    reference: Synthetic sole listed domestic network operator in the fixture directory.
+    source: peer_directory_v1.yaml#GRID
+    judgements:
+      920001:
+        judgement: accepted
+        reason: Both synthetic operators earn regulated transmission tariffs for running networks.
+        source: peer_directory_v1.yaml#GRID/issuers/920001
+      920002:
+        judgement: unsuitable
+        reason: The synthetic merchant generator sells power at market prices. The target earns regulated network tariffs.
+        source: peer_directory_v1.yaml#GRID/issuers/920002
+cases:
+  mltm-limited:
+    ticker: MLTM
+    limit: 2
+    countries: []
+    domestic_count: 3
+    reason: null
+    selected: [910001, 910002]
+    suitable_in_scope: [910001, 910003]
+  sole-domestic-operator:
+    ticker: GRID
+    limit: 2
+    countries: []
+    domestic_count: 0
+    reason: no_domestic_matches
+    selected: []
+    suitable_in_scope: []
+  sole-operator-with-foreign-analogues:
+    ticker: GRID
+    limit: 2
+    countries: [GB]
+    domestic_count: 0
+    reason: no_domestic_matches
+    selected: [920001, 920002]
+    suitable_in_scope: [920001]

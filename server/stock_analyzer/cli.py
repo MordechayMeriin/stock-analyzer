@@ -1,12 +1,14 @@
 """Command-line interface (typer). Thin adapter over ``services`` (design D4).
 
-Commands: fetch, usage, structure, parse-check, fin-raw, ratios, osint, companies list|add|remove, db init.
+Commands: fetch, usage, structure, parse-check, fin-raw, ratios, osint, peer-financials,
+companies list|add|remove, db init.
 """
 
 from __future__ import annotations
 
 import json
 import sys
+from contextlib import closing
 from typing import Annotated
 
 import typer
@@ -29,6 +31,27 @@ def _fail(exc: Exception) -> None:
 
 
 ModeOpt = Annotated[str, typer.Option("--mode", help="cached (local data only) or live")]
+
+
+@app.command("peer-financials")
+def peer_financials_cmd(
+    ticker: str,
+    limit: Annotated[int, typer.Option(min=1, help="Maximum number of peers")] = 5,
+    peer_country: Annotated[
+        list[str] | None, typer.Option("--peer-country", help="Additional country code (repeatable)")
+    ] = None,
+    mode: ModeOpt = "cached",
+) -> None:
+    """Print annual statements for listed peers in Israel, optionally filling from named markets."""
+    from stock_analyzer.services.peers import peer_financials
+
+    try:
+        with closing(_ctx(mode)) as ctx:
+            result = peer_financials(ctx, ticker, limit, peer_country or [])
+    except (AnalyzerError, MissingCredential, ValueError) as exc:
+        _fail(exc)
+        return
+    typer.echo(result.model_dump_json(indent=2))
 
 
 @app.command()
