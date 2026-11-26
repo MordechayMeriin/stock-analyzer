@@ -1,0 +1,105 @@
+{
+  "schema_version": "1.0",
+  "generated_at": "2026-03-30T09:30:00Z",
+  "mode": "cached",
+  "company": {
+    "ticker": "MLTM",
+    "name_he": "מלם תים",
+    "name_en": "Malam-Team Ltd.",
+    "logo_url": null,
+    "exchange": "TASE",
+    "currency": "ILS",
+    "sector": { "id": "software", "name": "תוכנה ושירותי IT" }
+  },
+  "report": {
+    "type": "annual",
+    "fiscal_year": 2025,
+    "period_end": "2025-12-31",
+    "published_at": "2026-03-25"
+  },
+  "summary": { "text": "חלק מהצירים חסרים נתונים לשנים הקודמות." },
+  "years": [2023, 2024, 2025],
+  "profile": {
+    "axes": [
+      {
+        "id": "stability",
+        "label": "יציבות",
+        "status": "ok",
+        "detail_url": "/api/companies/MLTM/report/axes/stability",
+        "scores": [
+          { "fiscal_year": 2023, "value": 6, "sector_median": null, "trend": null, "driver": null },
+          {
+            "fiscal_year": 2024,
+            "value": 6,
+            "sector_median": null,
+            "trend": { "direction": "flat", "delta": 0, "tone": "neutral" },
+            "driver": { "label": "מרווח יציב", "tone": "neutral" }
+          },
+          {
+            "fiscal_year": 2025,
+            "value": 7,
+            "sector_median": null,
+            "trend": { "direction": "up", "delta": 1, "tone": "positive" },
+            "driver": { "label": "מרווח תפעולי עולה", "tone": "positive" }
+          }
+        ]
+      },
+      {
+        "id": "safety",
+        "label": "ביטחון",
+        "status": "insufficient_data",
+        "detail_url": "/api/companies/MLTM/report/axes/safety",
+        "scores": [
+          { "fiscal_year": 2023, "value": null, "sector_median": null, "trend": null, "driver": null },
+          { "fiscal_year": 2024, "value": null, "sector_median": null, "trend": null, "driver": null },
+          { "fiscal_year": 2025, "value": null, "sector_median": null, "trend": null, "driver": null }
+        ]
+      },
+      {
+        "id": "growth",
+        "label": "צמיחה",
+        "status": "ok",
+        "detail_url": "/api/companies/MLTM/report/axes/growth",
+        "scores": [
+          { "fiscal_year": 2023, "value": null, "sector_median": null, "trend": null, "driver": null },
+          { "fiscal_year": 2024, "value": 6, "sector_median": null, "trend": null, "driver": null },
+          {
+            "fiscal_year": 2025,
+            "value": 8,
+            "sector_median": null,
+            "trend": { "direction": "up", "delta": 2, "tone": "positive" },
+            "driver": { "label": "צמיחה של 12% בהכנסות", "tone": "positive" }
+          }
+        ]
+      }
+    ]
+  },
+  "events": [],
+  "key_metrics": [
+    {
+      "id": "revenue",
+      "label": "הכנסות",
+      "format": "currency",
+      "currency": "ILS",
+      "series": [
+        { "fiscal_year": 2023, "value": null },
+        { "fiscal_year": 2024, "value": "3750000000" },
+        { "fiscal_year": 2025, "value": "4200000000" }
+      ],
+      "change": { "direction": "up", "pct": 12, "tone": "positive" }
+    },
+    {
+      "id": "net_debt",
+      "label": "חוב נטו",
+      "format": "currency",
+      "currency": "ILS",
+      "series": [
+        { "fiscal_year": 2023, "value": null },
+        { "fiscal_year": 2024, "value": null },
+        { "fiscal_year": 2025, "value": "1100000000" }
+      ],
+      "change": null
+    }
+  ],
+  "warnings": [{ "code": "stale_report", "message": "הדוח האחרון שנמצא הוא לשנת 2025." }]
+}

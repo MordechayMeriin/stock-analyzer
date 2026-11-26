@@ -1,0 +1,442 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CompanyReport",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "generated_at",
+    "mode",
+    "company",
+    "report",
+    "years",
+    "profile",
+    "events",
+    "key_metrics"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "pattern": "^1\\.\\d+$"
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "mode": {
+      "enum": [
+        "cached",
+        "live"
+      ]
+    },
+    "company": {
+      "$ref": "#/$defs/company"
+    },
+    "report": {
+      "$ref": "#/$defs/report"
+    },
+    "summary": {
+      "type": "object",
+      "required": [
+        "text"
+      ],
+      "properties": {
+        "text": {
+          "type": "string",
+          "maxLength": 160
+        }
+      }
+    },
+    "years": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 3,
+      "items": {
+        "type": "integer"
+      }
+    },
+    "profile": {
+      "type": "object",
+      "required": [
+        "axes"
+      ],
+      "properties": {
+        "axes": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 8,
+          "items": {
+            "$ref": "#/$defs/axis"
+          }
+        }
+      }
+    },
+    "events": {
+      "type": "array",
+      "maxItems": 30,
+      "items": {
+        "$ref": "#/$defs/event"
+      }
+    },
+    "key_metrics": {
+      "type": "array",
+      "maxItems": 8,
+      "items": {
+        "$ref": "#/$defs/metric"
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/warning"
+      }
+    }
+  },
+  "$defs": {
+    "tone": {
+      "enum": [
+        "positive",
+        "negative",
+        "neutral"
+      ]
+    },
+    "direction": {
+      "enum": [
+        "up",
+        "down",
+        "flat"
+      ]
+    },
+    "company": {
+      "type": "object",
+      "required": [
+        "ticker",
+        "name_he",
+        "currency",
+        "sector"
+      ],
+      "properties": {
+        "ticker": {
+          "type": "string"
+        },
+        "name_he": {
+          "type": "string"
+        },
+        "name_en": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "logo_url": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uri"
+        },
+        "exchange": {
+          "type": "string"
+        },
+        "currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$"
+        },
+        "sector": {
+          "type": "object",
+          "required": [
+            "id",
+            "name"
+          ],
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "report": {
+      "type": "object",
+      "required": [
+        "type",
+        "fiscal_year",
+        "period_end",
+        "published_at"
+      ],
+      "properties": {
+        "type": {
+          "const": "annual"
+        },
+        "fiscal_year": {
+          "type": "integer"
+        },
+        "period_end": {
+          "type": "string",
+          "format": "date"
+        },
+        "published_at": {
+          "type": "string",
+          "format": "date"
+        }
+      }
+    },
+    "axis": {
+      "type": "object",
+      "required": [
+        "id",
+        "label",
+        "status",
+        "scores"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string",
+          "maxLength": 16
+        },
+        "status": {
+          "enum": [
+            "ok",
+            "insufficient_data"
+          ]
+        },
+        "detail_url": {
+          "type": "string"
+        },
+        "scores": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 3,
+          "items": {
+            "$ref": "#/$defs/score"
+          }
+        }
+      }
+    },
+    "score": {
+      "type": "object",
+      "required": [
+        "fiscal_year",
+        "value"
+      ],
+      "properties": {
+        "fiscal_year": {
+          "type": "integer"
+        },
+        "value": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1,
+          "maximum": 10
+        },
+        "sector_median": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 1,
+          "maximum": 10
+        },
+        "trend": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "required": [
+            "direction",
+            "tone"
+          ],
+          "properties": {
+            "direction": {
+              "$ref": "#/$defs/direction"
+            },
+            "delta": {
+              "type": "number"
+            },
+            "tone": {
+              "$ref": "#/$defs/tone"
+            }
+          }
+        },
+        "driver": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "required": [
+            "label",
+            "tone"
+          ],
+          "properties": {
+            "label": {
+              "type": "string",
+              "maxLength": 28
+            },
+            "tone": {
+              "$ref": "#/$defs/tone"
+            }
+          }
+        }
+      }
+    },
+    "event": {
+      "type": "object",
+      "required": [
+        "id",
+        "date",
+        "date_precision",
+        "type",
+        "title",
+        "importance"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "date": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}(-\\d{2})?$"
+        },
+        "date_precision": {
+          "enum": [
+            "day",
+            "month"
+          ]
+        },
+        "type": {
+          "enum": [
+            "report",
+            "acquisition",
+            "leadership",
+            "guidance",
+            "financing",
+            "legal",
+            "regulatory",
+            "buyback",
+            "insider",
+            "other"
+          ]
+        },
+        "title": {
+          "type": "string",
+          "maxLength": 40
+        },
+        "summary": {
+          "type": "string",
+          "maxLength": 80
+        },
+        "importance": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 3
+        },
+        "tone": {
+          "$ref": "#/$defs/tone"
+        },
+        "source_url": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uri"
+        }
+      }
+    },
+    "metric": {
+      "type": "object",
+      "required": [
+        "id",
+        "label",
+        "format",
+        "series"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "format": {
+          "enum": [
+            "currency",
+            "percent",
+            "ratio",
+            "count"
+          ]
+        },
+        "currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$"
+        },
+        "series": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 3,
+          "items": {
+            "type": "object",
+            "required": [
+              "fiscal_year",
+              "value"
+            ],
+            "properties": {
+              "fiscal_year": {
+                "type": "integer"
+              },
+              "value": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "decimal string, as in the rest of the API"
+              }
+            }
+          }
+        },
+        "change": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "required": [
+            "direction",
+            "tone"
+          ],
+          "properties": {
+            "direction": {
+              "$ref": "#/$defs/direction"
+            },
+            "pct": {
+              "type": "number"
+            },
+            "tone": {
+              "$ref": "#/$defs/tone"
+            }
+          }
+        }
+      }
+    },
+    "warning": {
+      "type": "object",
+      "required": [
+        "code",
+        "message"
+      ],
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}
