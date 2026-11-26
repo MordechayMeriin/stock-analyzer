@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { ChartLine, FileText, MessageSquare, Table2 } from 'lucide-react'
+import { ChartLine, FileText, MessageSquare, ShieldCheck, Table2 } from 'lucide-react'
 import { Link, useParams } from 'react-router-dom'
 
 import { api, type FiscalYearFilings } from '@/api/client'
@@ -122,6 +122,11 @@ export function CompanyPage() {
             <Button asChild variant="outline" size="sm">
               <Link to={`/${ticker}/ratios`} data-testid="ratios-link">
                 <ChartLine aria-hidden /> יחסים פיננסיים
+              </Link>
+            </Button>
+            <Button asChild variant="outline" size="sm">
+              <Link to={`/${ticker}/osint`} data-testid="osint-link">
+                <ShieldCheck aria-hidden /> יציבות (OSINT)
               </Link>
             </Button>
           </div>

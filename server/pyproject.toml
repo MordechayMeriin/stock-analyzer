@@ -21,6 +21,7 @@ dependencies = [
     "fastapi>=0.111",
     "uvicorn[standard]>=0.30",
     "sse-starlette>=2.1",
+    "openai-agents==0.20.0",
 ]
 
 [project.scripts]

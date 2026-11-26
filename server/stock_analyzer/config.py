@@ -65,6 +65,13 @@ class Settings(BaseModel):
     llm_max_tokens: int = 4096
     playground_max_tokens: int = 60_000  # budget for the selected report text
 
+    # --- OSINT research (osint-research spec, add-osint-research design D8) ---
+    model_osint: str = "openai/gpt-6.1-sol"
+    osint_max_searches: int = 40  # web searches per research run
+    osint_search_results: int = 8  # results requested per search
+    osint_max_turns: int = 12  # model turns per agent run
+    osint_window_months: int = 36  # default research window: the present plus the past few years
+
     # --- report parsing thresholds (plan.md §1.4–1.5) ---
     toc_match_threshold: int = 85  # rapidfuzz token_set_ratio for TOC title anchoring
     chapter_match_threshold: int = 85
@@ -91,12 +98,14 @@ class Settings(BaseModel):
         return self.data_dir / "logs"
 
     def model_for(self, role: str) -> str:
-        """Resolve a model *role* (``main`` / ``cheap``) to a configured model id."""
+        """Resolve a model *role* (``main`` / ``cheap`` / ``osint``) to a configured model id."""
         if role == "main":
             return self.model_main
         if role == "cheap":
             return self.model_cheap
-        raise ValueError(f"unknown model role {role!r}; expected 'main' or 'cheap'")
+        if role == "osint":
+            return self.model_osint
+        raise ValueError(f"unknown model role {role!r}; expected 'main', 'cheap' or 'osint'")
 
     @classmethod
     def from_env(cls, env: Mapping[str, str] | None = None) -> Settings:
@@ -141,6 +150,11 @@ class Settings(BaseModel):
             "LLM_TIMEOUT_S": ("llm_timeout_s", float),
             "LLM_MAX_TOKENS": ("llm_max_tokens", int),
             "PLAYGROUND_MAX_TOKENS": ("playground_max_tokens", int),
+            "MODEL_OSINT": ("model_osint", str),
+            "OSINT_MAX_SEARCHES": ("osint_max_searches", int),
+            "OSINT_SEARCH_RESULTS": ("osint_search_results", int),
+            "OSINT_MAX_TURNS": ("osint_max_turns", int),
+            "OSINT_WINDOW_MONTHS": ("osint_window_months", int),
             "TOC_MATCH_THRESHOLD": ("toc_match_threshold", int),
             "CHAPTER_MATCH_THRESHOLD": ("chapter_match_threshold", int),
             "REPEATED_LINE_RATIO": ("repeated_line_ratio", float),

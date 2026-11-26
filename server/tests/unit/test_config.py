@@ -78,3 +78,31 @@ def test_every_env_var_is_in_env_example():
     assert "DATABASE_URL" in names
     assert names - documented == set()
     assert re.search(r"^DATABASE_URL=$", example, re.M)  # empty: the file backend by default
+
+
+def test_osint_settings_defaults_and_overrides():
+    s = Settings.from_env({})
+    assert s.model_for("osint") == "openai/gpt-6.1-sol"
+    assert (s.osint_max_searches, s.osint_search_results, s.osint_max_turns, s.osint_window_months) == (
+        40,
+        8,
+        12,
+        36,
+    )
+    s = Settings.from_env(
+        {
+            "MODEL_OSINT": "vendor/research",
+            "OSINT_MAX_SEARCHES": "5",
+            "OSINT_SEARCH_RESULTS": "3",
+            "OSINT_MAX_TURNS": "4",
+            "OSINT_WINDOW_MONTHS": "6",
+        }
+    )
+    assert s.model_for("osint") == "vendor/research"
+    assert s.model_for("main") != "vendor/research"
+    assert (s.osint_max_searches, s.osint_search_results, s.osint_max_turns, s.osint_window_months) == (
+        5,
+        3,
+        4,
+        6,
+    )

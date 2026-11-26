@@ -1,0 +1,21 @@
+# Sources the OSINT research must never use (osint-research spec: "Filing sources excluded").
+# Only the official filings themselves are excluded; they are analysed elsewhere. Everything else is open,
+# including the company's investor-relations site and market-data sites. Agents are also told not to use
+# annual or quarterly report documents found anywhere else, and to label news that restates filed figures.
+#
+# Entry syntax (same as OpenRouter's web plugin domain filters):
+#   example.com            the domain and all of its subdomains
+#   *.example.com          subdomains only
+#   example.com/some/path  that domain (and subdomains) under this path prefix
+# Every entry is sent as exclude_domains on each search and checked again on each result URL.
+
+global:
+  # Israeli filing systems
+  - maya.tase.co.il
+  - mayafiles.tase.co.il
+  - magna.isa.gov.il
+  # the filings provider the main analyzer uses
+  - financialreports.eu
+
+# Per-ticker additions (ticker: [entries]), e.g. a site that only mirrors one company's filings.
+companies: {}

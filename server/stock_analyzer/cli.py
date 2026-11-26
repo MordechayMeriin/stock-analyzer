@@ -1,6 +1,6 @@
 """Command-line interface (typer). Thin adapter over ``services`` (design D4).
 
-Commands: fetch, usage, structure, parse-check, fin-raw, ratios, companies list|add|remove, db init.
+Commands: fetch, usage, structure, parse-check, fin-raw, ratios, osint, companies list|add|remove, db init.
 """
 
 from __future__ import annotations
@@ -384,6 +384,84 @@ def ratios_cmd(
         "* low confidence. Failed checks: "
         + ("; ".join(f"FY{y} {', '.join(ids)}" for y, ids in failed.items() if ids) or "none")
     )
+
+
+def render_osint(result) -> list[str]:
+    """Text view of an OSINT research result: labels, risks, strengths, then numbered sources."""
+    from stock_analyzer.osint.models import AREA_INFO
+
+    card = result.scorecard
+    lines = [
+        f"{result.ticker} — {result.company_name}",
+        f"window {result.window_start} to {result.run_date} ({result.window_months} months), model {result.model}"
+        + (" [stored result]" if result.from_cache else ""),
+        "",
+        f"Overall: {card.overall_label.upper()}",
+        f"  {card.overall_rationale}",
+        "",
+        "Areas:",
+    ]
+    for a in card.areas:
+        ids = f" [{', '.join(a.finding_ids)}]" if a.finding_ids else ""
+        lines.append(f"  {a.area} ({AREA_INFO[a.area][0]}): {a.label}{ids}")
+        if a.assessment:
+            lines.append(f"    {a.assessment}")
+    for title, points in (("Risks", card.risks), ("Strengths", card.strengths)):
+        lines += ["", f"{title}:"]
+        lines += [f"  {i}. {p.text} [{', '.join(p.finding_ids)}]" for i, p in enumerate(points, 1)] or [
+            "  none"
+        ]
+    lines += ["", "Summary:", f"  {card.summary_he}", "", "Sources:"]
+    for f in result.findings:
+        tags = [f.area, f.signal, f.published_at or "undated"] + (
+            ["filing-derived"] if f.derived_from_filing else []
+        )
+        lines.append(f"  {f.id} [{', '.join(tags)}] {f.claim}")
+        lines.append(f"      {f.source_url}")
+    d = result.dropped
+    cost = f"${result.cost_usd:.4f}" if result.cost_usd is not None else "unknown"
+    lines += [
+        "",
+        f"searches {result.searches_used}/{result.search_limit} · dropped: blocked {d.get('blocked', 0)}, "
+        f"not from a search {d.get('not_searched', 0)}, outside window {d.get('outside_window', 0)} · cost {cost}",
+    ]
+    return lines
+
+
+@app.command("osint")
+def osint_cmd(
+    ticker: str,
+    months: Annotated[
+        int | None, typer.Option("--months", help="Research window in months (default 36)")
+    ] = None,
+    as_json: Annotated[bool, typer.Option("--json", help="Print the full result as JSON")] = False,
+    mode: Annotated[
+        str | None, typer.Option("--mode", help="live or cached (default: live unless ALLOW_LIVE=false)")
+    ] = None,
+) -> None:
+    """OSINT stability research from open sources (never the official filings).
+
+    Live mode always searches the web afresh and costs OpenRouter credit; cached mode (or ALLOW_LIVE=false)
+    prints the latest stored result.
+    """
+    from stock_analyzer.osint.agents import NoFindings
+    from stock_analyzer.services import osint
+
+    if hasattr(sys.stdout, "reconfigure"):  # model text can hold characters the console code page lacks
+        sys.stdout.reconfigure(errors="replace")
+    settings = get_settings()
+    try:
+        ctx = Ctx(settings, mode=mode or ("live" if settings.allow_live else "cached"))  # type: ignore[arg-type]
+        result = osint.run_research(ctx, ticker, months)
+    except (AnalyzerError, MissingCredential, NoFindings, ValueError) as exc:
+        _fail(exc)
+        return
+    if as_json:
+        json.dump(result.model_dump(mode="json"), sys.stdout, ensure_ascii=False, indent=2)
+        typer.echo()
+        return
+    for line in render_osint(result):
+        typer.echo(line)
 
 
 def main() -> None:  # pragma: no cover

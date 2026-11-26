@@ -30,6 +30,10 @@ const router = createBrowserRouter([
         path: ':ticker/ratios',
         lazy: () => import('./features/ratios/RatiosPage').then((m) => ({ Component: m.RatiosPage })),
       },
+      {
+        path: ':ticker/osint',
+        lazy: () => import('./features/osint/OsintPage').then((m) => ({ Component: m.OsintPage })),
+      },
       { path: ':ticker/:fy/report', element: <ReaderPage /> },
       { path: ':ticker/:fy/report/:nodeId', element: <ReaderPage /> },
       { path: ':ticker/:fy/playground', element: <PlaygroundPage /> },

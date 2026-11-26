@@ -51,6 +51,7 @@ uv run stock-analyzer fetch MLTM 2024 2025        # live: selected annual report
 uv run stock-analyzer structure MLTM 2025          # cached: structure tree + coverage summary
 uv run stock-analyzer fin-raw MLTM                 # cached: financial values by statement/year
 uv run stock-analyzer ratios MLTM [--as-of 2026-03-01]  # cached: ratios by group/year (* = low confidence)
+uv run stock-analyzer osint ELAL [--months 36] [--json]  # live: OSINT stability scorecard
 uv run stock-analyzer usage                        # provider credits + LLM spend
 ```
 
@@ -65,6 +66,43 @@ accounting-identity checks on it, and computes the template's ratios for the new
 fiscal years (`fin/canonical.py`, `fin/checks.py`, `fin/ratios.py`). Each value is exact, or missing with a
 reason; a value is low confidence (`*`) when an input failed a check or was derived from other fields.
 Nothing is fetched or stored: ratios are recomputed from the cached financials on every call.
+
+### OSINT research
+
+`osint` judges how stable a tracked company is from open sources only: news, market and bond data, credit
+ratings, analyst forecasts, operations, labor, competition and geopolitics. It never uses the official
+filings: the filing systems (Maya, Magna) and the filings provider are on the block-list in
+`data/osint_blocklist.yaml`, which is sent with every search and checked again on every result, and the
+code never reads stored reports or financials. Everything else is open, including the company's
+investor-relations site.
+
+It works for any tracked company with nothing configured per company, and it is specialised in the
+Israeli market: every agent gets `prompts/osint/israel_market.md` (Israeli press, TASE data, S&P Maalot
+and Midroog, local analysts and regulators, controlling shareholders, the shekel, security risk, and a
+guide to the indicators that matter in each sector). An orchestrating agent (OpenAI Agents SDK,
+`MODEL_OSINT` on OpenRouter) first profiles the company (industry, controller, competitors, regulator),
+then sends six specialist agents to search the web with that profile; each search is one OpenRouter call on `MODEL_CHEAP` with the web plugin on the Exa engine.
+A finding is kept only if it cites a URL that a search in the same run returned and was published inside
+the window, which by default covers the present and the past three years (`--months`). The output is a
+label per area and overall (stable / watch / fragile, or insufficient data
+for an area without findings), up to three risks and strengths, and a Hebrew summary, every claim tied to
+its numbered sources.
+
+```bash
+uv run --env-file ../.env stock-analyzer osint ELAL              # text scorecard with sources
+uv run --env-file ../.env stock-analyzer osint ELAL --json       # full result
+LLM_FAKE=true uv run --env-file ../.env stock-analyzer osint ELAL  # offline demo, scripted agents and search
+```
+
+The ticker must be tracked in the store you point at (ELAL is tracked in the hosted store; on a local file
+store add it first with `companies add`).
+
+Cost: up to `OSINT_MAX_SEARCHES` searches per run (default 40, about $0.007 each for Exa) plus the agents'
+tokens; the run prints the searches used and the total cost OpenRouter reported. Every live run searches
+the web afresh, so each run costs credit. The latest result per ticker and window is stored (in the `llm`
+cache under `osint:` keys) and is printed instead when live calls are off: `--mode cached`, or
+`ALLOW_LIVE=false`. Fake-mode results are stored under separate keys and never served as real ones. Usage records go to the LLM
+usage log with purposes `osint-search` and `osint-agent:<agent>`.
 
 ### Tracked companies
 

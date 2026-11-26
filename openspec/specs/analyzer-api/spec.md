@@ -167,3 +167,26 @@ The API SHALL return a company's ratio series, grouped, for an optional `as_of` 
 #### Scenario: Unsupported template
 - **WHEN** ratios are requested for a company whose template has no canonical fields
 - **THEN** a 422 is returned with code `template_not_supported`, naming the template
+
+### Requirement: OSINT endpoints
+The API SHALL expose a company's OSINT stability research at `/api/companies/{ticker}/osint`, with an optional
+`months` window (1 to 120, default the configured research window). `GET` SHALL return the latest stored result
+for the ticker and window and SHALL never search the web or call an LLM, in any mode. `POST` SHALL run the
+research afresh through the same server function as the research CLI command, store it and return it, and SHALL
+only run in live mode. A run with no verified finding SHALL fail with 422 and code `osint_no_findings`.
+
+#### Scenario: Stored result
+- **WHEN** ELAL has been researched with a 36-month window and the client requests its OSINT result in cached mode
+- **THEN** the stored scorecard, findings and run statistics are returned, marked as stored, and no search or LLM call is made
+
+#### Scenario: Never researched
+- **WHEN** the OSINT result of a tracked company that was never researched for the window is requested
+- **THEN** a 409 is returned with code `not_cached`
+
+#### Scenario: Run refused outside live mode
+- **WHEN** a research run is requested in cached mode, or on a server with live calls disabled
+- **THEN** a 403 is returned with code `live_required` or `live_disabled`, and no search or LLM call is made
+
+#### Scenario: Run in live mode
+- **WHEN** a research run for ELAL is requested in live mode
+- **THEN** the research runs, its result replaces the stored one for that window and is returned

@@ -97,6 +97,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/companies/{ticker}/osint": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Latest stored OSINT stability scorecard
+         * @description Returns the latest stored research result for the ticker and window. Never searches the web or calls an LLM, in any mode. Fails with 409 `not_cached` when the company has not been researched yet.
+         */
+        get: operations["get_research_api_companies__ticker__osint_get"];
+        put?: never;
+        /**
+         * Run OSINT stability research (live mode only)
+         * @description Researches the company afresh from open sources (never its official filings), stores the result as the latest one and returns it. Spends LLM and web-search credit and takes minutes. Refused in cached mode (`live_required`) and on a cached-only server (`live_disabled`). A run whose findings all fail verification fails with 422 `osint_no_findings`.
+         */
+        post: operations["run_research_api_companies__ticker__osint_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/companies/{ticker}/ratios": {
         parameters: {
             query?: never;
@@ -250,6 +274,26 @@ export interface components {
              * @description 1-15 Latin letters, digits, dots or hyphens; stored upper-case
              */
             ticker: string;
+        };
+        /** AreaAssessment */
+        AreaAssessment: {
+            /**
+             * Area
+             * @enum {string}
+             */
+            area: "news" | "market" | "credit" | "operations" | "labor_government" | "competition_macro";
+            /**
+             * Assessment
+             * @description Hebrew, two or three sentences.
+             */
+            assessment: string;
+            /** Finding Ids */
+            finding_ids: string[];
+            /**
+             * Label
+             * @enum {string}
+             */
+            label: "stable" | "watch" | "fragile" | "insufficient_data";
         };
         /** CheckOut */
         CheckOut: {
@@ -471,6 +515,49 @@ export interface components {
             /** Version */
             version: string;
         };
+        /** KeptFinding */
+        KeptFinding: {
+            /**
+             * Area
+             * @enum {string}
+             */
+            area: "news" | "market" | "credit" | "operations" | "labor_government" | "competition_macro";
+            /**
+             * Claim
+             * @description One factual statement, in English or Hebrew.
+             */
+            claim: string;
+            /**
+             * Confidence
+             * @enum {string}
+             */
+            confidence: "high" | "medium" | "low";
+            /**
+             * Derived From Filing
+             * @description True when the source only restates figures from the company's official reports.
+             */
+            derived_from_filing: boolean;
+            /** Id */
+            id: string;
+            /**
+             * Published At
+             * @description Publish date of the source, YYYY-MM-DD, or null if unknown.
+             */
+            published_at: string | null;
+            /**
+             * Signal
+             * @description What the fact says about the company's stability.
+             * @enum {string}
+             */
+            signal: "positive" | "negative" | "neutral";
+            /** Source Title */
+            source_title: string;
+            /**
+             * Source Url
+             * @description Exact URL of a web_search result that supports the claim.
+             */
+            source_url: string;
+        };
         /** NodeOut */
         NodeOut: {
             /** Chapter */
@@ -604,6 +691,16 @@ export interface components {
             /** Output Tokens */
             output_tokens: number;
         };
+        /** Point */
+        Point: {
+            /** Finding Ids */
+            finding_ids: string[];
+            /**
+             * Text
+             * @description Hebrew, one sentence.
+             */
+            text: string;
+        };
         /** RatioGroupOut */
         RatioGroupOut: {
             /** Group */
@@ -704,6 +801,75 @@ export interface components {
             ticker: string;
             /** Years */
             years: number[];
+        };
+        /** ResearchResult */
+        ResearchResult: {
+            /** Company Name */
+            company_name: string;
+            /** Cost Usd */
+            cost_usd: number | null;
+            /** Dropped */
+            dropped: {
+                [key: string]: number;
+            };
+            /** Findings */
+            findings: components["schemas"]["KeptFinding"][];
+            /**
+             * From Cache
+             * @default false
+             */
+            from_cache: boolean;
+            /** Model */
+            model: string;
+            /**
+             * Run Date
+             * Format: date
+             */
+            run_date: string;
+            scorecard: components["schemas"]["Scorecard"];
+            /** Search Limit */
+            search_limit: number;
+            /** Searches Used */
+            searches_used: number;
+            /** Ticker */
+            ticker: string;
+            /** Window Months */
+            window_months: number;
+            /**
+             * Window Start
+             * Format: date
+             */
+            window_start: string;
+        };
+        /** Scorecard */
+        Scorecard: {
+            /** Areas */
+            areas: components["schemas"]["AreaAssessment"][];
+            /**
+             * Overall Label
+             * @enum {string}
+             */
+            overall_label: "stable" | "watch" | "fragile";
+            /**
+             * Overall Rationale
+             * @description Hebrew, two or three sentences.
+             */
+            overall_rationale: string;
+            /**
+             * Risks
+             * @description Top three risks, most important first.
+             */
+            risks: components["schemas"]["Point"][];
+            /**
+             * Strengths
+             * @description Top three strengths, most important first.
+             */
+            strengths: components["schemas"]["Point"][];
+            /**
+             * Summary He
+             * @description Hebrew summary of the company's stability, one paragraph.
+             */
+            summary_he: string;
         };
         /** StorageHealth */
         StorageHealth: {
@@ -1012,6 +1178,78 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["FinancialsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_research_api_companies__ticker__osint_get: {
+        parameters: {
+            query?: {
+                /** @description Research window in months. Defaults to the server's OSINT_WINDOW_MONTHS (36). */
+                months?: number | null;
+                /** @description cached: local data only, no provider calls. live: fetch what is missing (if the server allows). */
+                mode?: "cached" | "live";
+            };
+            header?: never;
+            path: {
+                ticker: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResearchResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    run_research_api_companies__ticker__osint_post: {
+        parameters: {
+            query?: {
+                /** @description Research window in months. Defaults to the server's OSINT_WINDOW_MONTHS (36). */
+                months?: number | null;
+                /** @description cached: local data only, no provider calls. live: fetch what is missing (if the server allows). */
+                mode?: "cached" | "live";
+            };
+            header?: never;
+            path: {
+                ticker: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResearchResult"];
                 };
             };
             /** @description Validation Error */

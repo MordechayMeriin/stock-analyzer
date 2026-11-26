@@ -167,3 +167,23 @@ The ratios view SHALL offer the same "available by date" control as the financia
 #### Scenario: As-of date
 - **WHEN** the user sets an availability date before Malam's FY2025 values were available
 - **THEN** the charts have no FY2025 point
+
+### Requirement: OSINT stability view
+The client SHALL offer, from the company page, a view of the company's OSINT stability scorecard: the overall
+label with its rationale and Hebrew summary, the top risks and strengths, a label and assessment per research
+area, and the kept findings grouped by area with their source links, publish dates, confidence and a mark on
+filing-derived findings. Every risk, strength and area SHALL link to the findings it cites. The view SHALL show
+the run date, window, model, search usage, dropped-finding counts and cost, and SHALL let the user choose the
+research window.
+
+#### Scenario: Stored scorecard
+- **WHEN** the user opens the OSINT view of ELAL, which has a stored result
+- **THEN** the scorecard and its findings are shown, marked as a stored result
+
+#### Scenario: Never researched
+- **WHEN** the user opens the OSINT view of a company with no stored result for the window
+- **THEN** the view says the company has not been researched and that a run costs money and takes minutes
+
+#### Scenario: Run only in live mode
+- **WHEN** the client is in cached mode or the server is cached-only
+- **THEN** the run button is disabled with an explanation; in live mode it runs the research and shows progress until the new scorecard arrives

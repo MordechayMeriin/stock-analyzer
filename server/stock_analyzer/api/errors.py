@@ -33,6 +33,7 @@ STATUS_BY_CODE: dict[str, int] = {
     "currency_mismatch": 422,
     "template_not_supported": 422,
     "parse_error": 422,
+    "osint_no_findings": 422,
     "upstream_error": 502,
     "upstream_not_found": 502,
     "upstream_truncated": 502,
