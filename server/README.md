@@ -50,10 +50,21 @@ in `.env` (gitignored) or the host's secret settings, never in the repo.
 uv run stock-analyzer fetch MLTM 2024 2025        # live: selected annual reports + financials
 uv run stock-analyzer structure MLTM 2025          # cached: structure tree + coverage summary
 uv run stock-analyzer fin-raw MLTM                 # cached: financial values by statement/year
+uv run stock-analyzer ratios MLTM [--as-of 2026-03-01]  # cached: ratios by group/year (* = low confidence)
 uv run stock-analyzer usage                        # provider credits + LLM spend
 ```
 
 `--mode cached` (default for reading commands) never calls the provider; `fetch` is always live.
+Always let `fetch` save the financials (never pass `--no-financials`): ratios are computed from them.
+
+### Ratios
+
+`ratios` (and `GET /api/companies/{ticker}/ratios`) standardizes the cached financials into a canonical
+sheet chosen by the provider's statement template (`industrial`, `bank`, `insurer`), runs
+accounting-identity checks on it, and computes the template's ratios for the newest five consecutive
+fiscal years (`fin/canonical.py`, `fin/checks.py`, `fin/ratios.py`). Each value is exact, or missing with a
+reason; a value is low confidence (`*`) when an input failed a check or was derived from other fields.
+Nothing is fetched or stored: ratios are recomputed from the cached financials on every call.
 
 ### Tracked companies
 
@@ -83,7 +94,9 @@ uv run uvicorn stock_analyzer.api.main:app --port 8000
 - Data routes take `?mode=cached|live`. With `ALLOW_LIVE=false` live requests get `403 live_disabled`.
 - Errors are always `{"code": "...", "message": "..."}`; e.g. `404 company_not_found`, `409 not_cached`,
   `409 report_not_processed` (the provider has no Markdown for the selected filing yet, or could not
-  convert it; see `docs/fr_api.md`).
+  convert it; see `docs/fr_api.md`), `422 template_not_supported` (ratios requested for a statement
+  template with no canonical fields, or for financials cached before the provider sent a template:
+  refetch them).
 - `GET /api/companies/{ticker}/filings` gives each year's `markdown_availability` (`available`,
   `unknown`, `processing`, `failed`) and each filing's raw `processing_status`. In live mode a cached
   filing list older than a day is fetched again (about 1 credit) when a year's selected report is
@@ -92,7 +105,7 @@ uv run uvicorn stock_analyzer.api.main:app --port 8000
   It calls the LLM only in live mode, or with `LLM_FAKE=true` (offline fake, no key, no cost).
 
 Main endpoints: `GET /api/companies`, `/api/companies/search?q=`, `/api/companies/{ticker}/filings`,
-`/api/companies/{ticker}/financials`, `/api/companies/{ticker}/reports/{fy}/structure`,
+`/api/companies/{ticker}/financials`, `/api/companies/{ticker}/ratios`, `/api/companies/{ticker}/reports/{fy}/structure`,
 `/api/companies/{ticker}/reports/{fy}/nodes/{node_id}`, `/api/companies/{ticker}/reports/{fy}/pages/{page}`,
 `GET /api/usage`.
 

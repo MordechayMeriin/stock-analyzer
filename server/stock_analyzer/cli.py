@@ -1,6 +1,6 @@
 """Command-line interface (typer). Thin adapter over ``services`` (design D4).
 
-Commands: fetch, usage, structure, parse-check, fin-raw, companies list|add|remove, db init.
+Commands: fetch, usage, structure, parse-check, fin-raw, ratios, companies list|add|remove, db init.
 """
 
 from __future__ import annotations
@@ -327,6 +327,63 @@ def fin_raw(
         for it in st.items:
             label = ("  " * it.depth + it.label)[: width - 1]
             typer.echo(f"{label:{width}}" + "".join(f"{_fmt_decimal(it.values.get(y)):>18}" for y in years))
+
+
+def _fmt_ratio(raw: str | None, unit: str) -> str:
+    if raw is None:
+        return "—"
+    from decimal import Decimal
+
+    d = Decimal(raw)
+    if unit == "percent":
+        return f"{d * 100:.2f}%"
+    if unit == "amount":
+        return f"{d:,.0f}"
+    return f"{d:.2f}"
+
+
+@app.command("ratios")
+def ratios_cmd(
+    ticker: str,
+    mode: ModeOpt = "cached",
+    as_of: Annotated[
+        str | None, typer.Option("--as-of", help="Only values available by this date (YYYY-MM-DD)")
+    ] = None,
+) -> None:
+    """Print a company's financial ratios by group and fiscal year (* = low confidence)."""
+    from datetime import date
+
+    from stock_analyzer.services import ratios as ratio_service
+
+    try:
+        cutoff = date.fromisoformat(as_of) if as_of else None
+        out = ratio_service.ratios(_ctx(mode), ticker, as_of=cutoff)
+    except (AnalyzerError, MissingCredential, ValueError) as exc:
+        _fail(exc)
+        return
+    years = [str(y) for y in out.years]
+    width = max((len(r.name_he) for g in out.groups for r in g.ratios), default=10) + 2
+    typer.echo(
+        f"{out.ticker} — template {out.template}, currency {out.currency}"
+        + (f", as of {out.as_of}" if out.as_of else "")
+    )
+    for group in out.groups:
+        typer.echo("")
+        typer.echo(f"{group.label} ({group.group})")
+        typer.echo(f"{'':{width}}" + "".join(f"{('FY' + y):>16}" for y in years))
+        for r in group.ratios:
+            cells = []
+            for y in years:
+                v = r.values[y]
+                mark = "*" if v.value is not None and v.confidence == "low" else " "
+                cells.append(f"{_fmt_ratio(v.value, r.unit) + mark:>16}")
+            typer.echo(f"{r.name_he:{width}}" + "".join(cells))
+    failed = {y: [c.id for c in out.checks[y] if c.status == "failed"] for y in years}
+    typer.echo("")
+    typer.echo(
+        "* low confidence. Failed checks: "
+        + ("; ".join(f"FY{y} {', '.join(ids)}" for y, ids in failed.items() if ids) or "none")
+    )
 
 
 def main() -> None:  # pragma: no cover

@@ -24,6 +24,13 @@
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
   --ring: oklch(0.708 0 0);
+  /* charts (dataviz reference palette): series slot 1, hairline grid, reserved status colors */
+  --chart-series: #257de0;
+  --chart-grid: #e7e7e7;
+  --chart-surface: #ffffff;
+  --status-good: #0aac23;
+  --status-warning: #fbb315;
+  --status-critical: #dc3c3d;
 }
 
 .dark {
@@ -45,6 +52,12 @@
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.556 0 0);
+  --chart-series: #338ced;
+  --chart-grid: #303030;
+  --chart-surface: oklch(0.205 0 0);
+  --status-good: #0aac23;
+  --status-warning: #fbb315;
+  --status-critical: #dc3c3d;
 }
 
 @theme inline {

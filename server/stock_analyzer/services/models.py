@@ -191,3 +191,58 @@ class FinancialsOut(BaseModel):
     as_of: str | None
     statements: list[FinStatementOut]
     available_at: dict[str, str | None]  # fiscal year → earliest availability timestamp
+
+
+# -- ratios (financial-ratios spec) — every number is an exact decimal string, never a JSON float
+
+
+class RatioValueOut(BaseModel):
+    value: str | None  # fraction for percent units (0.104706 = 10.47%); None = missing
+    missing_reason: str | None = (
+        None  # missing_input:<fields> | missing_prior_input:<field> | zero_denominator | …
+    )
+    missing_message_he: str | None = None
+    confidence: Literal["high", "low"] = "high"
+    failed_checks: list[str] = []  # check ids; "<id>:<fy>" when the check failed in another year
+    derived_inputs: list[str] = []  # "<field>:<fy>"
+    avg_used: bool = False
+    inputs: dict[str, str] = {}  # field (closing) | "opening:<field>" | "prior:<field>" → value
+    delta: str | None = None  # change from the year before, in the ratio's unit (relative for amounts)
+    status: Literal["improved", "deteriorated", "changed", "stable", "na"] = "na"
+    notes: list[str] = []  # e.g. non_annual_source
+
+
+class RatioSeriesOut(BaseModel):
+    code: str
+    name_he: str
+    unit: Literal["percent", "ratio", "amount", "days"]
+    direction: Literal["higher", "lower", "neutral"]
+    threshold: str
+    values: dict[str, RatioValueOut]  # fiscal year → value, for every year in RatiosOut.years
+
+
+class RatioGroupOut(BaseModel):
+    group: str
+    label: str
+    ratios: list[RatioSeriesOut]
+
+
+class CheckOut(BaseModel):
+    id: str
+    label_he: str
+    status: Literal["passed", "failed", "not_applicable"]
+    cells: list[str]
+    left: str | None = None
+    right: str | None = None
+    difference: str | None = None
+    reason: str | None = None
+
+
+class RatiosOut(BaseModel):
+    ticker: str
+    template: str
+    currency: str | None
+    years: list[int]  # newest first; up to fin_max_years contiguous years ending at the latest
+    as_of: str | None
+    groups: list[RatioGroupOut]
+    checks: dict[str, list[CheckOut]]  # fiscal year → data-quality check results

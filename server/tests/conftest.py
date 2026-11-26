@@ -211,3 +211,27 @@ def seed_malam(settings) -> None:
     )
     row = next(r for r in filings["results"] if r["id"] == 32935334)
     save_report(settings, "MLTM", 2025, Filing.model_validate(row), fixture_text("mltm_2025_style_b.md"))
+
+
+def seed_financials(settings, ticker: str, fr_company_id: int, fixture: str, name_he: str) -> None:
+    """Track a company (runtime-added) and cache its financials fixture, as if fetched live."""
+    import json as _json
+
+    from stock_analyzer.companies import TrackedCompany
+    from stock_analyzer.store import get_store
+
+    store = get_store(settings)
+    store.add_tracked(TrackedCompany(ticker=ticker, fr_company_id=fr_company_id, name_he=name_he))
+    store.close()
+    seed_fr_cache(
+        settings,
+        f"/companies/{fr_company_id}/financials/",
+        {"fiscal_period": "FY"},
+        _json.loads((FIXTURES / fixture).read_text()),
+    )
+
+
+def seed_bank_and_insurer(settings) -> None:
+    """Cached financials for Leumi (template bank) and Harel (template insurer)."""
+    seed_financials(settings, "LUMI", 6889, "lumi_financials.json", "בנק לאומי")
+    seed_financials(settings, "HARL", 6832, "harl_financials.json", "הראל השקעות")

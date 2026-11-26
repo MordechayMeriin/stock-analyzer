@@ -5,7 +5,13 @@ from decimal import Decimal
 import pytest
 
 from stock_analyzer.errors import CurrencyMismatch, ParseError
-from stock_analyzer.fin.normalize import as_of, decimal_str, normalize_financials, normalize_item
+from stock_analyzer.fin.normalize import (
+    as_of,
+    decimal_str,
+    financials_template,
+    normalize_financials,
+    normalize_item,
+)
 from tests.conftest import FIXTURES
 
 
@@ -147,3 +153,20 @@ def test_decimal_str_canonical():
     assert decimal_str(Decimal("-109210000.00")) == "-109210000"
     assert decimal_str(Decimal("1E+9")) == "1000000000"
     assert decimal_str(Decimal("0.0001")) == "0.0001"
+
+
+# -- template (financial-data spec: Company template)
+
+
+def test_bank_template():
+    data = json.loads((FIXTURES / "lumi_financials.json").read_text())
+    assert financials_template(data) == "bank"
+    assert financials_template(json.loads((FIXTURES / "harl_financials.json").read_text())) == "insurer"
+    assert financials_template(json.loads((FIXTURES / "mltm_financials.json").read_text())) == "industrial"
+
+
+def test_template_missing_leaves_values_unaffected(malam):
+    data = json.loads((FIXTURES / "mltm_financials.json").read_text())
+    del data["template"]
+    assert financials_template(data) is None
+    assert normalize_financials(data) == malam

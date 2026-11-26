@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { FileText, MessageSquare, Table2 } from 'lucide-react'
+import { ChartLine, FileText, MessageSquare, Table2 } from 'lucide-react'
 import { Link, useParams } from 'react-router-dom'
 
 import { api, type FiscalYearFilings } from '@/api/client'
@@ -113,11 +113,18 @@ export function CompanyPage() {
           <h1 id="filings-title" className="text-xl font-semibold">
             דוחות שנתיים
           </h1>
-          <Button asChild variant="outline" size="sm">
-            <Link to={`/${ticker}/financials`}>
-              <Table2 aria-hidden /> נתונים כספיים
-            </Link>
-          </Button>
+          <div className="flex gap-2">
+            <Button asChild variant="outline" size="sm">
+              <Link to={`/${ticker}/financials`}>
+                <Table2 aria-hidden /> נתונים כספיים
+              </Link>
+            </Button>
+            <Button asChild variant="outline" size="sm">
+              <Link to={`/${ticker}/ratios`} data-testid="ratios-link">
+                <ChartLine aria-hidden /> יחסים פיננסיים
+              </Link>
+            </Button>
+          </div>
         </div>
         <QueryView query={filings} isEmpty={(d) => d.years.length === 0} loadingLabel="טוען דוחות…">
           {(data) => (
