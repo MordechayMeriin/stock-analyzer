@@ -3,12 +3,16 @@ import { useQuery } from '@tanstack/react-query'
 import { ApiError, type Mode } from '@/api/client'
 import { useMode } from '@/app/mode'
 
+import axisDetails from './fixtures/mltm.axis-details.json'
 import fullFixture from './fixtures/mltm.full.json'
-import type { CompanyReport } from './types'
+import sparseFixture from './fixtures/mltm.sparse.json'
+import type { AxisDetail, CompanyReport } from './types'
 
 /** Reports served until the server endpoint exists, keyed by ticker. */
 const FIXTURES: Record<string, CompanyReport> = {
   MLTM: fullFixture as CompanyReport,
+  // Dev ticker for the edge-case fixture (missing axis data, stale report, no events).
+  SPARSE: sparseFixture as CompanyReport,
 }
 
 const FIXTURE_DELAY_MS = 300
@@ -50,6 +54,36 @@ export function useReport(ticker: string) {
     queryKey: reportQueryKey(ticker, mode),
     queryFn: ({ signal }) => fetchReport(ticker, mode, signal),
     staleTime: 5 * 60_000,
+    retry: (count, error) => !(error instanceof ApiError && error.status === 404) && count < 2,
+  })
+}
+
+/** Axis breakdowns served from fixtures, keyed `axisId:year`. */
+const AXIS_DETAILS = axisDetails as Record<string, AxisDetail>
+
+/**
+ * The one place an axis breakdown is loaded (`GET .../report/axes/{axisId}?year=`). Serves
+ * fixtures for now; swap the body for the real call and leave every caller as it is.
+ */
+export async function fetchAxisDetail(
+  ticker: string,
+  axisId: string,
+  year: number,
+  signal?: AbortSignal,
+): Promise<AxisDetail> {
+  await wait(FIXTURE_DELAY_MS, signal)
+  const detail = ticker.toUpperCase() === 'MLTM' ? AXIS_DETAILS[`${axisId}:${year}`] : undefined
+  if (!detail) throw new ApiError('not_found', 'הפירוט אינו זמין לשנה זו', 404)
+  return detail
+}
+
+/** One axis's breakdown for one year. Loads only when `enabled` (the row is open), then is cached. */
+export function useAxisDetail(ticker: string, axisId: string, year: number, enabled: boolean) {
+  return useQuery({
+    queryKey: ['axis-detail', ticker.toUpperCase(), axisId, year] as const,
+    queryFn: ({ signal }) => fetchAxisDetail(ticker, axisId, year, signal),
+    enabled,
+    staleTime: Infinity,
     retry: (count, error) => !(error instanceof ApiError && error.status === 404) && count < 2,
   })
 }

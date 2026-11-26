@@ -99,6 +99,18 @@
         { "fiscal_year": 2025, "value": "1100000000" }
       ],
       "change": null
+    },
+    {
+      "id": "free_cash_flow",
+      "label": "תזרים חופשי",
+      "format": "currency",
+      "currency": "ILS",
+      "series": [
+        { "fiscal_year": 2023, "value": "210000000" },
+        { "fiscal_year": 2024, "value": "215000000" },
+        { "fiscal_year": 2025, "value": null }
+      ],
+      "change": null
     }
   ],
   "warnings": [{ "code": "stale_report", "message": "הדוח האחרון שנמצא הוא לשנת 2025." }]
