@@ -8,7 +8,10 @@ dependencies = [
     # and gradio, replaced by the React client per design D2)
     "httpx>=0.27",
     "pydantic>=2.7",
-    "openai>=1.40,<3",  # 3.x moved to an httpx fork that respx cannot mock
+    # openai 3 is required by the OpenAI Agents SDK (openai-agents >=0.21). It sends requests
+    # through the httpx2 fork, which respx cannot mock, so LLM tests inject a client instead.
+    "openai>=3,<4",
+    "openai-agents==0.26.0",  # pinned: agent model wrapper depends on the SDK's Model interface
     "rapidfuzz>=3.9",
     "scipy>=1.13",
     "numpy>=1.26",
@@ -21,7 +24,6 @@ dependencies = [
     "fastapi>=0.111",
     "uvicorn[standard]>=0.30",
     "sse-starlette>=2.1",
-    "openai-agents==0.20.0",
 ]
 
 [project.scripts]

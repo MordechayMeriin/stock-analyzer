@@ -134,6 +134,9 @@ REFERENCE_REPORTS: list[tuple[str, int]] = [
 
 _live_store = None
 
+# Malam annual reports by fiscal year: the selected filing ids (report-diff and story tests).
+LIVE_FILINGS = {2023: 63741686, 2024: 63741657, 2025: 32935334}
+
 
 def _get_live_store():
     global _live_store
@@ -216,6 +219,15 @@ def seed_malam(settings) -> None:
     save_report(settings, "MLTM", 2025, Filing.model_validate(row), fixture_text("mltm_2025_style_b.md"))
 
 
+def seed_business_slices(settings) -> None:
+    """Cached Malam FY2023-FY2025 reports made of the three-year business slices (report-diff tests)."""
+    from stock_analyzer.ingest.fr_client import Filing, save_report
+
+    for fy, filing_id in LIVE_FILINGS.items():
+        filing = Filing(id=filing_id, title=f"Periodic and annual report for {fy}", fiscal_year=fy)
+        save_report(settings, "MLTM", fy, filing, fixture_text(f"mltm_{fy}_business_slice.md"))
+
+
 def seed_financials(settings, ticker: str, fr_company_id: int, fixture: str, name_he: str) -> None:
     """Track a company (runtime-added) and cache its financials fixture, as if fetched live."""
     import json as _json
@@ -238,3 +250,31 @@ def seed_bank_and_insurer(settings) -> None:
     """Cached financials for Leumi (template bank) and Harel (template insurer)."""
     seed_financials(settings, "LUMI", 6889, "lumi_financials.json", "בנק לאומי")
     seed_financials(settings, "HARL", 6832, "harl_financials.json", "הראל השקעות")
+
+
+def malam_analysis(*, cutoff=None):
+    """A ratios analysis of the Malam financials fixture, built without a store (story facts tests)."""
+    import json
+
+    from stock_analyzer.fin.canonical import build_sheet
+    from stock_analyzer.fin.checks import run_checks
+    from stock_analyzer.fin.normalize import as_of, check_currency, financials_template, normalize_financials
+    from stock_analyzer.fin.ratios import compute
+    from stock_analyzer.services.ratios import Analysis
+
+    data = json.loads((FIXTURES / "mltm_financials.json").read_text(encoding="utf-8"))
+    values = normalize_financials(data)
+    if cutoff is not None:
+        values = as_of(values, cutoff)
+    sheet = build_sheet(values, financials_template(data))
+    checks = run_checks(sheet)
+    return Analysis(
+        ticker="MLTM",
+        template=sheet.template,
+        currency=check_currency(values),
+        as_of=cutoff,
+        years=sorted(sheet.years, reverse=True),
+        sheet=sheet,
+        checks=checks,
+        series=compute(sheet, checks),
+    )

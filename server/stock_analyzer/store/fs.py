@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import threading
 from collections.abc import Iterator, Mapping
 from pathlib import Path
@@ -22,7 +23,14 @@ import diskcache
 from stock_analyzer.companies import TrackedCompany, find_duplicate
 from stock_analyzer.config import Settings
 from stock_analyzer.errors import CompanyAlreadyTracked
-from stock_analyzer.store.base import Namespace, ReportMeta, Source, fr_totals, llm_totals
+from stock_analyzer.store.base import (
+    Namespace,
+    ReportMeta,
+    Source,
+    fr_totals,
+    llm_totals,
+    story_run_summary,
+)
 
 _LOCKS: dict[Path, threading.Lock] = {}
 _LOCKS_GUARD = threading.Lock()
@@ -148,6 +156,33 @@ class FsStore:
         path = self.settings.raw_dir / ticker.upper() / name
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(data, ensure_ascii=False, indent=1), encoding="utf-8")
+
+    # -- story runs
+
+    def _stories_dir(self, ticker: str) -> Path:
+        return self.settings.data_dir / "stories" / ticker.upper()
+
+    def save_story_run(self, ticker: str, run: Mapping[str, Any]) -> None:
+        directory = self._stories_dir(ticker)
+        directory.mkdir(parents=True, exist_ok=True)
+        stamp = re.sub(r"[^0-9A-Za-z]", "", str(run["created_at"]))  # sortable, valid on Windows
+        path = directory / f"{stamp}_{run['run_id']}.json"
+        tmp = path.with_suffix(".json.tmp")
+        tmp.write_text(json.dumps(run, ensure_ascii=False), encoding="utf-8")
+        tmp.replace(path)
+
+    def _story_files(self, ticker: str) -> list[Path]:
+        directory = self._stories_dir(ticker)
+        return sorted(directory.glob("*.json"), reverse=True) if directory.exists() else []
+
+    def latest_story_run(self, ticker: str) -> dict[str, Any] | None:
+        files = self._story_files(ticker)
+        return json.loads(files[0].read_text(encoding="utf-8")) if files else None
+
+    def list_story_runs(self, ticker: str) -> list[dict[str, Any]]:
+        return [
+            story_run_summary(json.loads(f.read_text(encoding="utf-8"))) for f in self._story_files(ticker)
+        ]
 
     # -- logs
 

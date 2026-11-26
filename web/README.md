@@ -53,8 +53,33 @@ After the server's API changes: in `server/`, run `uv run python scripts/export_
 src/api/        generated schema.d.ts, typed client, SSE helper, base-URL config
 src/app/        cached/live mode context (driven by /health)
 src/components/ shell, mode control, usage panel, structure tree, paragraphs, shared states, ui/
-src/features/   browser, reader, financials, playground
+src/features/   browser, reader, financials, playground, story
 e2e/            ui-check.cjs: browser checks against a running stack (Playwright)
 ```
 
-Routes: `/`, `/:ticker`, `/:ticker/financials`, `/:ticker/:fy/report/:nodeId?`, `/:ticker/:fy/playground`.
+Routes: `/`, `/:ticker`, `/:ticker/financials`, `/:ticker/story`, `/:ticker/:fy/report/:nodeId?`,
+`/:ticker/:fy/playground`.
+
+## Company story page
+
+`/:ticker/story` shows the latest saved story (`GET /api/companies/{ticker}/story`): the covered fiscal
+years and `as_of`, what the company does, what changed, and the story-versus-numbers findings with their
+label in words. Numbers are rendered by the server; hovering or focusing one shows its provenance (exact
+value, inputs or operation, quote, source filing, confidence and failed data checks), and low-confidence
+numbers carry a mark. Each citation links to its PDF page and to the section in the report reader. In live
+mode the side panel starts a new run (`POST`, server-sent `progress` events, then the saved run); in
+cached mode it explains why it is disabled.
+
+## Browser checks
+
+`e2e/ui-check.cjs` drives a running stack with Playwright: the API on :8000 (cached-only) and :8001 (live
+allowed) with cached Malam data and a saved Malam story, and the dev server on :5173.
+
+```bash
+SHOTS=/tmp/shots node e2e/ui-check.cjs                  # everything
+ONLY=story WEB_URL=http://localhost:5183 API_URL=http://localhost:8010 node e2e/ui-check.cjs
+```
+
+`ONLY=story` needs only the cached API and the dev server: the live-generation check patches `/health`
+and answers the story `POST` with a canned event stream, so it makes no LLM call. `WEB_URL`, `API_URL`
+and `LIVE_API_URL` override the default addresses.

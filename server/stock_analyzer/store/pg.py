@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import re
 import threading
+import time
 from collections.abc import Callable, Iterator, Mapping
 from contextlib import contextmanager
 from importlib import resources
@@ -42,6 +43,16 @@ def schema_sql(schema: str = DEFAULT_SCHEMA) -> str:
     return text
 
 
+CONNECT_RETRY_DELAYS: tuple[float, ...] = (0.5, 1.5)  # seconds before the 2nd and 3rd attempt
+_FULL = ("max clients", "too many clients", "remaining connection slots", "emaxconn")
+
+
+def _is_full(exc: Exception) -> bool:
+    """The server (or pooler) is up but has no free client slot."""
+    message = str(exc).lower()
+    return any(marker in message for marker in _FULL)
+
+
 class _Pool:
     def __init__(self, url: str, *, max_size: int, connect_timeout: int, wait_timeout: float):
         self._url = url
@@ -52,9 +63,21 @@ class _Pool:
         self._slots = threading.BoundedSemaphore(max_size)
 
     def _connect(self) -> psycopg.Connection:
-        return psycopg.connect(
-            self._url, autocommit=True, prepare_threshold=None, connect_timeout=self._connect_timeout
-        )
+        """A new connection. "Server full" refusals are retried with a short backoff: Supabase's
+        session pooler allows 15 clients across every server and CLI run, so parallel agents can
+        hit "max clients reached" (EMAXCONNSESSION). Nothing has run yet, so retrying is safe.
+        Any other failure (an unreachable host, bad credentials) is raised at once."""
+        for delay in (*CONNECT_RETRY_DELAYS, None):
+            try:
+                return psycopg.connect(
+                    self._url, autocommit=True, prepare_threshold=None, connect_timeout=self._connect_timeout
+                )
+            except psycopg.OperationalError as exc:
+                # retry only a server that answered "full"; an unreachable one must fail fast
+                if delay is None or not _is_full(exc):
+                    raise
+                time.sleep(delay)
+        raise AssertionError("unreachable")  # pragma: no cover
 
     @contextmanager
     def connection(self) -> Iterator[tuple[psycopg.Connection, bool]]:
@@ -139,6 +162,17 @@ class PgStore:
                 "on conflict (ticker, revisions) do update set data = excluded.data, fetched_at = now()"
             ),
             "log": q("insert into {s}.usage_log (source, record) values (%s, %s)"),
+            "story_save": q(
+                "insert into {s}.story_runs (run_id, ticker, created_at, as_of, payload) "
+                "values (%s, %s, %s, %s, %s) on conflict (run_id) do update set payload = excluded.payload"
+            ),
+            "story_latest": q(
+                "select payload from {s}.story_runs where ticker = %s order by created_at desc, id desc limit 1"
+            ),
+            "story_list": q(
+                "select payload->>'run_id', payload->>'created_at', payload->>'as_of', payload->'years' "
+                "from {s}.story_runs where ticker = %s order by created_at desc, id desc"
+            ),
             "tracked_list": q(
                 "select ticker, fr_company_id, name_he, name_en, isin from {s}.tracked_companies "
                 "order by added_at, ticker"
@@ -239,6 +273,22 @@ class PgStore:
 
     def save_financials(self, ticker: str, revisions: bool, data: Any) -> None:
         self._exec("fin_save", (ticker, revisions, Jsonb(data)))
+
+    # -- story runs
+
+    def save_story_run(self, ticker: str, run: Mapping[str, Any]) -> None:
+        self._exec(
+            "story_save",
+            (run["run_id"], ticker.upper(), run["created_at"], run["as_of"], Jsonb(dict(run), dumps=_dumps)),
+        )
+
+    def latest_story_run(self, ticker: str) -> dict[str, Any] | None:
+        row = self._one("story_latest", (ticker.upper(),))
+        return row[0] if row else None
+
+    def list_story_runs(self, ticker: str) -> list[dict[str, Any]]:
+        rows = self._run(lambda c: c.execute(self._q["story_list"], (ticker.upper(),)).fetchall())
+        return [{"run_id": r[0], "created_at": r[1], "as_of": r[2], "years": r[3]} for r in rows]
 
     # -- logs
 

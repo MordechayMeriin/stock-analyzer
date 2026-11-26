@@ -1,18 +1,117 @@
-// Browser checks for tasks 7.2-7.6 (and tracking companies) against the running dev server + API.
+// Browser checks for tasks 7.2-7.6, tracking companies and the company story page against the running dev server + API.
 const { chromium } = require('playwright')
 // Needs: API on :8000 (ALLOW_LIVE=false, LLM_FAKE=true) and on :8001 (ALLOW_LIVE=true) with cached
-// Malam data, and the dev server on :5173. Run: SHOTS=/tmp/shots node e2e/ui-check.cjs
+// Malam data and a saved Malam story, and the dev server on :5173. Run: SHOTS=/tmp/shots node e2e/ui-check.cjs
+// ONLY=story runs just the story checks, which need only the cached API and the dev server.
+// WEB_URL, API_URL and LIVE_API_URL override the default addresses.
 const SHOTS = process.env.SHOTS || require('node:os').tmpdir()
-const BASE = 'http://localhost:5173'
+const BASE = process.env.WEB_URL || 'http://localhost:5173'
+const API = process.env.API_URL || 'http://localhost:8000'
+const LIVE_API = process.env.LIVE_API_URL || 'http://localhost:8001'
 const results = []
 const check = (name, ok, detail = '') => {
   results.push({ name, ok, detail })
   console.log(`${ok ? 'PASS' : 'FAIL'} ${name}${detail ? ' — ' + detail : ''}`)
 }
 
+/** The company story page: saved story, provenance, citations, live generation (tasks 9.1-9.4). */
+async function storyChecks(browser) {
+  const page = await browser.newPage({ viewport: { width: 1400, height: 1000 } })
+  const errors = []
+  page.on('pageerror', (e) => errors.push(String(e)))
+  page.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
+
+  // 9.1 the saved story on a cached-only server
+  await page.goto(BASE + '/MLTM')
+  await page.click('[data-testid="story-link"]')
+  await page.waitForSelector('[data-testid="story-finding"]')
+  check('9.1 company page links to the story page', page.url().endsWith('/MLTM/story'))
+  const years = await page.locator('[data-testid="story-years"]').innerText()
+  check('9.1 covered years and as_of shown', /FY2023/.test(years) && /FY2025/.test(years) && /\d{4}-\d{2}-\d{2}/.test(years), years)
+  for (const id of ['what-it-does', 'what-changed', 'story-vs-numbers']) {
+    check(`9.1 section ${id} has content`, (await page.locator(`#${id} ~ *`).count()) > 0)
+  }
+  const labels = await page.locator('[data-testid="finding-label"]').allInnerTexts()
+  check('9.1 findings labelled in words', labels.length > 0 && labels.every((l) => ['עקבי', 'מתח', 'לא מוסבר'].includes(l.trim())), labels.join(','))
+  const reason = await page.locator('[data-testid="generate-disabled-reason"]').innerText()
+  check('9.4 generate disabled on a cached-only server, with the reason',
+    (await page.locator('[data-testid="generate-button"]').isDisabled()) && reason.includes('מטמון בלבד'), reason)
+  await page.screenshot({ path: `${SHOTS}/9-story.png`, fullPage: true })
+
+  // 9.2 provenance on keyboard focus, low-confidence mark
+  check('9.2 a low-confidence number is marked', (await page.locator('[data-testid="low-confidence"]').count()) > 0)
+  const lowButton = page.locator('[data-testid="low-confidence"]').first().locator('xpath=ancestor::button[1]')
+  await lowButton.focus()
+  const tipId = await lowButton.getAttribute('aria-describedby')
+  const tip = page.locator(`[id="${tipId}"]`)
+  const tipText = await tip.innerText()
+  check('9.2 focus opens the provenance popover with failed checks',
+    (await tip.isVisible()) && tipText.includes('ערך מדויק') && /ביטחון נמוך[\s\S]*(CF\d|IS\d|BS\d)/.test(tipText), tipText.replace(/\s+/g, ' ').slice(0, 140))
+  await page.screenshot({ path: `${SHOTS}/9-provenance.png` })
+
+  // 9.3 citations: PDF page and reader deep link
+  const pdf = await page.locator('[data-testid="citation-pdf-link"]').first().getAttribute('href')
+  check('9.3 citation links to the PDF page', /#page=\d+$/.test(pdf || ''), pdf)
+  const reader = page.locator('[data-testid="citation-reader-link"]').first()
+  const href = await reader.getAttribute('href')
+  await reader.click()
+  await page.waitForURL(`**${href}`)
+  await page.waitForSelector('main h1')
+  check('9.3 reader link opens the cited year and section', /^\/MLTM\/\d{4}\/report\/.+$/.test(href) && page.url().endsWith(href), href)
+
+  // 9.4 live generation: /health patched to allow live, the POST answered with a canned event stream
+  const saved = await (await page.request.get(`${API}/api/companies/MLTM/story`)).json()
+  const fresh = { ...saved, run_id: 'e2e0000000000000000000000000000', created_at: new Date().toISOString() }
+  const frame = (event, data) => `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`
+  const sse = [
+    frame('progress', { step: 'reports', message: 'reports selected: FY2023, FY2024, FY2025', data: null }),
+    frame('progress', { step: 'agent_start', message: 'describe started', data: null }),
+    frame('progress', { step: 'verify', message: 'verifying the story (attempt 1)', data: null }),
+    frame('done', fresh),
+  ].join('')
+  const ctx = await browser.newContext({ viewport: { width: 1400, height: 1000 } })
+  await ctx.route('**/health', async (route) => {
+    const res = await route.fetch()
+    await route.fulfill({ response: res, json: { ...(await res.json()), allow_live: true } })
+  })
+  let posted = null
+  await ctx.route('**/api/companies/MLTM/story', async (route) => {
+    if (route.request().method() !== 'POST') return route.continue()
+    posted = route.request().postDataJSON()
+    await route.fulfill({ status: 200, contentType: 'text/event-stream', body: sse })
+  })
+  const p2 = await ctx.newPage()
+  await p2.goto(BASE + '/MLTM/story')
+  await p2.waitForSelector('[data-testid="story-finding"]')
+  const cachedReason = await p2.locator('[data-testid="generate-disabled-reason"]').innerText()
+  check('9.4 cached mode on a live-allowed server explains generation needs live mode', cachedReason.includes('מצב חי'), cachedReason)
+  await p2.getByRole('radio', { name: 'חי' }).click()
+  await p2.click('[data-testid="generate-button"]')
+  await p2.waitForFunction(() => document.querySelectorAll('[data-testid="progress-list"] li').length === 3)
+  await p2.waitForFunction(() => !document.querySelector('[data-testid="generate-button"]').disabled)
+  check('9.4 live generation posts live mode, lists progress, then shows the new story',
+    posted?.mode === 'live' && (await p2.locator('[data-testid="story-finding"]').count()) > 0 && (await p2.locator('[role="alert"]').count()) === 0)
+  await p2.screenshot({ path: `${SHOTS}/9-live.png` })
+  await ctx.close()
+
+  check('story: no console errors', errors.length === 0, errors.slice(0, 3).join(' | '))
+  await page.close()
+}
+
+async function finish(browser) {
+  await browser.close()
+  const failed = results.filter((r) => !r.ok)
+  console.log(`\n${results.length - failed.length}/${results.length} checks passed`)
+  process.exit(failed.length ? 1 : 0)
+}
+
 ;(async () => {
   // PW_CHANNEL=msedge (or chrome) uses an installed browser instead of Playwright's own Chromium.
   const browser = await chromium.launch(process.env.PW_CHANNEL ? { channel: process.env.PW_CHANNEL } : {})
+  if (process.env.ONLY === 'story') {
+    await storyChecks(browser)
+    return finish(browser)
+  }
   const page = await browser.newPage({ viewport: { width: 1400, height: 1000 } })
   const consoleErrors = []
   page.on('pageerror', (e) => consoleErrors.push(String(e)))
@@ -180,7 +279,7 @@ const check = (name, ok, detail = '') => {
 
   // same app pointed at the live-allowed server via runtime /config.js
   const ctx2 = await browser.newContext({ viewport: { width: 1400, height: 1000 } })
-  await ctx2.route('**/config.js', (r) => r.fulfill({ contentType: 'application/javascript', body: "window.__APP_CONFIG__ = { apiBaseUrl: 'http://localhost:8001' }" }))
+  await ctx2.route('**/config.js', (r) => r.fulfill({ contentType: 'application/javascript', body: `window.__APP_CONFIG__ = { apiBaseUrl: '${LIVE_API}' }` }))
   const p2 = await ctx2.newPage()
   await p2.goto(BASE + '/')
   await p2.waitForSelector('[data-testid="company-MLTM"]')
@@ -342,10 +441,8 @@ const check = (name, ok, detail = '') => {
 
   const unexpected = consoleErrors.filter((e) => !e.includes('status of 409'))
   check('no unexpected console errors (the 409 is the deliberate not-cached check)', unexpected.length === 0, unexpected.slice(0, 3).join(' | '))
-  await browser.close()
-  const failed = results.filter((r) => !r.ok)
-  console.log(`\n${results.length - failed.length}/${results.length} checks passed`)
-  process.exit(failed.length ? 1 : 0)
+  await storyChecks(browser)
+  await finish(browser)
 })().catch((e) => {
   console.error(e)
   process.exit(2)
