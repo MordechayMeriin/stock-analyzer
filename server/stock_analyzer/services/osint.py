@@ -11,12 +11,15 @@ from __future__ import annotations
 
 import asyncio
 import calendar
+import threading
+from collections.abc import Callable
 from datetime import date
 
-from stock_analyzer.errors import LiveModeDisabled, NotCached
+from stock_analyzer.config import MissingCredential
+from stock_analyzer.errors import LiveModeDisabled, LiveModeRequired, NotCached, ResearchInProgress
 from stock_analyzer.osint.agents import ModelFactory, fake_model_factory, live_model_factory, run_pipeline
 from stock_analyzer.osint.blocklist import load_blocklist
-from stock_analyzer.osint.models import ResearchResult, RunState
+from stock_analyzer.osint.models import OsintProgress, ResearchResult, RunState
 from stock_analyzer.osint.search import FakeSearch, OpenRouterSearch, SearchBackend
 from stock_analyzer.services.companies import resolve_company
 from stock_analyzer.services.context import Ctx
@@ -48,17 +51,50 @@ def cached_result(ctx: Ctx, ticker: str, months: int) -> ResearchResult | None:
     return result
 
 
-def latest_research(ctx: Ctx, ticker: str, months: int | None = None) -> ResearchResult:
-    """The latest stored result for a tracked company and window. Never searches or calls an LLM."""
+def stored_result(ctx: Ctx, ticker: str, months: int | None = None) -> ResearchResult:
+    """The latest stored result for a tracked company, never calling a provider (API GET, design D1)."""
     months = months or ctx.settings.osint_window_months
     if months < 1:
         raise ValueError("months must be at least 1")
-    company = resolve_company(ctx, ticker)
-    if (stored := cached_result(ctx, company.ticker, months)) is None:
+    ticker = resolve_company(ctx, ticker).ticker
+    if (stored := cached_result(ctx, ticker, months)) is None:
         raise NotCached(
-            f"no stored OSINT result for {company.ticker} ({months} months); run the research first"
+            f"no stored OSINT result for {ticker} ({months} months); run a live research to create one"
         )
     return stored
+
+
+def check_can_run(ctx: Ctx, ticker: str, months: int | None = None) -> tuple[str, int]:
+    """Everything that must hold before a live run starts (API POST, design D2). Returns (ticker, months)."""
+    months = months or ctx.settings.osint_window_months
+    if months < 1:
+        raise ValueError("months must be at least 1")
+    ticker = resolve_company(ctx, ticker).ticker
+    if ctx.mode != "live":
+        raise LiveModeRequired("OSINT research needs live mode; switch the client to live and try again")
+    if not ctx.settings.llm_fake and ctx.settings.openrouter_api_key is None:
+        raise MissingCredential("OPENROUTER_API_KEY", "OSINT research")
+    return ticker, months
+
+
+_running: set[tuple[str, int]] = set()
+_running_lock = threading.Lock()
+
+
+def acquire_run(ticker: str, months: int) -> None:
+    """Claim the single run slot for this ticker and window in this process (design D5)."""
+    key = (ticker.upper(), months)
+    with _running_lock:
+        if key in _running:
+            raise ResearchInProgress(
+                f"an OSINT research run for {key[0]} ({months} months) is already in progress"
+            )
+        _running.add(key)
+
+
+def release_run(ticker: str, months: int) -> None:
+    with _running_lock:
+        _running.discard((ticker.upper(), months))
 
 
 def run_research(
@@ -69,6 +105,7 @@ def run_research(
     today: date | None = None,
     backend: SearchBackend | None = None,
     model_factory: ModelFactory | None = None,
+    on_progress: Callable[[OsintProgress], None] | None = None,
 ) -> ResearchResult:
     settings = ctx.settings
     months = months or settings.osint_window_months
@@ -102,6 +139,7 @@ def run_research(
         blocklist=load_blocklist(ticker),
         max_searches=settings.osint_max_searches,
         results_per_search=settings.osint_search_results,
+        on_progress=on_progress,
     )
     backend = backend or (FakeSearch() if fake else OpenRouterSearch(settings))
     model_factory = model_factory or (fake_model_factory(ticker) if fake else live_model_factory(settings))

@@ -12,6 +12,7 @@ export const ERROR_MESSAGES: Record<string, string> = {
   company_not_found: 'החברה אינה במעקב.',
   validation_error: 'אחד השדות אינו תקין.',
   osint_no_findings: 'המחקר לא מצא ממצאים מאומתים.',
+  research_in_progress: 'מחקר לחברה זו ובחלון זה כבר רץ. התוצאה תופיע כשיסתיים.',
 }
 
 export function errorCode(error: unknown): string {

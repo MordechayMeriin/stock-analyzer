@@ -33,7 +33,7 @@ from agents.usage import Usage as AgentUsage
 from openai.types.responses import ResponseFunctionToolCall, ResponseOutputMessage, ResponseOutputText
 
 from stock_analyzer.config import MissingCredential, Settings
-from stock_analyzer.errors import AnalyzerError
+from stock_analyzer.errors import NoFindings
 from stock_analyzer.osint.models import (
     AREA_INFO,
     AREAS,
@@ -50,12 +50,6 @@ from stock_analyzer.store import StoreLog
 AGENT_PURPOSE = "osint-agent:{name}"
 Role = Literal["orchestrator", "specialist", "synthesizer"]
 ModelFactory = Callable[[Role, Area | None], Model]
-
-
-class NoFindings(AnalyzerError):
-    """The run produced no finding that passed verification, so there is nothing to score."""
-
-    code = "osint_no_findings"
 
 
 def tool_name(area: Area) -> str:
@@ -77,6 +71,15 @@ class OsintHooks(RunHooks[RunState]):
         self.log = log
         self.model = model
         self._started: dict[str, list[float]] = {}
+
+    async def on_agent_start(self, context: RunContextWrapper[RunState], agent: Agent) -> None:  # type: ignore[override]
+        state = context.context
+        if agent.name == "osint_orchestrator":
+            state.progress("orchestrator")
+        elif agent.name == "osint_synthesizer":
+            state.progress("synthesis")
+        elif agent.name.startswith("osint_") and agent.name[len("osint_") :] in AREAS:
+            state.progress("area_start", area=agent.name[len("osint_") :])  # type: ignore[arg-type]
 
     async def on_llm_start(self, context, agent, system_prompt, input_items) -> None:  # type: ignore[override]
         self._started.setdefault(agent.name, []).append(time.perf_counter())
@@ -216,6 +219,7 @@ async def run_pipeline(
             report = result.final_output
             if isinstance(report, AreaReport):
                 state.reports.append((area, report))
+                state.progress("area_done", area=area)
                 return _report_digest(area, report)
             return json.dumps({"area": area, "error": "no structured report"})
 
@@ -274,6 +278,7 @@ async def run_pipeline(
             continue
         if isinstance(result.final_output, AreaReport):
             state.reports.append((area, result.final_output))
+            state.progress("area_done", area=area)
 
     kept, dropped = verify_findings(state)
     if not kept:

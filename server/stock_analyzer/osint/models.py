@@ -7,6 +7,7 @@ code.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import date
 from typing import Literal
@@ -131,6 +132,19 @@ class ResearchResult(BaseModel):
     from_cache: bool = False
 
 
+ProgressStep = Literal["orchestrator", "search", "area_start", "area_done", "synthesis"]
+
+
+class OsintProgress(BaseModel):
+    """One progress report from a running research (streamed by the API)."""
+
+    step: ProgressStep
+    area: Area | None = None
+    query: str | None = None
+    searches_used: int
+    search_limit: int
+
+
 @dataclass
 class SearchHit:
     url: str
@@ -153,6 +167,24 @@ class RunState:
     reports: list[tuple[Area, AreaReport]] = field(default_factory=list)
     cost_usd: float = 0.0
     cost_known: bool = True
+    on_progress: Callable[[OsintProgress], None] | None = None
+
+    def progress(self, step: ProgressStep, *, area: Area | None = None, query: str | None = None) -> None:
+        """Report progress to the callback, if any. A failing callback never fails the (paid) run."""
+        if self.on_progress is None:
+            return
+        try:
+            self.on_progress(
+                OsintProgress(
+                    step=step,
+                    area=area,
+                    query=query,
+                    searches_used=self.searches_used,
+                    search_limit=self.max_searches,
+                )
+            )
+        except Exception:  # noqa: BLE001
+            pass
 
     def add_cost(self, cost: float | None) -> None:
         if cost is None:

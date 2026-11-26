@@ -7,6 +7,7 @@ from typing import Literal
 from pydantic import BaseModel, Field, model_validator
 
 from stock_analyzer.api.errors import ErrorOut
+from stock_analyzer.osint.models import OsintProgress, ResearchResult
 
 
 class StorageHealth(BaseModel):
@@ -68,4 +69,18 @@ class PlaygroundEvents(BaseModel):
 
     delta: PlaygroundDelta
     done: PlaygroundDone
+    error: ErrorOut
+
+
+class OsintRunIn(BaseModel):
+    """Body of a live OSINT research run. ``months`` defaults to the server's window (36)."""
+
+    months: int | None = Field(default=None, ge=1, le=120)
+
+
+class OsintEvents(BaseModel):
+    """Documentation of the OSINT run stream: ``event: progress|done|error`` with these JSON payloads."""
+
+    progress: OsintProgress
+    done: ResearchResult
     error: ErrorOut

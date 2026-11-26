@@ -11,11 +11,92 @@ const check = (name, ok, detail = '') => {
 }
 
 ;(async () => {
-  const browser = await chromium.launch()
+  // PW_CHANNEL=msedge (or chrome) uses an installed browser instead of Playwright's own Chromium.
+  const browser = await chromium.launch(process.env.PW_CHANNEL ? { channel: process.env.PW_CHANNEL } : {})
   const page = await browser.newPage({ viewport: { width: 1400, height: 1000 } })
   const consoleErrors = []
   page.on('pageerror', (e) => consoleErrors.push(String(e)))
   page.on('console', (m) => m.type() === 'error' && consoleErrors.push(m.text()))
+
+  // ---- OSINT stability view (add-osint-web). ONLY=osint runs just this section:
+  // OSINT_BASE: a dev server whose API is cached-only and has a stored ELAL result (default BASE).
+  // OSINT_LIVE_BASE (optional): a dev server whose API has LLM_FAKE=true and ALLOW_LIVE=true, with ELAL
+  // tracked, for the live-run flow. Never point it at a real live API: a run costs OpenRouter credit.
+  if (process.env.ONLY === 'osint') {
+    const OB = process.env.OSINT_BASE || BASE
+    await page.goto(OB + '/ELAL')
+    await page.click('[data-testid="osint-link"]')
+    await page.waitForSelector('[data-testid="osint-result"]')
+    check('osint: company page links to the OSINT view', page.url().endsWith('/ELAL/osint'))
+    check('osint: open-sources-only note', (await page.locator('[data-testid="osint-open-sources"]').innerText()).includes('ולא מהדוחות הרשמיים'))
+    const areas = await page.locator('[data-testid^="area-"]').count()
+    const labelled = await page.locator('[data-testid^="area-"] [data-label]').count()
+    check('osint: six areas, each with a label', areas === 6 && labelled === 6, `${areas}/${labelled}`)
+    check('osint: overall label shown', (await page.locator('[data-testid="osint-result"] [data-label]').first().count()) === 1)
+    check('osint: risks and strengths listed', (await page.locator('[data-testid="osint-risks"] li').count()) > 0 &&
+      (await page.locator('[data-testid="osint-strengths"] li').count()) > 0)
+    const sources = page.locator('[data-testid="source"]')
+    const n = await sources.count()
+    check('osint: numbered sources with links', n > 0 && (await sources.locator('a[target="_blank"]').count()) === n, String(n))
+    const filing = await page.locator('[data-testid="source"][data-filing="true"]').count()
+    const filingMarks = await page.locator('[data-testid="filing-mark"]').count()
+    const undated = await page.locator('[data-testid="source"][data-undated="true"]').count()
+    const undatedMarks = await page.locator('[data-testid="undated-mark"]').count()
+    check('osint: every filing-derived source is marked, and only those', filing === filingMarks, `${filing}/${filingMarks}`)
+    check('osint: every undated source is marked, and only those', undated === undatedMarks, `${undated}/${undatedMarks}`)
+    const cite = page.locator('[data-testid="osint-risks"] a[href^="#source-"]').first()
+    const target = (await cite.getAttribute('href')).slice(1)
+    await cite.click()
+    const top = await page.locator(`#${target}`).evaluate((e) => e.getBoundingClientRect().top)
+    const header = await page.locator('header').evaluate((e) => e.getBoundingClientRect().bottom)
+    check('osint: a cited finding number scrolls to its source, below the sticky header', top >= header, `${top} vs ${header}`)
+    check('osint: cached mode offers no run and says live mode is needed',
+      (await page.locator('[data-testid="osint-run-button"]').count()) === 0 &&
+      (await page.locator('[data-testid="osint-live-needed"]').count()) === 1)
+    await page.screenshot({ path: `${SHOTS}/o1-osint.png`, fullPage: true })
+    await page.selectOption('[data-testid="osint-window"]', '12')
+    await page.waitForFunction(() => {
+      const meta = document.querySelector('[data-testid="osint-meta"]')
+      return (meta && meta.textContent.includes('(12 ')) || document.body.textContent.includes('בחלון של 12 חודשים')
+    })
+    check('osint: another window shows its own result or says none was run', true)
+    await page.selectOption('[data-testid="osint-window"]', '36')
+
+    if (process.env.OSINT_LIVE_BASE) {
+      const LB = process.env.OSINT_LIVE_BASE
+      await page.goto(LB + '/ELAL/osint')
+      await page.evaluate(() => localStorage.setItem('analyzer.mode', 'live'))
+      await page.reload()
+      let posts = 0
+      page.on('request', (r) => r.method() === 'POST' && r.url().includes('/osint') && posts++)
+      await page.click('[data-testid="osint-run-button"]')
+      const warning = await page.locator('[data-testid="osint-confirm"]').innerText()
+      check('osint live: cost warning before a run', warning.includes('$1') && warning.includes('OpenRouter'))
+      await page.click('[data-testid="osint-cancel"]')
+      check('osint live: cancelling the warning starts no run', posts === 0 &&
+        (await page.locator('[data-testid="osint-run-button"]').count()) === 1)
+      await page.click('[data-testid="osint-run-button"]')
+      await page.click('[data-testid="osint-confirm-run"]')
+      const fresh = await page
+        .waitForFunction(() => {
+          const meta = document.querySelector('[data-testid="osint-meta"]')
+          return !document.querySelector('[data-testid="osint-progress"]') && meta && !meta.textContent.includes('תוצאה שמורה')
+        }, null, { timeout: 30000 })
+        .then(() => true, () => false)
+      check('osint live: confirmed run shows the new result', fresh && posts === 1, `posts ${posts}`)
+      await page.reload()
+      await page.waitForSelector('[data-testid="osint-meta"]')
+      check('osint live: the new result is stored', (await page.locator('[data-testid="osint-meta"]').innerText()).includes('תוצאה שמורה'))
+      await page.screenshot({ path: `${SHOTS}/o2-osint-live.png`, fullPage: true })
+    }
+
+    const errors = consoleErrors.filter((e) => !e.includes('status of 409'))
+    check('osint: no console errors', errors.length === 0, errors.slice(0, 3).join(' | '))
+    const failed = results.filter((r) => !r.ok)
+    console.log(`\n${results.length - failed.length}/${results.length} checks passed`)
+    await browser.close()
+    process.exit(failed.length ? 1 : 0)
+  }
 
   // ---- ratios view (add-financial-ratios 7.3). Needs cached financials for MLTM and LUMI on :8000.
   // ONLY=ratios runs just this section.

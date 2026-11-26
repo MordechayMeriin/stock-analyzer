@@ -31,6 +31,9 @@ export type OsintResult = Schemas['ResearchResult']
 export type OsintFinding = Schemas['KeptFinding']
 export type OsintScorecard = Schemas['Scorecard']
 export type OsintPoint = Schemas['Point']
+export type OsintProgress = Schemas['OsintProgress']
+export type OsintLabel = Schemas['AreaAssessment']['label']
+export type OsintArea = Schemas['AreaAssessment']['area']
 
 /** An API failure carrying the server's machine-readable code. */
 export class ApiError extends Error {
@@ -118,10 +121,8 @@ export const api = {
   page: (ticker: string, fy: number, page: number, mode: Mode, signal?: AbortSignal) =>
     get<PageParagraphs>(`/api/companies/${enc(ticker)}/reports/${fy}/pages/${page}`, { mode }, signal),
   usage: (mode: Mode, signal?: AbortSignal) => get<Usage>('/api/usage', { mode }, signal),
-  /** Latest stored OSINT scorecard. Never searches; 409 not_cached when the company was never researched. */
+  /** Latest stored OSINT scorecard. Never searches, in either mode; 409 not_cached when never researched. */
   osint: (ticker: string, months: number, mode: Mode, signal?: AbortSignal) =>
     get<OsintResult>(`/api/companies/${enc(ticker)}/osint`, { mode, months }, signal),
-  /** Run OSINT research afresh (live mode only, takes minutes, spends LLM and search credit). */
-  runOsint: (ticker: string, months: number, mode: Mode) =>
-    send<OsintResult>('POST', `/api/companies/${enc(ticker)}/osint`, { mode, months }),
+  // A live run is streamed (progress, then the result): see OsintPage, which uses postSse.
 }

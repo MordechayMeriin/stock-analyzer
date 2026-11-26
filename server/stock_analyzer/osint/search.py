@@ -160,6 +160,7 @@ async def run_search(
             "report the findings you already have"
         }
     state.searches_used += 1
+    state.progress("search", query=query)
     started = time.perf_counter()
     try:
         response = await backend.search(query, state.results_per_search, state.blocklist.exclude_domains)
