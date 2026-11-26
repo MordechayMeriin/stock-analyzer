@@ -34,6 +34,11 @@ const router = createBrowserRouter([
         path: ':ticker/osint',
         lazy: () => import('./features/osint/OsintPage').then((m) => ({ Component: m.OsintPage })),
       },
+      // Temporary: the company-report radar against both fixtures (milestone 2).
+      {
+        path: 'dev/radar',
+        lazy: () => import('./features/report/radar/RadarDevPage').then((m) => ({ Component: m.RadarDevPage })),
+      },
       { path: ':ticker/:fy/report', element: <ReaderPage /> },
       { path: ':ticker/:fy/report/:nodeId', element: <ReaderPage /> },
       { path: ':ticker/:fy/playground', element: <PlaygroundPage /> },
