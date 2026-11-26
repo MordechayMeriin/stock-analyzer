@@ -37,3 +37,14 @@ The system SHALL return a company's normalized values grouped by statement and f
 #### Scenario: Malam table
 - **WHEN** financials for Malam are requested
 - **THEN** income, balance-sheet, cash-flow and supplemental items are returned per fiscal year, with revenue FY2025 present
+
+### Requirement: Company template
+Normalization SHALL keep the provider's statement template for the company (for example `industrial`, `bank` or `insurer`) alongside its normalized values, and SHALL report it as unknown when the provider gives none.
+
+#### Scenario: Bank template
+- **WHEN** Leumi's financials are normalized
+- **THEN** the result carries template `bank`
+
+#### Scenario: Template missing
+- **WHEN** a cached financials response has no template field
+- **THEN** the result carries template unknown, and the normalized values are unaffected
