@@ -10,6 +10,9 @@ starting with El Al (ELAL), and never touches the filings, so the two analyses s
 
 ## What Changes
 
+- Works for any tracked company, with Israeli market expertise: the run first profiles the company's
+  industry, then researches each area with that industry's indicators and Israeli sources (TASE, local
+  rating agencies, Israeli press and regulators). El Al is the first company it is used on.
 - New OSINT research run for one tracked company: an orchestrating agent sends specialist agents to search
   the web, each returning cited findings for its area, and a final step turns the findings into a stability
   scorecard.

@@ -179,6 +179,7 @@ async def run_pipeline(
     set_tracing_disabled(True)  # tracing would upload to OpenAI's platform; there is no OpenAI key
     company = " / ".join(state.company_names)
     common = {
+        "market_context": load_prompt(settings.prompts_dir, "israel_market"),
         "company": company,
         "ticker": state.ticker,
         "today": today.isoformat(),
@@ -237,7 +238,7 @@ async def run_pipeline(
             tools="\n".join(f"- {tool_name(a)}: {AREA_INFO[a][1]}" for a in AREAS),
             **common,
         ),
-        tools=tools,
+        tools=[web_search, *tools],  # web_search lets it profile the company before briefing specialists
         model=model_factory("orchestrator", None),
         model_settings=MODEL_SETTINGS,
     )

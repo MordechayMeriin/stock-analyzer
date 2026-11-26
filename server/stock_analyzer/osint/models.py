@@ -18,16 +18,19 @@ from stock_analyzer.osint.blocklist import Blocklist
 Area = Literal["news", "market", "credit", "operations", "labor_government", "competition_macro"]
 AREAS: tuple[Area, ...] = ("news", "market", "credit", "operations", "labor_government", "competition_macro")
 
+# Sector-neutral on purpose: the orchestrator works out the company's industry and tells each specialist
+# which indicators matter for it (prompts/osint/israel_market.md has the sector guide).
 AREA_INFO: dict[Area, tuple[str, str]] = {
     "news": (
         "חדשות ואירועים",
-        "Recent news and events about the company: management changes, strategy, deals, incidents, "
-        "legal or regulatory actions, and public controversies.",
+        "Recent news and events about the company: management and board changes, controlling-shareholder "
+        "moves, strategy, deals and acquisitions, incidents, legal and regulatory actions, and controversies.",
     ),
     "market": (
         "איתותי שוק",
-        "Market signals: share price trend and volatility, market value, trading volume, short interest, "
-        "and the yields and spreads of the company's bonds traded on the Tel Aviv Stock Exchange (TASE).",
+        "Market signals on the Tel Aviv Stock Exchange (TASE) and any foreign listing: share price trend and "
+        "volatility, market value, trading volume, index membership, short interest, and the yields and "
+        "spreads of the company's traded bonds when it has any.",
     ),
     "credit": (
         "דירוג אשראי ותחזיות אנליסטים",
@@ -36,18 +39,21 @@ AREA_INFO: dict[Area, tuple[str, str]] = {
     ),
     "operations": (
         "תפעול וביקוש",
-        "Operations and demand: passenger traffic and market share (for example Israel Airports Authority "
-        "statistics), routes, fleet and aircraft orders, delays and cancellations, customer complaints.",
+        "Operations and demand, using the indicators that matter in the company's industry: sales and "
+        "market share, customers and contracts, capacity, projects and pipeline, production, service "
+        "quality and complaints, and industry statistics published by government or trade bodies.",
     ),
     "labor_government": (
         "עבודה וממשלה",
-        "Labor relations (unions, strikes, wage agreements) and government involvement: regulation, "
-        "state holdings or special shares, subsidies, security requirements and policy decisions.",
+        "Labor relations (unions, the Histadrut, strikes, wage agreements) and the state's role: the "
+        "industry regulator, licences and concessions, tenders, state holdings or special shares, subsidies, "
+        "taxes, and policy decisions that affect the company.",
     ),
     "competition_macro": (
         "תחרות, מאקרו וגאופוליטיקה",
-        "Competition (rivals entering or leaving the market, pricing), macroeconomics (fuel prices, "
-        "exchange rates, interest rates, tourism) and geopolitics (war, security, travel warnings).",
+        "Competition in the company's markets (rivals entering or leaving, pricing, market share), the macro "
+        "factors its industry is exposed to (Bank of Israel interest rate, inflation, the shekel, input "
+        "costs, demand), and geopolitics (security situation, war, sanctions, boycotts, country risk).",
     ),
 }
 

@@ -13,6 +13,7 @@ import pytest
 from stock_analyzer.osint.agents import NoFindings, fake_model_factory, load_prompt, run_pipeline, tool_name
 from stock_analyzer.osint.blocklist import load_blocklist
 from stock_analyzer.osint.models import (
+    AREA_INFO,
     AREAS,
     AreaAssessment,
     AreaReport,
@@ -65,6 +66,7 @@ def test_prompts_load_and_fill(settings, name):
     text = load_prompt(
         settings.prompts_dir,
         name,
+        market_context=load_prompt(settings.prompts_dir, "israel_market"),
         company="אל על",
         ticker="ELAL",
         today="2026-11-26",
@@ -74,6 +76,32 @@ def test_prompts_load_and_fill(settings, name):
         tools="- research_news",
     )
     assert "ELAL" in text and "2025-11-26" in text and "$" not in text
+    if name != "synthesizer":
+        assert "S&P Maalot" in text and "Sector guide" in text  # Israeli market context is included
+
+
+def test_research_is_not_tied_to_one_company_or_industry(settings):
+    """Areas and prompts are generic: the industry comes from the orchestrator's profile of the company."""
+    texts = [desc for _, desc in AREA_INFO.values()]
+    texts += [load_prompt(settings.prompts_dir, n) for n in ("specialist", "orchestrator", "synthesizer")]
+    for text in texts:
+        lowered = text.lower()
+        for word in ("el al", "elal", "airline", "passenger", "aircraft", "fleet"):
+            assert word not in lowered, f"{word!r} in a generic prompt or area description"
+    # the sector guide covers the main Israeli sectors, airlines among them
+    guide = load_prompt(settings.prompts_dir, "israel_market")
+    for sector in (
+        "Banks",
+        "Insurers",
+        "Real estate",
+        "Technology",
+        "Telecom",
+        "Retail",
+        "Energy",
+        "Defense",
+        "Transport",
+    ):
+        assert sector in guide
 
 
 # ---------------------------------------------------------------- verification
@@ -211,6 +239,24 @@ def test_search_limit_still_produces_a_scorecard(settings):
     assert state.searches_used == 2
     assert kept and {f.area for f in kept} <= set(AREAS)
     assert sum(a.label == "insufficient_data" for a in card.areas) == 4
+
+
+def test_orchestrator_can_profile_the_company_with_search(settings):
+    """The orchestrator gets web_search next to the six research tools."""
+    from stock_analyzer.osint import agents as agents_mod
+
+    seen = {}
+
+    class Spy(agents_mod.FakeAgentModel):
+        async def get_response(self, system_instructions, input, model_settings, tools, *args, **kwargs):
+            if self.role == "orchestrator":
+                seen["tools"] = sorted(t.name for t in tools)
+            return await super().get_response(
+                system_instructions, input, model_settings, tools, *args, **kwargs
+            )
+
+    run(settings, make_state(), factory=lambda role, area: Spy(role, area, "ELAL"))
+    assert seen["tools"] == sorted(["web_search", *(tool_name(a) for a in AREAS)])
 
 
 def test_tool_names_are_stable():

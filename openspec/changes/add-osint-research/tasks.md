@@ -37,6 +37,12 @@
 - [x] 6.1 Run `uv run pytest` and `uv run ruff check` in `server/` and verify both pass
 - [x] 6.2 With the user's go-ahead on cost, run `stock-analyzer osint ELAL` live once, and verify the scorecard cites only non-filing URLs and the usage log shows the run's searches and agent calls
 
+## 7. Any company, Israeli market focus
+
+- [x] 7.1 Make the six area descriptions sector-neutral and add `prompts/osint/israel_market.md` (Israeli sources, market traits, sector guide) to every agent's prompt; verify a test finds no company or industry wording in the generic prompts and the guide covers the main sectors
+- [x] 7.2 Give the orchestrator `web_search` to profile the company (industry, controller, competitors, regulator, bonds) before briefing specialists; verify a test sees `web_search` among the orchestrator's tools
+- [x] 7.3 Verify an offline run for another tracked company (MLTM) produces a full scorecard with no extra configuration
+
 ## Workflow follow-up
 
 - Archive the change after review with `/opsx:archive`.

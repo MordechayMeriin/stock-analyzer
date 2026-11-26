@@ -85,6 +85,18 @@ def test_other_window_is_a_different_entry(settings):
     assert osint.cached_result(ctx, "ELAL", 6) is not None
 
 
+def test_any_tracked_company_can_be_researched(settings):
+    """Not El Al specific: Malam-Team comes from companies.yaml, a different company in another industry."""
+    spy = Spy()
+    result = osint.run_research(
+        live_ctx(settings), "MLTM", today=TODAY, backend=spy.search, model_factory=spy.factory
+    )
+    assert result.ticker == "MLTM" and "Malam-Team" in result.company_name
+    assert [a.area for a in result.scorecard.areas] == list(AREAS)
+    assert osint.cached_result(live_ctx(settings), "MLTM", 36) is not None
+    assert osint.cached_result(live_ctx(settings), "ELAL", 36) is None
+
+
 def test_duplicate_company_names_are_merged(settings):
     get_store(settings).add_tracked(
         TrackedCompany(ticker="DUP", name_he="Dup Ltd.", name_en="Dup Ltd.", fr_company_id=2, source="added")

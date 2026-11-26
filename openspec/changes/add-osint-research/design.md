@@ -130,6 +130,18 @@ also testable with respx, because the search tool uses the existing `openai` 2.x
 search count, dropped-finding counts and cost. The mode follows the existing `cached` / `live` context, so
 `ALLOW_LIVE=false` serves only stored results.
 
+### D11. Generic areas, Israeli market context, profile first
+The six area descriptions are sector-neutral. `prompts/osint/israel_market.md` is included in every
+agent's prompt: Israeli sources (business press, TASE, S&P Maalot and Midroog, local analysts, regulators),
+what tends to matter for Israeli companies (controlling shareholders, concentration, unions, the shekel,
+security), and a sector guide with the indicators to track for banks, insurers, real estate, technology,
+telecom, retail, energy, defense, transport and healthcare. The orchestrator also gets `web_search` and
+profiles the company first (industry, controller, competitors, regulator, traded bonds), then briefs each
+specialist with that profile and the sector's indicators. Nothing is configured per company.
+- *Alternative: per-sector prompt files chosen by a configured industry field.* Rejected: tracked
+  companies have no industry field, and a model-made profile also handles conglomerates and holding
+  companies.
+
 ## Risks / Trade-offs
 
 - [Pinned SDK falls behind] → 0.20.0 is recent. Upgrading SDK and openai 3 together is a separate change

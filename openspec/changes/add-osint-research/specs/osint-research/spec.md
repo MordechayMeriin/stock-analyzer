@@ -27,6 +27,28 @@ operations and demand; labor and government; competition, macro and geopolitics.
 - **WHEN** a research run completes
 - **THEN** the scorecard has one entry for each of the six areas
 
+### Requirement: Works for any tracked company
+Research SHALL run for any tracked company without company-specific configuration or prompts. Before the
+areas are researched, the run SHALL identify the company's industry, and each area SHALL be researched
+with the indicators that matter in that industry.
+
+#### Scenario: Another company
+- **WHEN** research is run for a tracked bank instead of an airline
+- **THEN** it runs with the same configuration and the operations area covers banking indicators such as credit losses, not airline traffic
+
+#### Scenario: Industry identified first
+- **WHEN** a research run starts
+- **THEN** the company's industry, main competitors and regulator are looked up before the areas are assigned
+
+### Requirement: Israeli market focus
+Research SHALL apply Israeli market context to every company: Israeli business press, Tel Aviv Stock
+Exchange market data, local rating agencies, Israeli analysts, regulators and statistics, and factors
+such as controlling shareholders, concentration, labor unions, the shekel and the security situation.
+
+#### Scenario: Local ratings
+- **WHEN** the credit area is researched for an Israeli company
+- **THEN** S&P Maalot and Midroog ratings and outlooks are looked for
+
 ### Requirement: Filing sources excluded
 Research SHALL NOT use official filings. Every web search SHALL exclude the domains and paths on a
 configured block-list of the official filing systems, and any result whose URL

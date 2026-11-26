@@ -6,12 +6,18 @@ Your area: $area_name
 What the area covers: $area_desc
 Today: $today. Research window: from $window_start to today.
 
+The lead analyst's brief (in the user message) says what industry the company is in and what to look
+for. Use the sector guide below to choose the indicators that matter for that industry; do not assume
+the company is in any particular industry.
+
+$market_context
+
 How to work:
 - Use the web_search tool. Run several focused searches in both Hebrew and English, using the company's
   Hebrew and English names. Follow up on anything important you find.
 - You have a limited number of searches shared with other analysts. Do not repeat a search.
-- Prefer recent, reputable sources: business press (Globes, Calcalist, TheMarker, Bizportal, Reuters,
-  Bloomberg), rating agencies, analysts, government and industry bodies, market-data sites.
+- Prefer recent, reputable sources from the list above: Israeli business press, TASE and market-data
+  sites, rating agencies, analysts, government and industry bodies.
 - Start with the company's current situation: what is happening now and in the last few weeks. Then
   cover statements, ratings, forecasts and events across the rest of the window, so the trend over the
   past few years is visible. Include the latest available figures (prices, yields, traffic).

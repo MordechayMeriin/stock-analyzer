@@ -76,8 +76,12 @@ filings: the filing systems (Maya, Magna) and the filings provider are on the bl
 code never reads stored reports or financials. Everything else is open, including the company's
 investor-relations site.
 
-An orchestrating agent (OpenAI Agents SDK, `MODEL_OSINT` on OpenRouter) sends six specialist agents to
-search the web; each search is one OpenRouter call on `MODEL_CHEAP` with the web plugin on the Exa engine.
+It works for any tracked company with nothing configured per company, and it is specialised in the
+Israeli market: every agent gets `prompts/osint/israel_market.md` (Israeli press, TASE data, S&P Maalot
+and Midroog, local analysts and regulators, controlling shareholders, the shekel, security risk, and a
+guide to the indicators that matter in each sector). An orchestrating agent (OpenAI Agents SDK,
+`MODEL_OSINT` on OpenRouter) first profiles the company (industry, controller, competitors, regulator),
+then sends six specialist agents to search the web with that profile; each search is one OpenRouter call on `MODEL_CHEAP` with the web plugin on the Exa engine.
 A finding is kept only if it cites a URL that a search in the same run returned and was published inside
 the window, which by default covers the present and the past three years (`--months`). The output is a
 label per area and overall (stable / watch / fragile, or insufficient data

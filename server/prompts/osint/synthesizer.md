@@ -19,6 +19,9 @@ Produce:
 - summary_he: one paragraph in Hebrew on how stable the company is today, how that changed over the
   window, and why.
 
+Judge each area against what is normal for the company's industry and for the Israeli market (a small,
+concentrated market with strong regulators, frequent security disruptions and many controlled companies).
+
 Meaning of the labels:
 - stable: no material threats; the evidence points to continuity.
 - watch: real risks or mixed signals that could hurt the company if they develop.
