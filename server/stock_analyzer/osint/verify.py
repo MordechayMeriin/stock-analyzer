@@ -3,8 +3,9 @@
 - :func:`verify_findings` keeps a finding only if its URL is not blocked, was returned by a search in this
   run, and its publish date (when known) is inside the window. Findings without a usable date are kept at
   low confidence.
-- :func:`check_scorecard` makes every area, risk and strength cite kept findings, marks areas without
-  findings as ``insufficient_data`` and keeps at most three risks and strengths.
+- :func:`check_scorecard` makes every area, risk, strength and key driver cite kept findings, marks areas
+  without findings as ``insufficient_data`` with trend ``unclear``, keeps at most three risks and
+  strengths, and lists every key driver of the company profile (``unknown`` when nothing supports it).
 """
 
 from __future__ import annotations
@@ -16,8 +17,11 @@ from datetime import date
 
 from stock_analyzer.osint.models import (
     AREAS,
+    DROP_REASONS,
     AreaAssessment,
+    CompanyProfile,
     DropReason,
+    KeyDriver,
     KeptFinding,
     Point,
     RunState,
@@ -72,25 +76,29 @@ def verify_findings(state: RunState) -> tuple[list[KeptFinding], dict[str, int]]
                 data["confidence"] = "low"
                 data["published_at"] = None
             kept.append(KeptFinding(**data, id=f"F{len(kept) + 1}", area=area))
-    return kept, {reason: dropped.get(reason, 0) for reason in ("blocked", "not_searched", "outside_window")}
+    return kept, {reason: dropped.get(reason, 0) for reason in DROP_REASONS}
 
 
-def check_scorecard(card: Scorecard, kept: list[KeptFinding]) -> Scorecard:
-    """A scorecard whose every claim cites kept findings, with one entry per area."""
+def check_scorecard(card: Scorecard, kept: list[KeptFinding], profile: CompanyProfile | None = None) -> Scorecard:
+    """A scorecard whose every claim cites kept findings, with one entry per area and per key driver."""
     by_id = {f.id: f for f in kept}
-    by_area = {area: [f.id for f in kept if f.area == area] for area in AREAS}
+    by_area = {area: [f.id for f in kept if f.area == area or area in f.also_areas] for area in AREAS}
 
     given = {a.area: a for a in card.areas}
     areas: list[AreaAssessment] = []
     for area in AREAS:
         own = by_area[area]
         entry = given.get(area)
+        importance = entry.importance if entry else "medium"
         if not own:
             areas.append(
                 AreaAssessment(
                     area=area,
                     label="insufficient_data",
+                    importance=importance,
                     assessment=entry.assessment if entry else "לא נמצאו ממצאים בתחום זה.",
+                    trend="unclear",
+                    trend_reason=entry.trend_reason if entry else "",
                     finding_ids=[],
                 )
             )
@@ -101,7 +109,10 @@ def check_scorecard(card: Scorecard, kept: list[KeptFinding]) -> Scorecard:
             AreaAssessment(
                 area=area,
                 label=label,
+                importance=importance,
                 assessment=entry.assessment if entry else "",
+                trend=entry.trend if entry else "unclear",
+                trend_reason=entry.trend_reason if entry else "",
                 finding_ids=ids or own,
             )
         )
@@ -114,9 +125,23 @@ def check_scorecard(card: Scorecard, kept: list[KeptFinding]) -> Scorecard:
                 out.append(Point(text=p.text, finding_ids=ids))
         return out[:3]
 
+    drivers: list[KeyDriver] = []
+    for d in card.key_drivers:
+        ids = [i for i in d.finding_ids if i in by_id]
+        drivers.append(
+            KeyDriver(driver=d.driver, status=d.status if ids else "unknown", explanation=d.explanation, finding_ids=ids)
+        )
+    named = {d.driver.strip().lower() for d in drivers}
+    for name in profile.key_drivers if profile else []:
+        if name.strip().lower() not in named:  # every driver of the profile is listed, even without evidence
+            drivers.append(KeyDriver(driver=name, status="unknown", explanation="", finding_ids=[]))
+
     return Scorecard(
         overall_label=card.overall_label,
         overall_rationale=card.overall_rationale,
+        overall_trend=card.overall_trend,
+        overall_trend_reason=card.overall_trend_reason,
+        key_drivers=drivers,
         areas=areas,
         risks=cited(card.risks),
         strengths=cited(card.strengths),

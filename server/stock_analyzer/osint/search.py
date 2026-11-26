@@ -18,7 +18,7 @@ from stock_analyzer.osint.models import RunState, SearchHit, normalize_url
 from stock_analyzer.store import StoreLog
 
 SEARCH_PURPOSE = "osint-search"
-SNIPPET_CHARS = 1500
+SNIPPET_CHARS = 3000  # the claim check (improve-osint-evidence D3) reads these excerpts
 SUMMARY_CHARS = 3000
 
 SEARCH_SYSTEM = (
