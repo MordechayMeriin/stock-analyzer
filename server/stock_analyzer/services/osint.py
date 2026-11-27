@@ -40,9 +40,9 @@ def cache_key(ticker: str, months: int, *, fake: bool = False) -> str:
     return f"{prefix}:{ticker.upper()}:{months}m:latest"
 
 
-def cached_result(ctx: Ctx, ticker: str, months: int) -> ResearchResult | None:
-    """The latest stored result for this ticker and window, if any."""
-    key = cache_key(ticker, months, fake=ctx.settings.llm_fake)
+def cached_result(ctx: Ctx, ticker: str, months: int, *, fake: bool | None = None) -> ResearchResult | None:
+    """The latest stored result for this ticker and window, if any (``fake``: default ``LLM_FAKE``)."""
+    key = cache_key(ticker, months, fake=ctx.settings.llm_fake if fake is None else fake)
     raw = ctx.store.cache("llm").get(key)
     if raw is None:
         return None
@@ -97,6 +97,12 @@ def release_run(ticker: str, months: int) -> None:
         _running.discard((ticker.upper(), months))
 
 
+def is_running(ticker: str, months: int) -> bool:
+    """Whether a run for this ticker and window holds the slot, without claiming it (a story's preflight)."""
+    with _running_lock:
+        return (ticker.upper(), months) in _running
+
+
 def run_research(
     ctx: Ctx,
     ticker: str,
@@ -129,6 +135,45 @@ def run_research(
             f"no stored OSINT result for {ticker} ({months} months); run in live mode to research it"
         )
 
+    return asyncio.run(
+        research_async(
+            ctx,
+            ticker,
+            months,
+            today=today,
+            backend=backend,
+            model_factory=model_factory,
+            on_progress=on_progress,
+        )
+    )
+
+
+async def research_async(
+    ctx: Ctx,
+    ticker: str,
+    months: int | None = None,
+    *,
+    today: date | None = None,
+    backend: SearchBackend | None = None,
+    model_factory: ModelFactory | None = None,
+    on_progress: Callable[[OsintProgress], None] | None = None,
+    fake: bool | None = None,
+) -> ResearchResult:
+    """A research run that always searches (or, with the fake LLM, runs offline), then stores its result.
+
+    No mode check: :func:`run_research` decides whether a run may happen, and a live story run
+    awaits this directly inside its own event loop (add-story-web-evidence design D1). ``fake``
+    (default: ``LLM_FAKE``) runs offline and stores under the fake key, so a fake result is never
+    served as a real one.
+    """
+    settings = ctx.settings
+    months = months or settings.osint_window_months
+    if months < 1:
+        raise ValueError("months must be at least 1")
+    today = today or date.today()
+    company = resolve_company(ctx, ticker)
+    ticker = company.ticker
+    fake = settings.llm_fake if fake is None else fake
     names = list(
         dict.fromkeys(n.strip() for n in (company.name_he, company.name_en or "") if n and n.strip())
     )
@@ -145,8 +190,8 @@ def run_research(
     model_factory = model_factory or (fake_model_factory(ticker) if fake else live_model_factory(settings))
     log = StoreLog(ctx.store, "llm")
 
-    out = asyncio.run(
-        run_pipeline(settings, state, backend=backend, log=log, model_factory=model_factory, today=today)
+    out = await run_pipeline(
+        settings, state, backend=backend, log=log, model_factory=model_factory, today=today
     )
     result = ResearchResult(
         ticker=ticker,

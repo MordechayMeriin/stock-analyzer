@@ -239,3 +239,28 @@ def test_run_slot_is_exclusive_per_ticker_and_window():
         osint.release_run("ELAL", 36)
     osint.acquire_run("ELAL", 36)  # free again
     osint.release_run("ELAL", 36)
+
+
+def test_research_async_runs_inside_a_running_event_loop(settings):
+    import asyncio
+
+    fake = settings.model_copy(update={"llm_fake": True, "openrouter_api_key": None})
+
+    async def caller():  # a story's event loop: asyncio.run inside it would fail
+        return await osint.research_async(Ctx(fake, mode="live"), "elal", today=TODAY)
+
+    result = asyncio.run(caller())
+    assert result.ticker == "ELAL" and result.findings and not result.from_cache
+    assert osint.cached_result(Ctx(fake), "ELAL", 36) is not None  # stored as the latest result
+    assert all(f.excerpt for f in result.findings)  # FakeSearch hits carry excerpts
+
+
+def test_is_running_does_not_claim_the_slot():
+    assert not osint.is_running("ELAL", 36)
+    osint.acquire_run("elal", 36)
+    try:
+        assert osint.is_running("ELAL", 36) and not osint.is_running("ELAL", 12)
+        assert osint.is_running("ELAL", 36)  # checking twice never claims it
+    finally:
+        osint.release_run("ELAL", 36)
+    assert not osint.is_running("ELAL", 36)

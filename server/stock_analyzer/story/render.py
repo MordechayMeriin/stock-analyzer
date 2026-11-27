@@ -11,7 +11,7 @@ from typing import Literal
 
 from pydantic import BaseModel
 
-from stock_analyzer.story.facts import Fact, FactRegistry
+from stock_analyzer.story.facts import WEB_CHECK, Fact, FactRegistry
 from stock_analyzer.story.models import Finding, StoryParagraph
 from stock_analyzer.story.verify import TOKEN
 
@@ -30,6 +30,7 @@ class Segment(BaseModel):
 class RenderedParagraph(BaseModel):
     segments: list[Segment]
     paragraph_ids: list[str]
+    source_ids: list[str] = []  # web sources, resolved from the saved run's web_sources
 
 
 class RenderedFinding(RenderedParagraph):
@@ -77,11 +78,20 @@ def format_fact(fact: Fact) -> str:
 
 
 def caveat_text(facts: list[Fact]) -> str:
-    parts = []
+    """The caveat for low-confidence facts. Facts built on a web source get a press-source caveat;
+    facts that failed data checks keep the provider-data caveat (a fact can have both)."""
+    web = [f for f in facts if WEB_CHECK in f.failed_checks]
+    data = []
     for f in facts:
-        checks = ", ".join(f.failed_checks) or "בדיקות איכות נתונים"
-        parts.append(f"{f.name_he} ({checks})")
-    return "נתונים בביטחון נמוך, כי נכשלו בדיקות עקביות בנתוני הספק: " + "; ".join(parts)
+        checks = [c for c in f.failed_checks if c != WEB_CHECK]
+        if checks or WEB_CHECK not in f.failed_checks:
+            data.append(f"{f.name_he} ({', '.join(checks) or 'בדיקות איכות נתונים'})")
+    sentences = []
+    if web:
+        sentences.append("מקור עיתונאי, לא מבוקר: " + "; ".join(f.name_he for f in web))
+    if data:
+        sentences.append("נתונים בביטחון נמוך, כי נכשלו בדיקות עקביות בנתוני הספק: " + "; ".join(data))
+    return ". ".join(sentences)
 
 
 def render_text(text: str, registry: FactRegistry) -> list[Segment]:
@@ -107,7 +117,9 @@ def _caveat(item: StoryParagraph | Finding, registry: FactRegistry) -> list[Segm
 
 def render_paragraph(p: StoryParagraph, registry: FactRegistry) -> RenderedParagraph:
     return RenderedParagraph(
-        segments=render_text(p.text_he, registry) + _caveat(p, registry), paragraph_ids=list(p.paragraph_ids)
+        segments=render_text(p.text_he, registry) + _caveat(p, registry),
+        paragraph_ids=list(p.paragraph_ids),
+        source_ids=list(p.source_ids),
     )
 
 
@@ -116,5 +128,6 @@ def render_finding(f: Finding, registry: FactRegistry) -> RenderedFinding:
         label=f.label,
         segments=render_text(f.text_he, registry) + _caveat(f, registry),
         paragraph_ids=list(f.paragraph_ids),
+        source_ids=list(f.source_ids),
         fact_ids=list(f.fact_ids),
     )

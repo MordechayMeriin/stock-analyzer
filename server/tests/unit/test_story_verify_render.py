@@ -209,3 +209,143 @@ def test_render_finding_keeps_label_and_facts(registry):
     f = render_finding(good_story().story_vs_numbers[0], registry)
     assert f.label == "consistent" and f.fact_ids == ["CHG:revenue:2024-2025"]
     assert any(s.display == "+9.43%" for s in f.segments)
+
+
+# ---------------------------------------------------------------- web facts (add-story-web-evidence)
+
+
+def test_web_fact_renders_in_its_currency_with_a_press_caveat():
+    usd = Fact(
+        fact_id="WEB:1", kind="WEB", name_he="מצוטט ממקור רשת: Globes", unit="money", years=[2026],
+        value="50000000", currency="USD", operation="quote", source_id="SRC:1", quote="$50 million",
+        confidence="low", failed_checks=["web_source"],
+    )  # fmt: skip
+    reg = FactRegistry([usd])
+    assert format_fact(usd) == "50.0 מיליון $"
+    p = StoryParagraph(text_he="חוזה של {{WEB:1}}.", paragraph_ids=["p"], caveat_fact_ids=["WEB:1"])
+    segments = render_paragraph(p, reg).segments
+    assert segments[1].type == "fact" and segments[1].display == "50.0 מיליון $"
+    caveat = segments[-1]
+    assert caveat.type == "caveat" and "מקור עיתונאי, לא מבוקר" in caveat.text
+    assert "בדיקות עקביות" not in caveat.text and "web_source" not in caveat.text
+
+
+def test_existing_low_confidence_caveat_text_is_unchanged(registry):
+    p = StoryParagraph(
+        text_he="{{RATIO:free_cash_flow:2025}}",
+        paragraph_ids=["MLTM-2025-p0010-005"],
+        caveat_fact_ids=["RATIO:free_cash_flow:2025"],
+    )
+    caveat = render_paragraph(p, registry).segments[-1]
+    assert caveat.text.startswith("נתונים בביטחון נמוך, כי נכשלו בדיקות עקביות בנתוני הספק:")
+    assert "מקור עיתונאי" not in caveat.text
+
+
+def test_web_tokens_are_recognised():
+    assert tokens("a {{WEB:42}} b {{DER:7}}") == ["WEB:42", "DER:7"]
+
+
+# ---------------------------------------------------------------- rules 7-10 (add-story-web-evidence)
+
+from datetime import date  # noqa: E402
+
+from stock_analyzer.story.web import SourceLedger, WebSource  # noqa: E402
+
+TODAY = date(2026, 11, 26)
+REPORT_PUBLISHED = date(2026, 3, 30)
+
+
+def web_ledger() -> SourceLedger:
+    def src(sid, published, derived=False):
+        return WebSource(
+            source_id=sid, url=f"https://news.example/{sid}", title=sid, excerpts=["e"],
+            published_at=published, live=True, derived_from_filing=derived,
+        )  # fmt: skip
+
+    return SourceLedger(
+        [
+            src("SRC:1", "2026-06-01"),  # after the latest report, before as_of
+            src("SRC:2", "2026-02-01"),  # before the latest report
+            src("SRC:3", None),  # undated
+            src("SRC:4", "2026-11-25"),  # after a past as_of
+            src("SRC:5", "2026-07-01", derived=True),  # restates filings
+        ]
+    )
+
+
+def check(registry, story, *, as_of=TODAY):
+    errors = verify_story(
+        story, registry, PIDS, YEARS,
+        ledger=web_ledger(), as_of=as_of, today=TODAY, latest_report_published=REPORT_PUBLISHED,
+    )  # fmt: skip
+    return {(e.rule, e.where) for e in errors}, errors
+
+
+def post_report(*sids, pids=()):
+    return StoryParagraph(
+        text_he='מנכ"ל החברה הודיע על פרישתו.', paragraph_ids=list(pids), source_ids=list(sids)
+    )
+
+
+def test_rule7_unknown_source(registry):
+    story = good_story()
+    story.what_changed[0].source_ids = ["SRC:99"]
+    assert (7, "what_changed[0]") in check(registry, story)[0]
+    story.what_changed[0].source_ids = ["SRC:1"]
+    assert check(registry, story)[1] == []
+
+
+def test_rule8_source_after_as_of(registry):
+    story = good_story()
+    story.what_changed[0].source_ids = ["SRC:4"]
+    assert check(registry, story)[1] == []  # as_of today: fine
+    assert (8, "what_changed[0]") in check(registry, story, as_of=date(2026, 10, 1))[0]
+
+
+def test_rule8_undated_source_with_a_past_as_of(registry):
+    story = good_story()
+    story.what_changed[0].source_ids = ["SRC:3"]
+    assert check(registry, story)[1] == []  # as_of today: undated is fine as extra evidence
+    assert (8, "what_changed[0]") in check(registry, story, as_of=date(2026, 10, 1))[0]
+
+
+def test_rule9_web_only_post_report_paragraph_passes(registry):
+    story = good_story(what_changed=[*good_story().what_changed, post_report("SRC:1")])
+    assert check(registry, story)[1] == []
+
+
+def test_rule9_web_only_paragraph_before_the_report(registry):
+    story = good_story(what_changed=[post_report("SRC:2")])
+    assert (9, "what_changed[0]") in check(registry, story)[0]
+
+
+def test_rule9_undated_source_alone(registry):
+    story = good_story(what_changed=[post_report("SRC:3")])
+    assert (9, "what_changed[0]") in check(registry, story)[0]
+
+
+def test_web_only_what_it_does_is_rejected(registry):
+    story = good_story(what_it_does=[post_report("SRC:1")])
+    assert (3, "what_it_does[0]") in check(registry, story)[0]
+
+
+def test_finding_with_web_sources_but_no_report_paragraph(registry):
+    story = good_story()
+    story.story_vs_numbers[0].paragraph_ids = []
+    story.story_vs_numbers[0].source_ids = ["SRC:1"]
+    assert (6, "story_vs_numbers[0]") in check(registry, story)[0]
+
+
+def test_rule10_filing_derived_source_alone(registry):
+    story = good_story(what_changed=[post_report("SRC:5")])
+    assert (10, "what_changed[0]") in check(registry, story)[0]
+    story = good_story()
+    story.story_vs_numbers[0].source_ids = ["SRC:5", "SRC:1"]  # with an independent source
+    assert check(registry, story)[1] == []
+
+
+def test_web_citations_are_carried_into_rendering(registry):
+    p = StoryParagraph(text_he="טקסט", paragraph_ids=["MLTM-2025-p0010-005"], source_ids=["SRC:1"])
+    assert render_paragraph(p, registry).source_ids == ["SRC:1"]
+    f = good_story().story_vs_numbers[0].model_copy(update={"source_ids": ["SRC:1"]})
+    assert render_finding(f, registry).source_ids == ["SRC:1"]

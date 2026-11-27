@@ -647,18 +647,29 @@ def render_story(run) -> list[str]:
         lines += ["", f"== {title}"]
         for p in paragraphs:
             lines += _segments_text(p.segments)
-            lines.append("   מקורות: " + ", ".join(p.paragraph_ids))
+            lines.append(_sources_line(p))
     lines += ["", "== הסיפור מול המספרים"]
     for f in run.rendered.story_vs_numbers:
         first, *rest = _segments_text(f.segments)
-        lines += [f"[{LABELS_HE[f.label]}] {first}", *rest, "   מקורות: " + ", ".join(f.paragraph_ids)]
+        lines += [f"[{LABELS_HE[f.label]}] {first}", *rest, _sources_line(f)]
     if run.rendered.unchanged_sections:
         lines += ["", "ללא שינוי בשלוש השנים: " + ", ".join(u.title for u in run.rendered.unchanged_sections)]
     lines += ["", "== ציטוטים"]
     for pid, c in sorted(run.citations.items()):
         page = f"עמ' {c.page_printed}" if c.page_printed is not None else f"עמוד {c.page_index} בקובץ"
         lines.append(f"[{pid}] FY{c.fiscal_year} {page}")
+    if run.web_sources:
+        lines += ["", "== מקורות רשת"]
+        for sid, src in sorted(run.web_sources.items()):
+            date_text = src.published_at or "תאריך לא ידוע"
+            lines.append(f"[{sid}] {src.title} ({date_text}) {src.url}")
     return lines
+
+
+def _sources_line(item) -> str:
+    """Report paragraphs, then web sources marked as such."""
+    parts = list(item.paragraph_ids) + [f"רשת {sid}" for sid in getattr(item, "source_ids", [])]
+    return "   מקורות: " + ", ".join(parts)
 
 
 @app.command()

@@ -25,14 +25,14 @@ from collections.abc import Sequence
 from typing import Any
 
 from agents import Agent, ModelSettings, Runner, set_tracing_disabled
-from agents.exceptions import MaxTurnsExceeded, ModelBehaviorError
+from agents.exceptions import MaxTurnsExceeded, ModelBehaviorError, UserError
 from agents.items import ModelResponse
 from agents.models.interface import Model, ModelTracing
 from agents.usage import Usage as AgentUsage
 from pydantic import BaseModel, TypeAdapter
 
 from stock_analyzer.config import MissingCredential, Settings
-from stock_analyzer.errors import StorageUnavailable
+from stock_analyzer.errors import AnalyzerError, StorageUnavailable
 from stock_analyzer.llm import LLMError, Role
 from stock_analyzer.store import Store, StoreLog, get_store
 
@@ -525,6 +525,12 @@ async def run_agent(
             break
         except MaxTurnsExceeded as exc:
             raise AgentTurnLimit(agent.name, max_turns) from exc
+        except UserError as exc:
+            # a tool built with failure_error_function=None raised on purpose (for example the
+            # story's search limit); the SDK wraps it, so surface the project's own error
+            if isinstance(exc.__cause__, AnalyzerError):
+                raise exc.__cause__ from None
+            raise
         except ModelBehaviorError:
             # invalid structured output (e.g. malformed JSON): one fresh attempt, as the gateway's
             # single repair retry; the bad answer was not cached, so this asks the model again

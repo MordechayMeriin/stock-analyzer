@@ -10,19 +10,29 @@ Rules (each error names its rule and where in the story it is):
 4. every low-confidence fact an item cites is in that item's ``caveat_fact_ids``
 5. a ``tension`` finding rests on at least one high-confidence fact
 6. every finding cites at least one fact and one paragraph
+
+Web evidence (add-story-web-evidence design D7):
+
+7. every cited source id is in the run's source ledger
+8. no cited source is dated after ``as_of``; when ``as_of`` is before today, none is undated
+9. a story paragraph with no report paragraph is a what-changed paragraph whose sources are all
+   dated after the latest report's publication and on or before ``as_of`` (the rule 3 exception)
+10. an item's web sources are not all marked as restating the company's filings
 """
 
 from __future__ import annotations
 
 import re
 from collections.abc import Container, Iterable
+from datetime import date
 
 from pydantic import BaseModel
 
 from stock_analyzer.story.facts import FactError, FactRegistry
 from stock_analyzer.story.models import Finding, Story, StoryParagraph
+from stock_analyzer.story.web import SourceLedger
 
-TOKEN = re.compile(r"\{\{\s*((?:FIN|CHG|RATIO):[A-Za-z0-9_]+:\d{4}(?:-\d{4})?|(?:TXT|DER):\d+)\s*\}\}")
+TOKEN = re.compile(r"\{\{\s*((?:FIN|CHG|RATIO):[A-Za-z0-9_]+:\d{4}(?:-\d{4})?|(?:TXT|DER|WEB):\d+)\s*\}\}")
 _BRACES = re.compile(r"\{\{|\}\}")
 _DIGITS = re.compile(r"\d+(?:[.,]\d+)*")
 
@@ -58,11 +68,22 @@ def _items(story: Story) -> Iterable[tuple[str, StoryParagraph | Finding]]:
 
 
 def verify_story(
-    story: Story, registry: FactRegistry, paragraph_ids: Container[str], years: Iterable[int]
+    story: Story,
+    registry: FactRegistry,
+    paragraph_ids: Container[str],
+    years: Iterable[int],
+    *,
+    ledger: SourceLedger | None = None,
+    as_of: date | None = None,
+    today: date | None = None,
+    latest_report_published: date | None = None,
 ) -> list[VerificationError]:
     """All rule violations in ``story``; an empty list means it may be saved and shown."""
     errors: list[VerificationError] = []
     allowed_years = {str(y) for y in years}
+    ledger = ledger or SourceLedger()
+    today = today or date.today()
+    as_of = as_of or today
 
     def err(rule: int, where: str, message: str) -> None:
         errors.append(VerificationError(rule=rule, where=where, message=message))
@@ -98,12 +119,53 @@ def verify_story(
         for m in QUANTITY_WORDS.finditer(stripped):
             err(2, where, f"the quantity {m.group(0)!r} is written in words instead of a fact token")
 
-        # rule 3: citations exist; story paragraphs must cite the report
+        # rule 7: web sources resolve
+        sources = []
+        for sid in dict.fromkeys(item.source_ids):
+            src = ledger.get(sid)
+            if src is None:
+                err(7, where, f"unknown web source {sid!r}")
+            else:
+                sources.append(src)
+
+        # rule 8: no source after as_of; none undated when as_of is in the past
+        for src in sources:
+            if src.published is not None and src.published > as_of:
+                err(8, where, f"web source {src.source_id} is dated {src.published_at}, after as_of {as_of}")
+            elif src.published is None and as_of < today:
+                err(
+                    8,
+                    where,
+                    f"web source {src.source_id} has no publish date, and as_of {as_of} is in the past",
+                )
+
+        # rule 3: citations exist; story paragraphs must cite the report (rule 9 is the exception)
         for pid in item.paragraph_ids:
             if pid not in paragraph_ids:
                 err(3, where, f"unknown paragraph id {pid!r}")
         if isinstance(item, StoryParagraph) and not item.paragraph_ids:
-            err(3, where, "the paragraph cites no report paragraph")
+            if not where.startswith("what_changed") or not item.source_ids:
+                err(3, where, "the paragraph cites no report paragraph")
+            else:
+                # rule 9: a web-only paragraph is about an event after the latest report
+                for src in sources:
+                    if src.published is None:
+                        err(
+                            9,
+                            where,
+                            f"web source {src.source_id} has no publish date, so it cannot stand alone",
+                        )
+                    elif latest_report_published is not None and src.published <= latest_report_published:
+                        err(
+                            9,
+                            where,
+                            f"web source {src.source_id} ({src.published_at}) is not after the latest report "
+                            f"({latest_report_published}); cite the report for it",
+                        )
+
+        # rule 10: no circular corroboration
+        if sources and all(src.derived_from_filing for src in sources):
+            err(10, where, "its only web sources restate the company's own filings")
 
         # rule 4: low-confidence facts need a caveat
         caveats = set(item.caveat_fact_ids)

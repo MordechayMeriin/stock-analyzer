@@ -85,7 +85,8 @@ The changed leaf sections (110 year pairs) hold 418K characters across both vers
 tokens. The actual change-agent input is larger, about 185K tokens in 5 batches: it also carries the new
 and dropped sections and the paragraph-id and page labels agents cite. With the describe input (~17K),
 the three directors' explanations (~30K) and the read-tool budgets (40K), a Malam FY2023–FY2025 story
-is estimated at ~272K tokens, so `STORY_MAX_TOKENS` defaults to 300K. Alternatives measured on the
+is estimated at ~272K tokens. `STORY_MAX_TOKENS` defaulted to 300K; with the storyteller's web evidence
+(up to ~154K more for 20 searches and the stored OSINT excerpts) the default is now 1.5M. Alternatives measured on the
 changed pairs:
 
 | Input to the change agents | Characters | ~Tokens |

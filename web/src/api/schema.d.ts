@@ -640,7 +640,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "FIN" | "CHG" | "RATIO" | "TXT" | "DER";
+            kind: "FIN" | "CHG" | "RATIO" | "TXT" | "DER" | "WEB";
             /** Name He */
             name_he: string;
             /** Operation */
@@ -653,6 +653,8 @@ export interface components {
             reason?: string | null;
             /** Source Filing Id */
             source_filing_id?: number | null;
+            /** Source Id */
+            source_id?: string | null;
             /**
              * Unit
              * @enum {string}
@@ -757,6 +759,11 @@ export interface components {
              */
             paragraph_ids: string[];
             /**
+             * Source Ids
+             * @description Web source ids (SRC:...) cited as additional evidence, if any.
+             */
+            source_ids?: string[];
+            /**
              * Text He
              * @description Hebrew prose with fact tokens: how the story fits (or not) the numbers.
              */
@@ -834,6 +841,8 @@ export interface components {
              * @description True when the source only restates figures from the company's official reports.
              */
             derived_from_filing: boolean;
+            /** Excerpt */
+            excerpt?: string | null;
             /** Id */
             id: string;
             /**
@@ -985,6 +994,29 @@ export interface components {
         OsintRunIn: {
             /** Months */
             months?: number | null;
+        };
+        /**
+         * OsintUse
+         * @description The OSINT result a story used (add-story-web-evidence).
+         */
+        OsintUse: {
+            /**
+             * Findings
+             * @default 0
+             */
+            findings: number;
+            /**
+             * Left Out
+             * @default 0
+             */
+            left_out: number;
+            /** Run Date */
+            run_date?: string | null;
+            /**
+             * Started
+             * @default false
+             */
+            started: boolean;
         };
         /** PageParagraphsOut */
         PageParagraphsOut: {
@@ -1287,6 +1319,11 @@ export interface components {
             paragraph_ids: string[];
             /** Segments */
             segments: components["schemas"]["Segment"][];
+            /**
+             * Source Ids
+             * @default []
+             */
+            source_ids: string[];
         };
         /** RenderedParagraph */
         RenderedParagraph: {
@@ -1294,6 +1331,11 @@ export interface components {
             paragraph_ids: string[];
             /** Segments */
             segments: components["schemas"]["Segment"][];
+            /**
+             * Source Ids
+             * @default []
+             */
+            source_ids: string[];
         };
         /** RenderedStory */
         RenderedStory: {
@@ -1479,6 +1521,11 @@ export interface components {
              */
             paragraph_ids: string[];
             /**
+             * Source Ids
+             * @description Web source ids (SRC:...) this paragraph draws on, if any.
+             */
+            source_ids?: string[];
+            /**
              * Text He
              * @description Hebrew prose. Quantities only as fact tokens such as {{FIN:revenue:2025}}.
              */
@@ -1542,6 +1589,14 @@ export interface components {
             models: {
                 [key: string]: string;
             };
+            /**
+             * @default {
+             *       "findings": 0,
+             *       "left_out": 0,
+             *       "started": false
+             *     }
+             */
+            osint: components["schemas"]["OsintUse"];
             profile: components["schemas"]["stock_analyzer__story__agents__CompanyProfile"] | null;
             /** Prompt Hashes */
             prompt_hashes: {
@@ -1550,6 +1605,11 @@ export interface components {
             rendered: components["schemas"]["RenderedStory"];
             /** Run Id */
             run_id: string;
+            /**
+             * Searches
+             * @default []
+             */
+            searches: string[];
             story: components["schemas"]["Story"];
             /** Ticker */
             ticker: string;
@@ -1558,6 +1618,13 @@ export interface components {
             verification: components["schemas"]["VerificationAttempt"][];
             /** Warnings */
             warnings: string[];
+            /**
+             * Web Sources
+             * @default {}
+             */
+            web_sources: {
+                [key: string]: components["schemas"]["WebSource"];
+            };
             /** Years */
             years: number[];
         };
@@ -1569,8 +1636,18 @@ export interface components {
             input_tokens: number;
             /** Model Turns */
             model_turns: number;
+            /**
+             * Osint Cost Usd
+             * @default 0
+             */
+            osint_cost_usd: number;
             /** Output Tokens */
             output_tokens: number;
+            /**
+             * Search Cost Usd
+             * @default 0
+             */
+            search_cost_usd: number;
         };
         /** StructureOut */
         StructureOut: {
@@ -1655,6 +1732,48 @@ export interface components {
             rule: number;
             /** Where */
             where: string;
+        };
+        /**
+         * WebSource
+         * @description One web page the story may cite.
+         */
+        WebSource: {
+            /** Area */
+            area?: ("news" | "market" | "credit" | "operations" | "legal" | "regulation" | "labor_government" | "competition_macro") | null;
+            /** Claim */
+            claim?: string | null;
+            /**
+             * Derived From Filing
+             * @default false
+             */
+            derived_from_filing: boolean;
+            /**
+             * Excerpts
+             * @default []
+             */
+            excerpts: string[];
+            /** Finding Id */
+            finding_id?: string | null;
+            /**
+             * Live
+             * @default false
+             */
+            live: boolean;
+            /** Published At */
+            published_at?: string | null;
+            /** Signal */
+            signal?: ("positive" | "negative" | "neutral") | null;
+            /** Source Id */
+            source_id: string;
+            /**
+             * Stored
+             * @default false
+             */
+            stored: boolean;
+            /** Title */
+            title: string;
+            /** Url */
+            url: string;
         };
         /**
          * CompanyProfile

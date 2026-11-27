@@ -169,3 +169,97 @@ def test_quote_not_in_paragraph_is_refused(registry):
     with pytest.raises(FactError, match="unknown paragraph"):
         registry.quote_number("MLTM-2025-p9999-001", "1,635", "money")
     assert len(registry) == before
+
+
+# ---------------------------------------------------------------- web numbers (add-story-web-evidence)
+
+
+def web_source(*excerpts: str, published: str | None = "2026-03-12"):
+    from stock_analyzer.story.web import WebSource
+
+    return WebSource(
+        source_id="SRC:123",
+        url="https://www.globes.co.il/a",
+        title="גלובס",
+        excerpts=list(excerpts),
+        published_at=published,
+        live=True,
+    )
+
+
+@pytest.mark.parametrize(
+    ("excerpt", "quote", "unit", "value", "currency"),
+    [
+        (
+            'פורסם 12.03.2026. מלם זכתה במכרז בהיקף 200 מיליון ש"ח לחמש שנים.',
+            "200 מיליון",
+            "money",
+            "200000000",
+            "ILS",
+        ),
+        (
+            "The deal is worth NIS 1.2 billion over five years.",
+            "NIS 1.2 billion",
+            "money",
+            "1200000000",
+            "ILS",
+        ),
+        ("Malam signed a $50 million contract in March.", "$50 million", "money", "50000000", "USD"),
+        ("החברה מעסיקה כ-2,000 עובדים.", "2,000", "count", "2000", None),
+        ("Market share fell to 12% last year.", "12%", "number", "0.12", None),
+    ],
+)
+def test_web_quotes(registry, excerpt, quote, unit, value, currency):
+    fact = registry.quote_web_number(web_source(excerpt), quote, unit)
+    assert fact.kind == "WEB" and fact.fact_id.startswith("WEB:") and fact.value == value
+    assert fact.currency == currency and fact.source_id == "SRC:123" and fact.quote == quote
+    assert fact.confidence == "low" and fact.failed_checks == ["web_source"]
+    assert fact.years == [2026]
+    assert registry.quote_web_number(web_source(excerpt), quote, unit) is fact  # same quote, same fact
+
+
+def test_web_quote_must_appear_in_an_excerpt(registry):
+    src = web_source("Malam signed a $50 million contract.")
+    with pytest.raises(FactError, match="does not appear in the excerpt"):
+        registry.quote_web_number(src, "$60 million", "money")
+
+
+def test_web_quote_from_a_source_without_excerpt_is_refused(registry):
+    with pytest.raises(FactError, match="no excerpt"):
+        registry.quote_web_number(web_source(), "200 מיליון", "money")
+
+
+def test_web_money_without_a_currency_is_refused(registry):
+    with pytest.raises(FactError, match="no currency"):
+        registry.quote_web_number(
+            web_source("Revenue reached 300 million last year."), "300 million", "money"
+        )
+    with pytest.raises(FactError, match="no currency"):  # two currencies near the quote are ambiguous
+        registry.quote_web_number(web_source("$5 million (₪18 million) deal"), "5 million", "money")
+
+
+def test_table_header_scale_does_not_apply_to_web_quotes(registry):
+    excerpt = 'בדוח (באלפי ש"ח) | השנה. בנפרד: החברה גייסה 40 ש"ח למניה.'
+    fact = registry.quote_web_number(web_source(excerpt), '40 ש"ח', "money")
+    assert fact.value == "40"
+
+
+def test_web_quote_matches_any_excerpt_of_the_source(registry):
+    src = web_source("first excerpt without the number", 'second: a backlog of 900 מיליון ש"ח')
+    assert registry.quote_web_number(src, "900 מיליון", "money").value == "900000000"
+
+
+def test_undated_web_fact_has_no_years(registry):
+    fact = registry.quote_web_number(
+        web_source("Revenue of $7 million.", published=None), "$7 million", "money"
+    )
+    assert fact.years == []
+
+
+def test_derived_from_a_web_fact_is_low_confidence(registry):
+    web = registry.quote_web_number(web_source('הצבר הגיע ל-1,000 מיליון ש"ח.'), "1,000 מיליון", "money")
+    share = registry.derive("ratio", [web.fact_id, "FIN:revenue:2025"])
+    assert share.confidence == "low" and "web_source" in share.failed_checks
+    with pytest.raises(FactError, match="different currencies"):
+        usd = registry.quote_web_number(web_source("a $3 million deal"), "$3 million", "money")
+        registry.derive("sum", [usd.fact_id, "FIN:revenue:2025"])
