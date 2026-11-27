@@ -6,11 +6,15 @@ only by :func:`refresh_directory`. Searching reads the cache and never calls the
 
 from __future__ import annotations
 
+import csv
+import functools
 import re
 import threading
 import time
 from dataclasses import dataclass
+from pathlib import Path
 
+from stock_analyzer.config import SERVER_ROOT
 from stock_analyzer.errors import NotCached
 from stock_analyzer.ingest.fr_client import CompanyDirectoryPage, FRClient
 from stock_analyzer.services import companies
@@ -19,6 +23,28 @@ from stock_analyzer.services.models import TickerDirectoryInfo, TickerHit, Ticke
 
 MEMO_TTL_S = 600.0
 _HEBREW = re.compile("[֐-׿]")
+
+# Hebrew short names of TASE stocks keyed by TASE security number, read from TASE's public stocks
+# list (market.tase.co.il, "ניירות ערך > מניות"). The provider has English names only.
+TASE_NAMES_FILE = SERVER_ROOT / "data" / "tase_names_he.csv"
+
+
+@functools.cache
+def tase_names(path: Path = TASE_NAMES_FILE) -> dict[int, str]:
+    """{security number: Hebrew name}; empty when the file is missing."""
+    if not path.exists():
+        return {}
+    with path.open(encoding="utf-8", newline="") as fh:
+        return {int(r["security_number"]): " ".join(r["name_he"].split()) for r in csv.DictReader(fh)}
+
+
+def security_number(isin: str | None) -> int | None:
+    """The TASE security number inside an Israeli ISIN (IL00 + 7 digits + check digit)."""
+    if isin and len(isin) == 12 and isin.startswith("IL") and isin[4:11].isdigit():
+        return int(isin[4:11])
+    return None
+
+
 _QUOTES = re.compile("[\"'`׳״‘’“”]")
 _PUNCT = re.compile(r"[.\-־_,]")
 _SUFFIX = re.compile(r"\s+(?:בעמ|ltd|limited)$")
@@ -79,13 +105,15 @@ def _load(ctx: Ctx) -> _Directory | None:
             if not ticker:
                 continue
             has_he = bool(_HEBREW.search(p.name))
+            sec = security_number(p.isin)
+            tase_he = tase_names().get(sec) if sec is not None else None
             entries.append(
                 DirectoryEntry(
                     ticker=ticker,
                     name=p.name,
                     isin=p.isin,
                     fr_company_id=p.id,
-                    name_he=p.name if has_he else None,
+                    name_he=tase_he or (p.name if has_he else None),
                     name_en=None if has_he else p.name,
                 )
             )
@@ -167,7 +195,7 @@ def search(ctx: Ctx, q: str, limit: int = 8) -> TickerSearchOut:
                 isin=e.isin,
                 tracked=False,
             ),
-            [normalize(e.name)],
+            [normalize(n) for n in {e.name, e.name_he} if n],
         )
     for c in registry:
         hits[c.ticker.upper()] = (
@@ -184,7 +212,7 @@ def search(ctx: Ctx, q: str, limit: int = 8) -> TickerSearchOut:
     for e in d.entries if d else []:  # a tracked company's provider name is searchable too
         t = by_id.get(e.fr_company_id) or by_ticker.get(e.ticker)
         if t:
-            hits[t.ticker.upper()][1].append(normalize(e.name))
+            hits[t.ticker.upper()][1].extend(normalize(n) for n in {e.name, e.name_he} if n)
 
     nq = normalize(q)
     ranked: list[tuple[tuple[int, int, int, str], TickerHit]] = []
