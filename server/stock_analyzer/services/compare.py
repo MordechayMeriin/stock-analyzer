@@ -7,9 +7,9 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from stock_analyzer.companies import resolve_ticker
 from stock_analyzer.diff.align import Comparison, Report, compare_business
 from stock_analyzer.services import reports
+from stock_analyzer.services.companies import resolve_company
 from stock_analyzer.services.context import Ctx
 
 
@@ -24,7 +24,7 @@ def load_reports(ctx: Ctx, ticker: str, years: Sequence[int]) -> list[Report]:
 def compare(ctx: Ctx, ticker: str, years: Sequence[int]) -> Comparison:
     if len(set(years)) < 2:
         raise ValueError("comparing reports needs at least two different fiscal years")
-    company = resolve_ticker(ctx.settings.companies_file, ticker)
+    company = resolve_company(ctx, ticker)
     s = ctx.settings
     return compare_business(
         company.ticker,

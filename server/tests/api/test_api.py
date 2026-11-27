@@ -417,6 +417,21 @@ def test_story_live_run_then_saved_story(story_settings):
     assert body["citations"] and all("url" not in c for c in body["citations"].values())  # no PDF links
 
 
+def test_story_and_compare_resolve_runtime_added_companies(settings):
+    """A company added at runtime (not in companies.yaml) is tracked for the story and compare too."""
+    from stock_analyzer.companies import TrackedCompany
+    from stock_analyzer.store import get_store
+
+    get_store(settings).add_tracked(
+        TrackedCompany(ticker="ELAL", fr_company_id=6759, name_he="אל על", source="added")
+    )
+    with TestClient(create_app(settings)) as c:
+        story = c.get("/api/companies/ELAL/story")
+        compare = c.get("/api/companies/ELAL/compare", params=[("years", 2024), ("years", 2025)])
+    assert story.status_code == 409 and story.json()["code"] == "not_cached"  # no saved story yet
+    assert compare.json().get("code") != "company_not_found"
+
+
 def test_story_run_refused_in_cached_mode(story_settings):
     with TestClient(create_app(story_settings)) as c:
         r = c.post("/api/companies/MLTM/story", json={"mode": "cached"})
