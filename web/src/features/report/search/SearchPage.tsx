@@ -7,7 +7,7 @@ import { api } from '@/api/client'
 import { useMode } from '@/app/mode'
 import { cn } from '@/lib/utils'
 
-import { FIXTURE_COMPANIES, hasReport } from '../queries'
+import { FIXTURE_COMPANIES } from '../queries'
 import { matchCompanies, mergeEntries, MIN_QUERY, type SearchEntry } from './match'
 
 const FIXTURE_ENTRIES: SearchEntry[] = FIXTURE_COMPANIES.map((c) => ({ ...c, hasReport: true }))
@@ -34,7 +34,7 @@ export function SearchPage() {
           ticker: c.ticker,
           name_he: c.name_he,
           name_en: c.name_en ?? null,
-          hasReport: hasReport(c.ticker),
+          hasReport: true, // the server builds a report for every tracked company
         })),
       ),
     [tracked.data],

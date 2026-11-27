@@ -11,19 +11,13 @@ import { KeyMetrics } from './components/KeyMetrics'
 import { ScoreList } from './components/ScoreList'
 import { hasEnoughForRadar } from './radar/geometry'
 import { RadarChart } from './radar/RadarChart'
+import { RotatingRadar } from './radar/RotatingRadar'
 import { YearTabs, type YearChoice } from './radar/YearTabs'
 import { useReport } from './queries'
 import { defaultYear, radarAxesForYear, resolveYear } from './view'
 
 // Design A2: 390-wide reference, page padding 28/20/32, 36px between sections; centered up to 480.
 const COLUMN = 'mx-auto w-full max-w-[480px] space-y-9 px-5 pt-7 pb-8 text-[#09090b]'
-
-/** Explains the 3-year view's marks: which year each outline is, and what the colored segments mean. */
-function historyCaption(years: number[]): string {
-  const prev = years[years.length - 2]
-  const older = years.length > 2 ? ` · מנוקד: ${years.slice(0, -2).join(', ')}` : ''
-  return `מלא: ${years[years.length - 1]} · מקווקו: ${prev}${older} · קו צבעוני: השינוי בכל ציר (ירוק לטובה, אדום לרעה)`
-}
 
 function NewCompanyLink() {
   return (
@@ -79,13 +73,10 @@ export function ReportPage() {
   }
 
   const report = query.data
-  // ?y=all is the 3-year view: the latest year in front, earlier years behind it.
+  // ?y=all is the multi-year view: the radar plays through the years; the list below stays on the latest.
   const compare = params.get('y') === 'all' && report.years.length > 1
   const year = compare ? defaultYear(report) : resolveYear(report, params.get('y'))
   const axes = radarAxesForYear(report, year)
-  const history = compare
-    ? { years: report.years, axes: report.years.map((y) => radarAxesForYear(report, y)) }
-    : undefined
   const setYear = (y: YearChoice) => setParams({ y: String(y) }, { replace: true })
 
   return (
@@ -104,12 +95,7 @@ export function ReportPage() {
             allLabel={`${report.years.length} שנים`}
           />
         </div>
-        {hasEnoughForRadar(axes) && <RadarChart axes={axes} history={history} />}
-        {history && hasEnoughForRadar(axes) && (
-          <p data-testid="history-caption" className="mt-1 text-center text-[11px] leading-normal text-[#71717a]">
-            {historyCaption(report.years)}
-          </p>
-        )}
+        {hasEnoughForRadar(axes) && (compare ? <RotatingRadar report={report} /> : <RadarChart axes={axes} />)}
       </section>
       <ScoreList ticker={report.company.ticker} axes={report.profile.axes} year={year} />
       <EventsTimeline events={report.events} years={report.years.length} />

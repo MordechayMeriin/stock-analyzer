@@ -4,8 +4,35 @@
     {
       "name": "web",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["--prefix", "web", "run", "dev", "--", "--port", "5173", "--strictPort"],
+      "runtimeArgs": [
+        "--prefix",
+        "web",
+        "run",
+        "dev",
+        "--",
+        "--port",
+        "5173",
+        "--strictPort"
+      ],
       "port": 5173
+    },
+    {
+      "name": "api",
+      "runtimeExecutable": "python",
+      "runtimeArgs": [
+        "-m",
+        "uv",
+        "--directory",
+        "server",
+        "run",
+        "--env-file",
+        ".env.demo",
+        "uvicorn",
+        "stock_analyzer.api.main:app",
+        "--port",
+        "8000"
+      ],
+      "port": 8000
     }
   ]
 }

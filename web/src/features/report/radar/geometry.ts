@@ -104,55 +104,6 @@ export function radarLayout(axes: RadarAxis[]): RadarLayout {
   }
 }
 
-export interface HistoryLayout {
-  /** Earlier years as outlines behind the front polygon: the previous year dashed, older dotted. */
-  ghosts: { year: number; points: string; style: 'dashed' | 'dotted' }[]
-  /** Per axis and year-on-year step, the move along the axis, colored by that year's server tone. */
-  segments: { id: string; year: number; from: Point; to: Point; tone: Tone }[]
-}
-
-/**
- * The 3-year overlay. `history` holds one axes list per year in `years` (oldest first, same axis
- * order); the last one is the front year that `radarLayout` draws. No business logic: a segment's
- * tone is the server's trend tone of the later year (neutral when it sent none), and steps with a
- * missing value or no change get no segment.
- */
-export function historyLayout(years: number[], history: RadarAxis[][]): HistoryLayout {
-  const n = history[0]?.length ?? 0
-  const ghosts: HistoryLayout['ghosts'] = []
-  for (let k = 0; k < history.length - 1; k++) {
-    const pts = history[k].flatMap((a, i) => (a.value === null ? [] : [vertex(i, n, a.value)]))
-    if (pts.length >= 2) ghosts.push({ year: years[k], points: toPoints(pts), style: k === history.length - 2 ? 'dashed' : 'dotted' })
-  }
-  const segments: HistoryLayout['segments'] = []
-  for (let k = 1; k < history.length; k++) {
-    history[k].forEach((axis, i) => {
-      const before = history[k - 1][i]?.value ?? null
-      if (axis.value === null || before === null || axis.value === before) return
-      segments.push({
-        id: axis.id,
-        year: years[k],
-        from: vertex(i, n, before),
-        to: vertex(i, n, axis.value),
-        tone: axis.trend?.tone ?? 'neutral',
-      })
-    })
-  }
-  return { ghosts, segments }
-}
-
-/** One axis's values across the years, e.g. "6 · 6 · 7" ("—" for a missing year). */
-export function historyText(history: RadarAxis[][], i: number): string {
-  return history.map((axes) => axes[i]?.value ?? '—').join(' · ')
-}
-
-/** Screen-reader text for the overlay: "יציבות 2023–2025: 6, 6, 7; ...". */
-export function describeRadarHistory(years: number[], history: RadarAxis[][]): string {
-  const span = years.length > 1 ? ` ${years[0]}–${years[years.length - 1]}` : ''
-  return (history[history.length - 1] ?? [])
-    .map((axis, i) => `${axis.label}${span}: ${history.map((axes) => axes[i]?.value ?? 'אין נתונים').join(', ')}`)
-    .join('; ')
-}
 
 /** Spec: with fewer than 3 axes that have a value, the screen shows the list only, no radar. */
 export function hasEnoughForRadar(axes: RadarAxis[]): boolean {

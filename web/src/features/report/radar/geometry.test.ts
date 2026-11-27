@@ -8,8 +8,6 @@ import {
   axisAngle,
   CENTER,
   describeRadar,
-  historyLayout,
-  historyText,
   gridRing,
   hasEnoughForRadar,
   labelPlacement,
@@ -142,51 +140,5 @@ describe('report → radar axes', () => {
     const text = describeRadar(radarAxesForYear(sparseReport, 2025))
     expect(text).toContain('יציבות 7 מתוך 10, עולה')
     expect(text).toContain('ביטחון: אין מספיק נתונים')
-  })
-})
-
-describe('3-year history', () => {
-  const report = full as CompanyReport
-  const history = report.years.map((y) => radarAxesForYear(report, y))
-  const layout = historyLayout(report.years, history)
-
-  it('outlines the earlier years: previous dashed, older dotted', () => {
-    expect(layout.ghosts.map((g) => [g.year, g.style])).toEqual([
-      [2023, 'dotted'],
-      [2024, 'dashed'],
-    ])
-  })
-
-  it('draws a segment per change in the later year\'s server tone, none for no change', () => {
-    // growth 5 → 6 → 8 (positive both steps); stability 6 → 6 (flat: none) → 7 (positive)
-    const growth = layout.segments.filter((s) => s.id === 'growth')
-    expect(growth.map((s) => [s.year, s.tone])).toEqual([
-      [2024, 'positive'],
-      [2025, 'positive'],
-    ])
-    expect(layout.segments.filter((s) => s.id === 'stability').map((s) => s.year)).toEqual([2025])
-    const safety = layout.segments.filter((s) => s.id === 'safety')
-    expect(safety.every((s) => s.tone === 'negative')).toBe(true)
-  })
-
-  it('runs each segment along its axis between the two scores', () => {
-    const s = layout.segments.find((x) => x.id === 'stability' && x.year === 2025)!
-    expect(s.from).toEqual(vertex(0, 5, 6))
-    expect(s.to).toEqual(vertex(0, 5, 7))
-  })
-
-  it('skips steps with a missing value', () => {
-    const sparse_ = sparse as CompanyReport
-    const h = sparse_.years.map((y) => radarAxesForYear(sparse_, y))
-    const l = historyLayout(sparse_.years, h)
-    expect(l.segments.some((s) => s.id === 'safety')).toBe(false)
-    expect(l.segments.filter((s) => s.id === 'growth').map((s) => s.year)).toEqual([2025]) // 2023 is null
-  })
-
-  it('writes each axis history with a dash for a missing year', () => {
-    const sparse_ = sparse as CompanyReport
-    const h = sparse_.years.map((y) => radarAxesForYear(sparse_, y))
-    expect(historyText(history, 2)).toBe('5 · 6 · 8')
-    expect(historyText(h, 2)).toBe('— · 6 · 8')
   })
 })

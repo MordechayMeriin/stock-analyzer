@@ -135,3 +135,17 @@ class ResearchInProgress(AnalyzerError):
     """An OSINT run for the same ticker and window is already running in this server process."""
 
     code = "research_in_progress"
+
+
+class UnsupportedCompany(AnalyzerError):
+    """Too little scored data to draw a company report (fewer than three axes with a value)."""
+
+    code = "unsupported_company"
+
+
+class AxisNotFound(AnalyzerError):
+    code = "axis_not_found"
+
+
+class YearNotFound(AnalyzerError):
+    code = "year_not_found"

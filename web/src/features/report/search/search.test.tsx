@@ -85,7 +85,7 @@ describe('SearchPage', () => {
     const input = screen.getByRole('combobox')
     fireEvent.change(input, { target: { value: 'בנק' } })
     expect(await screen.findByText('בנק לאומי')).toBeTruthy()
-    expect(screen.getByText('אין דוח עדיין')).toBeTruthy()
+    expect(screen.queryByText('אין דוח עדיין')).toBeNull() // tracked companies have a report
 
     fireEvent.change(input, { target: { value: 'מלם' } })
     const options = screen.getAllByRole('option')

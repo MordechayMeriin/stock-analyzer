@@ -9,7 +9,7 @@ import pytest
 from tests.conftest import FIXTURES
 
 PER_FILE = 150_000
-TOTAL = 450_000
+TOTAL = 460_000  # +company_report.schema.json (the spec's contract)
 
 
 def test_fixtures_under_budget():

@@ -34,6 +34,8 @@ export type OsintPoint = Schemas['Point']
 export type OsintProgress = Schemas['OsintProgress']
 export type OsintLabel = Schemas['AreaAssessment']['label']
 export type OsintArea = Schemas['AreaAssessment']['area']
+export type CompanyReportOut = Schemas['CompanyReportOut']
+export type AxisDetailOut = Schemas['AxisDetailOut']
 
 /** An API failure carrying the server's machine-readable code. */
 export class ApiError extends Error {
@@ -112,6 +114,11 @@ export const api = {
     get<Filings>(`/api/companies/${enc(ticker)}/filings`, { mode }, signal),
   financials: (ticker: string, mode: Mode, asOf?: string, signal?: AbortSignal) =>
     get<Financials>(`/api/companies/${enc(ticker)}/financials`, { mode, as_of: asOf }, signal),
+  /** The company report (all years, scored axes, events, key metrics). Never spends credits. */
+  report: (ticker: string, mode: Mode, signal?: AbortSignal) =>
+    get<CompanyReportOut>(`/api/companies/${enc(ticker)}/report`, { mode }, signal),
+  axisDetail: (ticker: string, axisId: string, year: number, signal?: AbortSignal) =>
+    get<AxisDetailOut>(`/api/companies/${enc(ticker)}/report/axes/${enc(axisId)}`, { year }, signal),
   ratios: (ticker: string, mode: Mode, asOf?: string, signal?: AbortSignal) =>
     get<Ratios>(`/api/companies/${enc(ticker)}/ratios`, { mode, as_of: asOf }, signal),
   structure: (ticker: string, fy: number, mode: Mode, signal?: AbortSignal) =>

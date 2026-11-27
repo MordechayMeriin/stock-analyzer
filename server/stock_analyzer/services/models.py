@@ -246,3 +246,149 @@ class RatiosOut(BaseModel):
     as_of: str | None
     groups: list[RatioGroupOut]
     checks: dict[str, list[CheckOut]]  # fiscal year → data-quality check results
+
+
+# -- company report (company-report-spec): 1-10 scores per axis and year, derived from the ratios
+
+
+Tone = Literal["positive", "negative", "neutral"]
+Direction = Literal["up", "down", "flat"]
+
+
+class ReportSector(BaseModel):
+    id: str = Field(description="The statement template: industrial, bank or insurer")
+    name: str
+
+
+class ReportCompany(BaseModel):
+    ticker: str
+    name_he: str
+    name_en: str | None = None
+    logo_url: str | None = None
+    exchange: str
+    currency: str
+    sector: ReportSector
+
+
+class ReportInfo(BaseModel):
+    type: Literal["annual"] = "annual"
+    fiscal_year: int
+    period_end: str
+    published_at: str
+
+
+class ReportSummary(BaseModel):
+    text: str
+
+
+class ScoreTrend(BaseModel):
+    direction: Direction
+    delta: int
+    tone: Tone
+
+
+class ScoreDriver(BaseModel):
+    label: str
+    tone: Tone
+
+
+class AxisScore(BaseModel):
+    fiscal_year: int
+    value: int | None = Field(description="1-10, higher is better; null when no ratio has a value")
+    sector_median: float | None = None
+    trend: ScoreTrend | None = None
+    driver: ScoreDriver | None = None
+
+
+class ProfileAxis(BaseModel):
+    id: str
+    label: str
+    status: Literal["ok", "insufficient_data"]
+    detail_url: str
+    scores: list[AxisScore]
+
+
+class ReportProfile(BaseModel):
+    axes: list[ProfileAxis]
+
+
+class ReportEvent(BaseModel):
+    id: str
+    date: str
+    date_precision: Literal["day", "month"]
+    type: Literal[
+        "report",
+        "acquisition",
+        "leadership",
+        "guidance",
+        "financing",
+        "legal",
+        "regulatory",
+        "buyback",
+        "insider",
+        "other",
+    ]
+    title: str
+    summary: str
+    importance: int = Field(ge=1, le=3)
+    tone: Tone
+    source_url: str | None = None
+
+
+class MetricPoint(BaseModel):
+    fiscal_year: int
+    value: str | None = Field(description="Decimal string")
+
+
+class MetricChange(BaseModel):
+    direction: Direction
+    pct: float | None = None
+    tone: Tone
+
+
+class KeyMetric(BaseModel):
+    id: str
+    label: str
+    format: Literal["currency", "percent", "ratio", "count"]
+    currency: str | None = None
+    series: list[MetricPoint]
+    change: MetricChange | None = None
+
+
+class ReportWarning(BaseModel):
+    code: str
+    message: str
+
+
+class CompanyReportOut(BaseModel):
+    schema_version: str = "1.0"
+    generated_at: str
+    mode: Literal["cached", "live"]
+    company: ReportCompany
+    report: ReportInfo
+    summary: ReportSummary
+    years: list[int] = Field(description="Up to three fiscal years, oldest first")
+    profile: ReportProfile
+    events: list[ReportEvent]
+    key_metrics: list[KeyMetric]
+    warnings: list[ReportWarning]
+
+
+class AxisFactor(BaseModel):
+    label: str
+    display: str
+    tone: Tone
+
+
+class SectorComparison(BaseModel):
+    position: Literal["above", "below", "equal"]
+    median: float
+
+
+class AxisDetailOut(BaseModel):
+    axis_id: str
+    fiscal_year: int
+    headline: str
+    factors: list[AxisFactor]
+    sector_comparison: SectorComparison | None = None
+    text: str

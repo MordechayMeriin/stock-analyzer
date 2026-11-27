@@ -10,7 +10,19 @@ import type { KeyMetric } from './types'
 
 vi.mock('@/app/mode', () => ({ useMode: () => ({ mode: 'cached' }) }))
 
-afterEach(cleanup)
+/** The server answers 404 for NOPE; anything else is "offline", so the fixtures are served. */
+function stubServer() {
+  vi.stubGlobal('fetch', async (input: RequestInfo | URL) =>
+    String(input).includes('/NOPE/')
+      ? new Response(JSON.stringify({ code: 'not_found', message: 'unknown ticker' }), { status: 404 })
+      : Promise.reject(new TypeError('offline')),
+  )
+}
+
+afterEach(() => {
+  cleanup()
+  vi.unstubAllGlobals()
+})
 
 function renderAt(path: string) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
@@ -80,6 +92,7 @@ describe('ReportPage edge states', () => {
   })
 
   it('unknown ticker: not found message with a link back', async () => {
+    stubServer()
     renderAt('/c/NOPE')
     expect(await screen.findByText('לא מצאנו את הטיקר')).toBeTruthy()
     expect(screen.getByText('נתח מניה חדשה')).toBeTruthy()
@@ -101,20 +114,18 @@ describe('KeyMetrics', () => {
   })
 })
 
-describe('3-year view', () => {
-  it('?y=all selects the "3 שנים" tab, overlays earlier years and explains the marks', async () => {
-    const { container } = renderAt('/c/MLTM?y=all')
+describe('multi-year view', () => {
+  it('?y=all selects the "3 שנים" tab and plays the years from the oldest', async () => {
+    renderAt('/c/MLTM?y=all')
     expect((await screen.findByRole('tab', { name: '3 שנים' })).getAttribute('aria-selected')).toBe('true')
-    expect(container.querySelector('[data-testid="ghost-2024"]')).toBeTruthy()
-    expect(container.querySelector('[data-testid="ghost-2023"]')).toBeTruthy()
-    expect(screen.getByTestId('history-caption').textContent).toContain('מקווקו: 2024')
-    expect(screen.getByRole('img').getAttribute('aria-label')).toContain('צמיחה 2023–2025: 5, 6, 8')
+    expect(screen.getByTestId('rotating-radar')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'הצגת 2023' }).getAttribute('aria-pressed')).toBe('true')
+    expect(screen.getByRole('img').getAttribute('aria-label')).toContain('צמיחה 5 מתוך 10')
   })
 
-  it('clicking a year leaves the 3-year view', async () => {
-    const { container } = renderAt('/c/MLTM?y=all')
+  it('clicking a year tab leaves the multi-year view', async () => {
+    renderAt('/c/MLTM?y=all')
     fireEvent.click(await screen.findByRole('tab', { name: '2024' }))
-    expect(container.querySelector('[data-testid^="ghost-"]')).toBeNull()
-    expect(screen.queryByTestId('history-caption')).toBeNull()
+    expect(screen.queryByTestId('rotating-radar')).toBeNull()
   })
 })
