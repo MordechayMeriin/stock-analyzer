@@ -2,5 +2,5 @@
 export const DISCLAIMER_TEXT = 'למטרות מידע בלבד. הציונים תיאוריים ואינם המלצה או ייעוץ השקעות.'
 
 export function Disclaimer() {
-  return <p className="text-center text-[11px] leading-normal text-[#71717a]">{DISCLAIMER_TEXT}</p>
+  return <p className="text-center text-[11px] leading-normal text-muted-foreground">{DISCLAIMER_TEXT}</p>
 }

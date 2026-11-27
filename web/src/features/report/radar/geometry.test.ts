@@ -105,10 +105,10 @@ describe('missing values', () => {
 })
 
 describe('tone colors', () => {
-  it('maps the server tone to the spec colors', () => {
-    expect(toneColor('positive')).toBe('#15803d')
-    expect(toneColor('negative')).toBe('#b91c1c')
-    expect(toneColor('neutral')).toBe('#71717a')
+  it('maps the server tone to the theme tone colors', () => {
+    expect(toneColor('positive')).toBe('var(--tone-positive)')
+    expect(toneColor('negative')).toBe('var(--tone-negative)')
+    expect(toneColor('neutral')).toBe('var(--tone-neutral)')
   })
 })
 

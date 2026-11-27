@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { createBrowserRouter, RouterProvider } from 'react-router-dom'
 
 import './index.css'
+import { initTheme } from './app/theme'
 import { ModeProvider } from './app/mode'
 import { Layout } from './components/Layout'
 import { Empty } from './components/states'
@@ -55,6 +56,8 @@ const router = createBrowserRouter([
     ],
   },
 ])
+
+initTheme()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

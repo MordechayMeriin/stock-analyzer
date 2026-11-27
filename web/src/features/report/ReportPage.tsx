@@ -17,7 +17,7 @@ import { useReport } from './queries'
 import { defaultYear, radarAxesForYear, resolveYear } from './view'
 
 // Design A2: 390-wide reference, page padding 28/20/32, 36px between sections; centered up to 480.
-const COLUMN = 'mx-auto w-full max-w-[480px] space-y-9 px-5 pt-7 pb-8 text-[#09090b]'
+const COLUMN = 'mx-auto w-full max-w-[480px] space-y-9 px-5 pt-7 pb-8 text-foreground'
 
 function NewCompanyLink() {
   return (

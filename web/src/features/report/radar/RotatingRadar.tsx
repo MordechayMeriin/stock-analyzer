@@ -39,7 +39,7 @@ export function RotatingRadar({ report }: { report: CompanyReport }) {
           type="button"
           onClick={() => setPlaying((p) => !p)}
           aria-label={playing ? 'עצירת ההחלפה בין השנים' : 'הפעלת ההחלפה בין השנים'}
-          className="grid size-11 place-items-center rounded-full text-[#09090b] hover:bg-[#f4f4f5] focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+          className="grid size-11 place-items-center rounded-full text-foreground hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
         >
           {playing ? <Pause className="size-4" aria-hidden /> : <Play className="size-4" aria-hidden />}
         </button>
@@ -55,14 +55,14 @@ export function RotatingRadar({ report }: { report: CompanyReport }) {
             }}
             className={cn(
               'min-h-11 rounded-md px-2 text-[15px] tabular-nums transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
-              i === index ? 'font-bold text-[#09090b]' : 'font-medium text-[#a1a1aa] hover:text-[#71717a]',
+              i === index ? 'font-bold text-foreground' : 'font-medium text-muted-foreground/60 hover:text-muted-foreground',
             )}
           >
             {y}
           </button>
         ))}
       </div>
-      <p data-testid="rotation-caption" className="text-center text-[11px] leading-normal text-[#71717a]">
+      <p data-testid="rotation-caption" className="text-center text-[11px] leading-normal text-muted-foreground">
         {index > 0 ? `מקווקו: ${years[index - 1]} · החצים: השינוי מ-${years[index - 1]}` : 'השנה הראשונה בטווח'}
       </p>
     </div>

@@ -114,9 +114,9 @@ export const ARROWS: Record<Direction, string> = { up: '▲', down: '▼', flat:
 
 /** Arrow colors come from the server's tone, never from the numbers. */
 export const TONE_COLORS: Record<Tone, string> = {
-  positive: '#15803d',
-  negative: '#b91c1c',
-  neutral: '#71717a',
+  positive: 'var(--tone-positive)',
+  negative: 'var(--tone-negative)',
+  neutral: 'var(--tone-neutral)',
 }
 
 export function toneColor(tone: Tone): string {

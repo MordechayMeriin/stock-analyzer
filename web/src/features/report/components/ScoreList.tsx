@@ -33,7 +33,7 @@ function ScoreRow({ ticker, axis, year }: { ticker: string; axis: Axis; year: nu
         )}
       >
         <span className="min-w-[84px] text-sm font-semibold">{axis.label}</span>
-        <span className="flex-1 text-[13px] text-[#71717a]">
+        <span className="flex-1 text-[13px] text-muted-foreground">
           {value === null ? 'אין מספיק נתונים' : score?.driver?.label}
         </span>
         {value !== null && (
@@ -52,7 +52,7 @@ function ScoreRow({ ticker, axis, year }: { ticker: string; axis: Axis; year: nu
         )}
         <ChevronDown
           aria-hidden="true"
-          className={cn('size-[18px] shrink-0 text-[#71717a] transition-transform', open && 'rotate-180')}
+          className={cn('size-[18px] shrink-0 text-muted-foreground transition-transform', open && 'rotate-180')}
         />
       </button>
       <div id={panelId} hidden={!open}>

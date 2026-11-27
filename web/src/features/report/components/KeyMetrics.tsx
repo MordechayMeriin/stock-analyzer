@@ -30,7 +30,7 @@ export function KeyMetrics({ metrics }: { metrics: KeyMetric[] }) {
       <ul className="grid grid-cols-2 gap-x-4 gap-y-6">
         {metrics.slice(0, MAX_METRICS).map((m) => (
           <li key={m.id} className="flex min-w-0 flex-col gap-1">
-            <span className="text-xs text-[#71717a]">{m.label}</span>
+            <span className="text-xs text-muted-foreground">{m.label}</span>
             <span dir="ltr" className="text-start text-[22px] font-bold tabular-nums [unicode-bidi:isolate]">
               {formatMetricValue(lastMetricValue(m), m.format, m.currency ?? undefined)}
             </span>

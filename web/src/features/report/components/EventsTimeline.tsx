@@ -49,7 +49,7 @@ export function EventsTimeline({ events, years }: { events: ReportEvent[]; years
     return (
       <section aria-labelledby="events-heading">
         {heading}
-        <p data-testid="events-empty" className="text-[13px] text-[#71717a]">
+        <p data-testid="events-empty" className="text-[13px] text-muted-foreground">
           עדיין לא נאספו אירועים לחברה זו.
         </p>
       </section>
@@ -64,11 +64,11 @@ export function EventsTimeline({ events, years }: { events: ReportEvent[]; years
           const Icon = iconFor(e)
           return (
             <li key={e.id} className="flex gap-4 pb-[22px] last:pb-0">
-              <Icon aria-hidden="true" strokeWidth={1.75} className="mt-0.5 size-[18px] shrink-0 text-[#71717a]" />
+              <Icon aria-hidden="true" strokeWidth={1.75} className="mt-0.5 size-[18px] shrink-0 text-muted-foreground" />
               <div className="flex min-w-0 flex-col gap-0.5">
                 <p className="text-sm font-semibold">{e.title}</p>
-                {e.summary && <p className="text-[13px] text-[#71717a]">{e.summary}</p>}
-                <p dir="ltr" className="mt-0.5 text-start text-[11px] text-[#71717a] tabular-nums [unicode-bidi:isolate]">
+                {e.summary && <p className="text-[13px] text-muted-foreground">{e.summary}</p>}
+                <p dir="ltr" className="mt-0.5 text-start text-[11px] text-muted-foreground tabular-nums [unicode-bidi:isolate]">
                   {formatEventDate(e.date, e.date_precision)}
                   {e.source_url && (
                     <>

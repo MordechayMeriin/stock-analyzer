@@ -55,8 +55,8 @@ export function YearTabs({ years, value, onChange, allLabel }: YearTabsProps) {
               "after:absolute after:-inset-x-1.5 after:-inset-y-2.5 after:content-['']",
               'focus-visible:rounded-sm focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
               selected
-                ? 'border-[#09090b] font-bold text-[#09090b]'
-                : 'border-transparent font-medium text-[#71717a] hover:text-[#09090b]',
+                ? 'border-foreground font-bold text-foreground'
+                : 'border-transparent font-medium text-muted-foreground hover:text-foreground',
             )}
           >
             {year === 'all' ? allLabel : year}
