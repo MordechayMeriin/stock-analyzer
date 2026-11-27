@@ -52,7 +52,7 @@
 
 ## 9. Integration
 
-- [ ] 9.1 Run the full server test suite offline, `ruff check`, `ruff format --check`, the web build, lint and the API-type check; verify all pass locally and in CI (`server.yml`, `web.yml`)
+- [x] 9.1 Run the full server test suite offline, `ruff check`, `ruff format --check`, the web build, lint and the API-type check; verify all pass locally and in CI (`server.yml`, `web.yml`)
 - [ ] 9.2 Generate a live Malam story with the stored OSINT result removed or older than 30 days, after saying how much the OSINT run and searches may cost; verify the progress shows the research run, the saved story cites at least one web source that opens on the story page, and the usage log has story-search and OSINT records
 
 ## Workflow follow-up
