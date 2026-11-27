@@ -71,7 +71,7 @@
 
 ## 10. Integration
 
-- [ ] 10.1 Run the full server test suite offline, `ruff`, the web build, lint and API-type check (the full e2e script was dropped by decision; the story e2e checks passed 14/14); verify all pass in CI (`server.yml`, `web.yml`)
+- [x] 10.1 Run the full server test suite offline, `ruff`, the web build, lint and API-type check (the full e2e script was dropped by decision; the story e2e checks passed 14/14); verify all pass in CI (`server.yml`, `web.yml`) — `server` passed on 6f655d6 and `web` on 6f95d0a, the last commits that changed code; later merges touched specs only
 - [ ] 10.2 Generate a Malam story from the CLI against the hosted database, and open it on the hosted cached-only deployment; verify the hosted story page shows it with no LLM call logged on the server
 
 ## Workflow follow-up
