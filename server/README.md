@@ -104,6 +104,22 @@ uv run stock-analyzer usage                        # provider credits + LLM spen
 `--mode cached` (default for reading commands) never calls the provider; `fetch` is always live.
 Always let `fetch` save the financials (never pass `--no-financials`): ratios are computed from them.
 
+### Industry market research
+
+`market-research` takes a tracked ticker and resolves its ISIC Rev. 5 class from the provider company
+profile. It researches demand, competition, and regulation across Israel, Europe, and the US by default.
+Use repeatable `--market` options to focus the brief. Each market shows source citations and evidence gaps.
+
+```bash
+uv run --env-file ../.env stock-analyzer market-research MLTM --mode live
+uv run --env-file ../.env stock-analyzer market-research MLTM --mode live --market EUROPE --market US --json
+uv run --env-file ../.env stock-analyzer market-research MLTM --market EUROPE --market US --json
+```
+
+Live mode uses the configured FinancialFilings and OpenRouter credentials and may incur provider charges.
+Cached mode is the default and replays the latest result for the same ticker, market set, and month window.
+Evidence from a narrower geography or a different industry classification retains its original scope.
+
 ### Peer financials
 
 From `server/`, run the command in live mode to populate the cache, then replay the same query offline.
