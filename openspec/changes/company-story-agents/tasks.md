@@ -3,7 +3,7 @@
 ## 1. Dependencies: openai 3 and the Agents SDK
 
 - [x] 1.1 Confirm `deploy-render-supabase-storage` is archived (or its store tasks are done) before starting; verify its task groups 2–3 (store interface, fs and Postgres backends) are all checked and `server/stock_analyzer/store/` exists (archive order is in the workflow follow-up)
-- [ ] 1.2 Bump `openai` to `>=3,<4`, add `openai-agents` pinned to the current release, and refresh `uv.lock`; verify `uv sync --frozen` succeeds and `docker build server/` still builds
+- [x] 1.2 Bump `openai` to `>=3,<4`, add `openai-agents` pinned to the current release, and refresh `uv.lock`; verify `uv sync --frozen` succeeds and `docker build server/` still builds — openai 3.60.0 and openai-agents 0.26.0 in `uv.lock`; `uv sync --frozen` and the new CI `image` job (build, then `/health` answers ok) pass on PR #20
 - [x] 1.3 Migrate `llm.py` to the openai 3 client with no behavioural change, and move `tests/unit/test_llm.py` from `respx` routes to an injected fake client (design D9); verify the whole test suite passes, `ruff check` / `ruff format --check` are clean, and `scripts/export_openapi.py` produces an unchanged `openapi.json`
 - [x] 1.4 Update the `pyproject.toml` pin comment and `server/README.md` to explain why openai 3 is required; verify the comment names the Agents SDK
 
@@ -71,7 +71,7 @@
 
 ## 10. Integration
 
-- [ ] 10.1 Run the full server test suite offline, `ruff`, the web build, lint and API-type check (the full e2e script was dropped by decision; the story e2e checks passed 14/14); verify all pass in CI (`server.yml`, `web.yml`)
+- [x] 10.1 Run the full server test suite offline, `ruff`, the web build, lint and API-type check (the full e2e script was dropped by decision; the story e2e checks passed 14/14); verify all pass in CI (`server.yml`, `web.yml`) — `server` passed on 6f655d6 and `web` on 6f95d0a, the last commits that changed code; later merges touched specs only
 - [ ] 10.2 Generate a Malam story from the CLI against the hosted database, and open it on the hosted cached-only deployment; verify the hosted story page shows it with no LLM call logged on the server
 
 ## Workflow follow-up
