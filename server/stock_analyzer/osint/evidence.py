@@ -30,7 +30,9 @@ from stock_analyzer.osint.verify import parse_published
 
 VERIFY_BATCH = 10
 EXCERPT_CHARS = 3000
-EXACT_DUPLICATE_RATIO = 90  # token_set_ratio; calibration: real duplicates from different articles score 63-71
+EXACT_DUPLICATE_RATIO = (
+    90  # token_set_ratio; calibration: real duplicates from different articles score 63-71
+)
 RECENT_DAYS = 365
 
 _VERDICT_RANK = {"supported": 0, "partial": 1, "unverified": 2}
@@ -172,7 +174,13 @@ def trend_hints(kept: list[KeptFinding], run_date: date) -> dict[Area, dict[str,
     """Per area: positive and negative findings from the last 12 months and from before, plus undated ones."""
     cutoff = run_date - timedelta(days=RECENT_DAYS)
     hints: dict[Area, dict[str, int]] = {
-        area: {"recent_positive": 0, "recent_negative": 0, "older_positive": 0, "older_negative": 0, "undated": 0}
+        area: {
+            "recent_positive": 0,
+            "recent_negative": 0,
+            "older_positive": 0,
+            "older_negative": 0,
+            "undated": 0,
+        }
         for area in AREAS
     }
     for f in kept:

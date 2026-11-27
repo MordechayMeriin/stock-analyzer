@@ -16,8 +16,19 @@ from pydantic import BaseModel, Field, model_validator
 
 from stock_analyzer.osint.blocklist import Blocklist
 
-Area = Literal["news", "market", "credit", "operations", "labor_government", "competition_macro"]
-AREAS: tuple[Area, ...] = ("news", "market", "credit", "operations", "labor_government", "competition_macro")
+Area = Literal[
+    "news", "market", "credit", "operations", "legal", "regulation", "labor_government", "competition_macro"
+]
+AREAS: tuple[Area, ...] = (
+    "news",
+    "market",
+    "credit",
+    "operations",
+    "legal",
+    "regulation",
+    "labor_government",
+    "competition_macro",
+)
 
 # Sector-neutral on purpose: the orchestrator works out the company's industry and tells each specialist
 # which indicators matter for it (prompts/osint/israel_market.md has the sector guide).
@@ -25,7 +36,8 @@ AREA_INFO: dict[Area, tuple[str, str]] = {
     "news": (
         "חדשות ואירועים",
         "Recent news and events about the company: management and board changes, controlling-shareholder "
-        "moves, strategy, deals and acquisitions, incidents, legal and regulatory actions, and controversies.",
+        "moves, strategy, deals and acquisitions, incidents and controversies. Court cases and regulatory "
+        "change have their own areas.",
     ),
     "market": (
         "איתותי שוק",
@@ -44,11 +56,24 @@ AREA_INFO: dict[Area, tuple[str, str]] = {
         "market share, customers and contracts, capacity, projects and pipeline, production, service "
         "quality and complaints, and industry statistics published by government or trade bodies.",
     ),
+    "legal": (
+        "הליכים משפטיים",
+        "Court cases and legal proceedings involving the company, its controlling shareholder or its "
+        "managers: lawsuits and class actions (filed, certified, settled or dismissed), criminal or "
+        "regulatory investigations and enforcement proceedings, fines, arbitration, court rulings and "
+        "appeals, insolvency or creditor proceedings, and the amounts at stake.",
+    ),
+    "regulation": (
+        "רגולציה צפויה",
+        "New and upcoming regulation affecting the company or its industry: bills and laws in the Knesset, "
+        "regulator directives and drafts, reforms, licence, tariff or tax changes, each with its status "
+        "(proposed, approved, in force), its effective date when known and its expected effect on the company.",
+    ),
     "labor_government": (
         "עבודה וממשלה",
-        "Labor relations (unions, the Histadrut, strikes, wage agreements) and the state's role: the "
-        "industry regulator, licences and concessions, tenders, state holdings or special shares, subsidies, "
-        "taxes, and policy decisions that affect the company.",
+        "Labor relations (unions, the Histadrut, strikes, wage agreements) and the state's role as owner and "
+        "customer: state holdings or special shares, concessions and tenders, subsidies and government support. "
+        "Regulatory change has its own area.",
     ),
     "competition_macro": (
         "תחרות, מאקרו וגאופוליטיקה",
@@ -98,7 +123,9 @@ class CompanyProfile(BaseModel):
 
     industry: str = Field(description="The company's industry, in a few words.")
     business_lines: list[str] = Field(description="Main business lines or segments.")
-    controlling_shareholder: str | None = Field(description="Controlling shareholder, or null if none or unknown.")
+    controlling_shareholder: str | None = Field(
+        description="Controlling shareholder, or null if none or unknown."
+    )
     competitors: list[str] = Field(description="Main competitors.")
     regulator: str | None = Field(description="Main regulator, or null if none or unknown.")
     key_drivers: list[str] = Field(

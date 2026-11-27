@@ -21,8 +21,8 @@ from stock_analyzer.osint.models import (
     AreaAssessment,
     CompanyProfile,
     DropReason,
-    KeyDriver,
     KeptFinding,
+    KeyDriver,
     Point,
     RunState,
     Scorecard,
@@ -79,7 +79,9 @@ def verify_findings(state: RunState) -> tuple[list[KeptFinding], dict[str, int]]
     return kept, {reason: dropped.get(reason, 0) for reason in DROP_REASONS}
 
 
-def check_scorecard(card: Scorecard, kept: list[KeptFinding], profile: CompanyProfile | None = None) -> Scorecard:
+def check_scorecard(
+    card: Scorecard, kept: list[KeptFinding], profile: CompanyProfile | None = None
+) -> Scorecard:
     """A scorecard whose every claim cites kept findings, with one entry per area and per key driver."""
     by_id = {f.id: f for f in kept}
     by_area = {area: [f.id for f in kept if f.area == area or area in f.also_areas] for area in AREAS}
@@ -129,12 +131,15 @@ def check_scorecard(card: Scorecard, kept: list[KeptFinding], profile: CompanyPr
     for d in card.key_drivers:
         ids = [i for i in d.finding_ids if i in by_id]
         drivers.append(
-            KeyDriver(driver=d.driver, status=d.status if ids else "unknown", explanation=d.explanation, finding_ids=ids)
+            KeyDriver(
+                driver=d.driver,
+                status=d.status if ids else "unknown",
+                explanation=d.explanation,
+                finding_ids=ids,
+            )
         )
-    named = {d.driver.strip().lower() for d in drivers}
-    for name in profile.key_drivers if profile else []:
-        if name.strip().lower() not in named:  # every driver of the profile is listed, even without evidence
-            drivers.append(KeyDriver(driver=name, status="unknown", explanation="", finding_ids=[]))
+    if not drivers and profile:  # the model named no drivers: list the profile's, without evidence
+        drivers = [KeyDriver(driver=n, status="unknown", explanation="", finding_ids=[]) for n in profile.key_drivers]
 
     return Scorecard(
         overall_label=card.overall_label,

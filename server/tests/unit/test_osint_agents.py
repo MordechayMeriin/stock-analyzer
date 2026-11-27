@@ -228,14 +228,19 @@ def test_check_scorecard_key_drivers():
         [aa("news", "watch", ["F1"])],
         key_drivers=[
             KeyDriver(driver="Demand", status="positive", explanation="e", finding_ids=["F1", "F9"]),
-            KeyDriver(driver="security", status="negative", explanation="e", finding_ids=["F9"]),  # unknown id
+            KeyDriver(
+                driver="security", status="negative", explanation="e", finding_ids=["F9"]
+            ),  # unknown id
         ],
     )
     out = check_scorecard(card, kept, profile)
     drivers = {d.driver.lower(): d for d in out.key_drivers}
     assert drivers["demand"].status == "positive" and drivers["demand"].finding_ids == ["F1"]
     assert drivers["security"].status == "unknown" and drivers["security"].finding_ids == []
-    assert drivers["fuel costs"].status == "unknown"  # profile driver the model left out is still listed
+    assert "fuel costs" not in drivers  # the model's own drivers are kept as given, not padded
+    out = check_scorecard(card_with([aa("news", "watch", ["F1"])]), kept, profile)
+    assert [d.driver for d in out.key_drivers] == profile.key_drivers  # model named none: profile's, unknown
+    assert {d.status for d in out.key_drivers} == {"unknown"}
 
 
 def test_check_scorecard_counts_also_areas_as_evidence():
@@ -269,8 +274,8 @@ def test_orchestrator_calls_every_specialist_and_scorecard_is_cited(settings):
     out = run(settings, state, backend=search)
     card, kept, dropped = out.scorecard, out.findings, out.dropped
     assert {a for a, _ in state.reports} == set(AREAS)
-    assert len(search.calls) == 6 and state.searches_used == 6
-    assert len(kept) == 12
+    assert len(search.calls) == len(AREAS) and state.searches_used == len(AREAS)
+    assert len(kept) == 2 * len(AREAS)
     assert dropped == {"blocked": 0, "not_searched": 0, "outside_window": 0, "unsupported": 0}
     assert out.profile is not None and out.profile.key_drivers
     assert {f.verdict for f in kept} == {"supported"}
@@ -311,11 +316,11 @@ def test_search_limit_still_produces_a_scorecard(settings):
     card, kept = out.scorecard, out.findings
     assert state.searches_used == 2
     assert kept and {f.area for f in kept} <= set(AREAS)
-    assert sum(a.label == "insufficient_data" for a in card.areas) == 4
+    assert sum(a.label == "insufficient_data" for a in card.areas) == len(AREAS) - 2
 
 
 def test_orchestrator_can_profile_the_company_with_search(settings):
-    """The orchestrator gets web_search next to the six research tools."""
+    """The orchestrator gets web_search next to the research tools of every area."""
     from stock_analyzer.osint import agents as agents_mod
 
     seen = {}

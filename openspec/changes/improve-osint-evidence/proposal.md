@@ -25,9 +25,18 @@ analysis: focus on what matters for the company's industry and say how the compa
   industry, business lines and the key drivers of stability for that industry. Each area gets an
   importance for this industry (high, medium, low), the scorecard gets a "key drivers" section with the
   status of each driver and its findings, and the overall label weighs areas by their importance.
+- **Two new research areas** (user requests during implementation): *legal proceedings* (court cases,
+  class actions, investigations, enforcement, rulings) and *upcoming regulation* (bills, directives,
+  reforms, licence, tariff and tax changes, with status and effective date). `news` and
+  `labor_government` are narrowed so they do not overlap. The default search limit rises from 40 to 52 to
+  make room (about +$0.10 per run).
+- **Runs on Render.** The server image was missing the OSINT block-list, so OSINT would crash on the
+  hosted API; the image now carries it, `render.yaml` sets the OSINT settings, and a test fails if a file
+  OSINT needs is missing from the image.
 - The CLI text output, the API result and the web OSINT view show the new fields: profile and key
   drivers, area importance and trend, verdict badges and merged sources.
-- Added cost: one extra cheap-model pass per run, expected around $0.01-0.05.
+- Added cost: one extra cheap-model pass per run (around $0.01-0.05) plus up to 12 more searches for the
+  two new areas (about $0.10); about $1.2 per run in total.
 
 ## Capabilities
 
@@ -35,16 +44,22 @@ analysis: focus on what matters for the company's industry and say how the compa
 <!-- none -->
 
 ### Modified Capabilities
-- `osint-research`: new requirements for checking claims against sources, merging duplicate findings,
-  trend per area and overall, and industry-focused analysis (profile, key drivers, area importance).
+- `osint-research`: eight research areas instead of six (modified requirement), and new requirements for
+  checking claims against sources, merging duplicate findings, trend per area and overall,
+  industry-focused analysis (profile, key drivers, area importance), and the legal and regulation areas.
 - `web-client`: new requirement for showing the profile, key drivers, importance, trend, verdicts and
   merged sources in the OSINT view.
+- `deployment`: new requirement that OSINT runs on the hosted API (files in the image, settings in the
+  blueprint).
 
 ## Impact
 
-- **Code:** `server/stock_analyzer/osint/` (models, verify, agents, search), `services/osint.py`,
-  `prompts/osint/` (orchestrator, synthesizer, new verifier prompt), `cli.py` (text output),
-  `server/openapi.json` (regenerated), `web/src/features/osint/OsintPage.tsx` and the API types.
+- **Code:** `server/stock_analyzer/osint/` (models, verify, agents, search, new `evidence.py`),
+  `services/osint.py`, `prompts/osint/` (orchestrator, synthesizer, `israel_market.md`, new `verifier.md`
+  and `grouper.md`), `config.py` (search limit 52), `cli.py` (text output), `server/openapi.json`
+  (regenerated), `web/src/features/osint/OsintPage.tsx` and the API types.
+- **Deployment:** `server/Dockerfile` (copies the block-list), `render.yaml` (OSINT settings), new
+  `tests/unit/test_deploy_osint.py`.
 - **Stored results:** new optional fields on stored OSINT results. Results stored before this change still
   load and display without them.
 - **No change** to filing exclusion, cached/live behavior, progress events or run guards.

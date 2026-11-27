@@ -7,6 +7,9 @@
 #        CORS_ORIGINS (the static site's https URL, known after it is created)
 #   Web: VITE_API_BASE_URL (the API's https URL)
 #
+# OSINT research runs on the same API. Stored OSINT results are served in cached mode; a live
+# OSINT run (about $1.2 of OpenRouter credit) needs ALLOW_LIVE=true, like any other live call.
+#
 # Live mode stays off (ALLOW_LIVE=false). For a demo, set ALLOW_LIVE=true on the API in the
 # Dashboard, then set it back to false: no code change is needed (see README "Hosted deployment").
 
@@ -41,6 +44,13 @@ services:
         sync: false
       - key: CORS_ORIGINS
         sync: false
+      # OSINT research (server/README.md "OSINT research"); defaults shown, change them in the Dashboard
+      - key: MODEL_OSINT
+        value: openai/gpt-6.1-sol
+      - key: OSINT_MAX_SEARCHES
+        value: "52"
+      - key: OSINT_WINDOW_MONTHS
+        value: "36"
 
   - type: web
     name: stock-analyzer-web

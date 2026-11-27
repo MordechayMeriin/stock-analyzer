@@ -1,6 +1,6 @@
 """OSINT agents on the OpenAI Agents SDK over OpenRouter (design D1, D4, D7, D9; improve-osint-evidence D1-D9).
 
-Flow: the orchestrator profiles the company and calls six specialist agents as tools (one per area); each
+Flow: the orchestrator profiles the company and calls eight specialist agents as tools (one per area); each
 specialist searches with ``web_search`` and returns an :class:`AreaReport`, which is collected into the
 :class:`RunState`. The orchestrator's final output is the :class:`CompanyProfile`. Areas the orchestrator
 skipped are researched directly afterwards. Findings are verified in code, checked against their source
@@ -39,6 +39,14 @@ from openai.types.responses import ResponseFunctionToolCall, ResponseOutputMessa
 
 from stock_analyzer.config import MissingCredential, Settings
 from stock_analyzer.errors import NoFindings
+from stock_analyzer.osint.evidence import (
+    apply_verdicts,
+    claim_batches,
+    exact_duplicate_groups,
+    merge_findings,
+    trend_hints,
+    validate_groups,
+)
 from stock_analyzer.osint.models import (
     AREA_INFO,
     AREAS,
@@ -50,14 +58,6 @@ from stock_analyzer.osint.models import (
     RunState,
     Scorecard,
     VerdictBatch,
-)
-from stock_analyzer.osint.evidence import (
-    apply_verdicts,
-    claim_batches,
-    exact_duplicate_groups,
-    merge_findings,
-    trend_hints,
-    validate_groups,
 )
 from stock_analyzer.osint.search import SearchBackend, run_search
 from stock_analyzer.osint.verify import check_scorecard, verify_findings
@@ -76,6 +76,8 @@ class PipelineResult:
     dropped: dict[str, int]
     merged: int
     profile: CompanyProfile | None
+
+
 ModelFactory = Callable[[Role, Area | None], Model]
 
 
@@ -288,7 +290,7 @@ async def run_pipeline(
     try:
         orchestrated = await Runner.run(
             orchestrator,
-            f"Research {company} ({state.ticker}) across all six areas.",
+            f"Research {company} ({state.ticker}) across all {len(AREAS)} areas.",
             context=state,
             max_turns=settings.osint_max_turns,
             hooks=hooks,
@@ -350,7 +352,11 @@ async def run_pipeline(
 
 
 async def _check_claims(
-    settings: Settings, state: RunState, kept: list[KeptFinding], model_factory: ModelFactory, hooks: OsintHooks
+    settings: Settings,
+    state: RunState,
+    kept: list[KeptFinding],
+    model_factory: ModelFactory,
+    hooks: OsintHooks,
 ) -> tuple[list[KeptFinding], int]:
     """Verdict per finding from the cheap verifier, in concurrent batches (improve-osint-evidence D3)."""
     verifier = Agent[RunState](
@@ -364,7 +370,11 @@ async def _check_claims(
     async def check(batch: list[dict[str, str]]) -> dict[str, str]:
         try:
             result = await Runner.run(
-                verifier, json.dumps({"findings": batch}, ensure_ascii=False), context=state, max_turns=2, hooks=hooks
+                verifier,
+                json.dumps({"findings": batch}, ensure_ascii=False),
+                context=state,
+                max_turns=2,
+                hooks=hooks,
             )
         except MissingCredential:
             raise
@@ -380,7 +390,11 @@ async def _check_claims(
 
 
 async def _merge_duplicates(
-    settings: Settings, state: RunState, kept: list[KeptFinding], model_factory: ModelFactory, hooks: OsintHooks
+    settings: Settings,
+    state: RunState,
+    kept: list[KeptFinding],
+    model_factory: ModelFactory,
+    hooks: OsintHooks,
 ) -> tuple[list[KeptFinding], int]:
     """Exact pass in code, then one cheap grouper call over every claim (improve-osint-evidence D4)."""
     groups = exact_duplicate_groups(kept)
@@ -393,7 +407,12 @@ async def _merge_duplicates(
             model_settings=MODEL_SETTINGS,
         )
         payload = json.dumps(
-            {"findings": [{"id": f.id, "area": f.area, "published_at": f.published_at, "claim": f.claim} for f in kept]},
+            {
+                "findings": [
+                    {"id": f.id, "area": f.area, "published_at": f.published_at, "claim": f.claim}
+                    for f in kept
+                ]
+            },
             ensure_ascii=False,
         )
         try:
@@ -533,7 +552,9 @@ class FakeAgentModel(Model):
             out = [_message(json.dumps({"verdicts": verdicts}))]
         elif self.role == "grouper":
             findings = json.loads(_user_text(items) or "{}").get("findings") or []
-            groups = [[f["id"] for f in findings if any(frag in f["claim"] for frag in g)] for g in self.groups]
+            groups = [
+                [f["id"] for f in findings if any(frag in f["claim"] for frag in g)] for g in self.groups
+            ]
             out = [_message(json.dumps({"groups": [g for g in groups if len(g) >= 2]}))]
         else:
             payload = json.loads(_user_text(items) or "{}")

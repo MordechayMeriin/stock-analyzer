@@ -1,6 +1,43 @@
 # Spec Delta
 
+## MODIFIED Requirements
+
+### Requirement: Research areas
+The research SHALL cover eight areas: news and events; market signals; credit ratings and analyst forecasts;
+operations and demand; legal proceedings; upcoming regulation; labor and government; competition, macro and
+geopolitics.
+
+#### Scenario: All areas reported
+- **WHEN** a research run completes
+- **THEN** the scorecard has one entry for each of the eight areas
+
 ## ADDED Requirements
+
+### Requirement: Legal proceedings researched
+The legal area SHALL cover court cases and legal proceedings involving the company, its controlling
+shareholder or its managers: lawsuits and class actions, criminal or regulatory investigations and
+enforcement, fines, arbitration, rulings and appeals, with their status and the amounts at stake when known.
+
+#### Scenario: Class action against the company
+- **WHEN** a class action against the company was filed or certified inside the window
+- **THEN** the legal area can report it as a finding with its status and amount, citing its source
+
+### Requirement: Upcoming regulation researched
+The regulation area SHALL cover new and pending regulation affecting the company or its industry: bills,
+regulator directives and drafts, reforms, licence, tariff or tax changes, each with its status (proposed,
+approved, in force), its effective date when known and its expected effect on the company.
+
+#### Scenario: Pending reform
+- **WHEN** a regulator published a draft reform for the company's industry inside the window
+- **THEN** the regulation area can report it with status proposed and its expected effect on the company
+
+### Requirement: Legal and regulatory risk weighed
+The scorecard SHALL weigh material legal proceedings and regulation that is approved or close to approval,
+and SHALL be able to list them among the top risks.
+
+#### Scenario: Large certified claim
+- **WHEN** a large class action against the company was certified
+- **THEN** the scorecard can list it among the top risks, citing the finding
 
 ### Requirement: Claims checked against their sources
 Each finding that passes the URL and window checks SHALL be checked against the search excerpt the run

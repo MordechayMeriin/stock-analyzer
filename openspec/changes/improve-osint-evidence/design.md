@@ -75,7 +75,11 @@ for areas with insufficient data.
 `AreaAssessment` gains `importance` (high/medium/low for this industry) and the synthesizer is told to
 weigh the overall label by it. `Scorecard` gains `key_drivers`: one entry per profile driver with status
 (positive/negative/mixed/unknown), a Hebrew explanation and finding ids. `check_scorecard` drops unknown
-ids and sets a driver with no valid ids to `unknown`.
+ids and sets a driver with no valid ids to `unknown`. The synthesizer writes one driver per profile driver, in
+Hebrew and in the profile's order; `check_scorecard` keeps the model's drivers as given and lists the
+profile's drivers (all `unknown`) only when the model returned none. The first live ELAL run showed why:
+matching Hebrew names against the English profile appended every profile driver again as an "unknown"
+duplicate.
 
 ### D7. Strict agent outputs, tolerant stored results
 Agent output models keep no defaults (the SDK sends strict schemas). Stored `ResearchResult`s from before
@@ -94,6 +98,27 @@ other sources per finding; sections are left out when a field is missing.
 `FakeAgentModel` gains `verifier` (all supported) and `grouper` (no groups unless scripted) roles, and the
 orchestrator fake returns a profile. Tests script the grouper to check merging.
 
+### D10. Legal and regulation areas
+Two areas are added to `AREAS` (`legal`, `regulation`) with their own specialists; `news` drops "legal and
+regulatory actions" and `labor_government` drops regulation and policy change, so findings land in one
+place. `israel_market.md` lists Israeli court and legal sources (court sites, the class-actions registry,
+legal press, Hebrew search terms) and regulation sources (Knesset, gov.il, regulators' consultations). The
+synthesizer is told to weigh material proceedings and near-final regulation and raise them among the top
+risks. `OSINT_MAX_SEARCHES` goes from 40 to 52 (stored ELAL runs used all 40 with six areas). Stored
+results with six areas still load; the web view only renders the areas a result has.
+
+### D11. Hosted deployment
+The server `Dockerfile` copies `data/companies.yaml` only, so `data/osint_blocklist.yaml` (read by
+`osint/blocklist.py` on every run) was missing on Render. The image now copies it; `render.yaml` sets
+`MODEL_OSINT`, `OSINT_MAX_SEARCHES` and `OSINT_WINDOW_MONTHS` as plain values (secrets stay `sync: false`).
+A unit test parses the Dockerfile and blueprint so a missing OSINT file or setting fails CI. Live OSINT
+runs on Render follow `ALLOW_LIVE` like every other live call. The lockfile (revision 5) was checked with
+the image's uv 0.11 and reads fine.
+
+### D12. SDK upgrade from main
+While this change was in progress `main` moved to `openai>=3` and `openai-agents==0.26.0`. The OSINT code
+(fake model, hooks, `preserve_raw_usage`) runs unchanged on 0.26; all OSINT tests pass after the merge.
+
 ## Risks / Trade-offs
 
 - [Verifier too strict on short excerpts] → excerpts grow to 3000 characters; missing evidence gives
@@ -104,6 +129,8 @@ orchestrator fake returns a profile. Tests script the grouper to check merging.
 - [Synthesizer ignores the hints] → the hints and trend reason are shown, and insufficient-data areas are
   forced to `unclear` in code.
 - [Extra cost] → about 5 verifier calls plus one grouper call on the cheap model, roughly $0.01-0.05.
+  Measured on the live ELAL run: $1.31 in total (first run $0.96), all 52 searches used, 6 findings dropped
+  as unsupported, 4 duplicates merged.
 - [Old stored results] → filled by the before-validator; covered by a test with the stored ELAL JSON shape.
 
 ## Migration Plan

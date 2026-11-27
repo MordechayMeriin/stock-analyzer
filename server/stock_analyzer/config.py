@@ -82,7 +82,7 @@ class Settings(BaseModel):
 
     # --- OSINT research (osint-research spec, add-osint-research design D8) ---
     model_osint: str = "openai/gpt-6.1-sol"
-    osint_max_searches: int = 40  # web searches per research run
+    osint_max_searches: int = 52  # web searches per research run (eight areas plus the company profile)
     osint_search_results: int = 8  # results requested per search
     osint_max_turns: int = 12  # model turns per agent run
     osint_window_months: int = 36  # default research window: the present plus the past few years

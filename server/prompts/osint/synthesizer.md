@@ -16,11 +16,12 @@ The user message holds JSON with:
 The goal is analysis: focus on what matters for this company's industry, not on all areas equally.
 
 Produce:
-- key_drivers: one entry per key driver of the industry (from the profile). status is positive,
+- key_drivers: one entry per key driver of the industry (from the profile; one entry per profile
+  driver, in Hebrew, in the same order). status is positive,
   negative, mixed, or unknown when no finding concerns it; explanation is one or two Hebrew sentences;
   finding_ids lists the findings it rests on. Put the most important driver first.
-- areas: one entry for each of the six areas (news, market, credit, operations, labor_government,
-  competition_macro). label is stable, watch or fragile; use insufficient_data only when the area has no
+- areas: one entry for each of the eight areas (news, market, credit, operations, legal, regulation,
+  labor_government, competition_macro). label is stable, watch or fragile; use insufficient_data only when the area has no
   findings. importance is high, medium or low: how much this area decides stability for a company in this
   industry. assessment is two or three sentences in Hebrew. trend is improving, stable, deteriorating or
   unclear, based on the trend_hints and the findings' dates; trend_reason is one Hebrew sentence.
@@ -43,6 +44,10 @@ Meaning of the labels:
 - stable: no material threats; the evidence points to continuity.
 - watch: real risks or mixed signals that could hurt the company if they develop.
 - fragile: serious current threats to the company's finances, operations or market position.
+
+Legal proceedings and upcoming regulation can threaten a company before they show up anywhere else:
+weigh large or certified claims, investigations, and regulation that is approved or close to approval,
+and raise them among the top risks when they are material.
 
 Every assessment, risk, strength and key driver with a known status must cite at least one finding id
 from the list. Prefer supported findings and findings with several sources. Findings marked

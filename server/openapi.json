@@ -114,6 +114,8 @@
               "market",
               "credit",
               "operations",
+              "legal",
+              "regulation",
               "labor_government",
               "competition_macro"
             ],
@@ -132,6 +134,16 @@
             "title": "Finding Ids",
             "type": "array"
           },
+          "importance": {
+            "description": "How much this area matters for stability in this industry.",
+            "enum": [
+              "high",
+              "medium",
+              "low"
+            ],
+            "title": "Importance",
+            "type": "string"
+          },
           "label": {
             "enum": [
               "stable",
@@ -141,12 +153,30 @@
             ],
             "title": "Label",
             "type": "string"
+          },
+          "trend": {
+            "enum": [
+              "improving",
+              "stable",
+              "deteriorating",
+              "unclear"
+            ],
+            "title": "Trend",
+            "type": "string"
+          },
+          "trend_reason": {
+            "description": "Hebrew, one sentence on the direction.",
+            "title": "Trend Reason",
+            "type": "string"
           }
         },
         "required": [
           "area",
           "label",
+          "importance",
           "assessment",
+          "trend",
+          "trend_reason",
           "finding_ids"
         ],
         "title": "AreaAssessment",
@@ -397,22 +427,6 @@
           "source"
         ],
         "title": "CompanyOut",
-        "type": "object"
-      },
-      "CompanyProfile": {
-        "properties": {
-          "items": {
-            "items": {
-              "$ref": "#/components/schemas/ProfileItem"
-            },
-            "title": "Items",
-            "type": "array"
-          }
-        },
-        "required": [
-          "items"
-        ],
-        "title": "CompanyProfile",
         "type": "object"
       },
       "CompanySearchHit": {
@@ -1224,12 +1238,38 @@
       },
       "KeptFinding": {
         "properties": {
+          "also_areas": {
+            "items": {
+              "enum": [
+                "news",
+                "market",
+                "credit",
+                "operations",
+                "legal",
+                "regulation",
+                "labor_government",
+                "competition_macro"
+              ],
+              "type": "string"
+            },
+            "title": "Also Areas",
+            "type": "array"
+          },
+          "also_sources": {
+            "items": {
+              "$ref": "#/components/schemas/SourceRef"
+            },
+            "title": "Also Sources",
+            "type": "array"
+          },
           "area": {
             "enum": [
               "news",
               "market",
               "credit",
               "operations",
+              "legal",
+              "regulation",
               "labor_government",
               "competition_macro"
             ],
@@ -1289,6 +1329,16 @@
             "description": "Exact URL of a web_search result that supports the claim.",
             "title": "Source Url",
             "type": "string"
+          },
+          "verdict": {
+            "default": "unverified",
+            "enum": [
+              "supported",
+              "partial",
+              "unverified"
+            ],
+            "title": "Verdict",
+            "type": "string"
           }
         },
         "required": [
@@ -1303,6 +1353,45 @@
           "area"
         ],
         "title": "KeptFinding",
+        "type": "object"
+      },
+      "KeyDriver": {
+        "properties": {
+          "driver": {
+            "description": "A key driver of stability for this industry.",
+            "title": "Driver",
+            "type": "string"
+          },
+          "explanation": {
+            "description": "Hebrew, one or two sentences.",
+            "title": "Explanation",
+            "type": "string"
+          },
+          "finding_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Finding Ids",
+            "type": "array"
+          },
+          "status": {
+            "enum": [
+              "positive",
+              "negative",
+              "mixed",
+              "unknown"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "driver",
+          "status",
+          "explanation",
+          "finding_ids"
+        ],
+        "title": "KeyDriver",
         "type": "object"
       },
       "ManagementClaim": {
@@ -1544,6 +1633,8 @@
                   "market",
                   "credit",
                   "operations",
+                  "legal",
+                  "regulation",
                   "labor_government",
                   "competition_macro"
                 ],
@@ -2386,9 +2477,24 @@
             "title": "From Cache",
             "type": "boolean"
           },
+          "merged": {
+            "default": 0,
+            "title": "Merged",
+            "type": "integer"
+          },
           "model": {
             "title": "Model",
             "type": "string"
+          },
+          "profile": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/stock_analyzer__osint__models__CompanyProfile"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "run_date": {
             "format": "date",
@@ -2446,6 +2552,14 @@
             "title": "Areas",
             "type": "array"
           },
+          "key_drivers": {
+            "description": "One entry per key driver of the industry.",
+            "items": {
+              "$ref": "#/components/schemas/KeyDriver"
+            },
+            "title": "Key Drivers",
+            "type": "array"
+          },
           "overall_label": {
             "enum": [
               "stable",
@@ -2458,6 +2572,21 @@
           "overall_rationale": {
             "description": "Hebrew, two or three sentences.",
             "title": "Overall Rationale",
+            "type": "string"
+          },
+          "overall_trend": {
+            "enum": [
+              "improving",
+              "stable",
+              "deteriorating",
+              "unclear"
+            ],
+            "title": "Overall Trend",
+            "type": "string"
+          },
+          "overall_trend_reason": {
+            "description": "Hebrew, one sentence on the overall direction.",
+            "title": "Overall Trend Reason",
             "type": "string"
           },
           "risks": {
@@ -2485,6 +2614,9 @@
         "required": [
           "overall_label",
           "overall_rationale",
+          "overall_trend",
+          "overall_trend_reason",
+          "key_drivers",
           "areas",
           "risks",
           "strengths",
@@ -2550,6 +2682,24 @@
           "type"
         ],
         "title": "Segment",
+        "type": "object"
+      },
+      "SourceRef": {
+        "properties": {
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url",
+          "title"
+        ],
+        "title": "SourceRef",
         "type": "object"
       },
       "StorageHealth": {
@@ -2783,7 +2933,7 @@
           "profile": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/CompanyProfile"
+                "$ref": "#/components/schemas/stock_analyzer__story__agents__CompanyProfile"
               },
               {
                 "type": "null"
@@ -3149,6 +3299,90 @@
           "message"
         ],
         "title": "VerificationError",
+        "type": "object"
+      },
+      "stock_analyzer__osint__models__CompanyProfile": {
+        "description": "What the orchestrator learns about the company before briefing the specialists (design D2).",
+        "properties": {
+          "business_lines": {
+            "description": "Main business lines or segments.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Business Lines",
+            "type": "array"
+          },
+          "competitors": {
+            "description": "Main competitors.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Competitors",
+            "type": "array"
+          },
+          "controlling_shareholder": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Controlling shareholder, or null if none or unknown.",
+            "title": "Controlling Shareholder"
+          },
+          "industry": {
+            "description": "The company's industry, in a few words.",
+            "title": "Industry",
+            "type": "string"
+          },
+          "key_drivers": {
+            "description": "Three to six short phrases: what decides stability for a company in this industry.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Key Drivers",
+            "type": "array"
+          },
+          "regulator": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Main regulator, or null if none or unknown.",
+            "title": "Regulator"
+          }
+        },
+        "required": [
+          "industry",
+          "business_lines",
+          "controlling_shareholder",
+          "competitors",
+          "regulator",
+          "key_drivers"
+        ],
+        "title": "CompanyProfile",
+        "type": "object"
+      },
+      "stock_analyzer__story__agents__CompanyProfile": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ProfileItem"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "CompanyProfile",
         "type": "object"
       }
     }

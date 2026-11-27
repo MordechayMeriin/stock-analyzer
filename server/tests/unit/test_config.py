@@ -95,7 +95,7 @@ def test_osint_settings_defaults_and_overrides():
     s = Settings.from_env({})
     assert s.model_for("osint") == "openai/gpt-6.1-sol"
     assert (s.osint_max_searches, s.osint_search_results, s.osint_max_turns, s.osint_window_months) == (
-        40,
+        52,
         8,
         12,
         36,

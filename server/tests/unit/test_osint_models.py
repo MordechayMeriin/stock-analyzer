@@ -115,7 +115,9 @@ def test_agent_output_models_validate_sample_json():
             "overall_rationale": "x",
             "overall_trend": "stable",
             "overall_trend_reason": "x",
-            "key_drivers": [{"driver": "demand", "status": "positive", "explanation": "x", "finding_ids": ["F1"]}],
+            "key_drivers": [
+                {"driver": "demand", "status": "positive", "explanation": "x", "finding_ids": ["F1"]}
+            ],
             "areas": [
                 {
                     "area": a,
@@ -133,7 +135,7 @@ def test_agent_output_models_validate_sample_json():
             "summary_he": "סיכום",
         }
     )
-    assert len(card.areas) == 6
+    assert len(card.areas) == len(AREAS)
 
 
 def test_agent_output_models_have_no_defaults():
