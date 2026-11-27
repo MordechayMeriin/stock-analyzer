@@ -1,0 +1,269 @@
+{
+  "schema_version": "1.0",
+  "generated_at": "2026-03-30T09:30:00Z",
+  "mode": "cached",
+  "company": {
+    "ticker": "MLTM",
+    "name_he": "מלם תים",
+    "name_en": "Malam-Team Ltd.",
+    "logo_url": null,
+    "exchange": "TASE",
+    "currency": "ILS",
+    "sector": { "id": "software", "name": "תוכנה ושירותי IT" }
+  },
+  "report": {
+    "type": "annual",
+    "fiscal_year": 2025,
+    "period_end": "2025-12-31",
+    "published_at": "2026-03-25"
+  },
+  "summary": { "text": "צמיחה חזקה ותזרים יציב, אבל החוב גדל." },
+  "years": [2023, 2024, 2025],
+  "profile": {
+    "axes": [
+      {
+        "id": "stability",
+        "label": "יציבות",
+        "status": "ok",
+        "detail_url": "/api/companies/MLTM/report/axes/stability",
+        "scores": [
+          { "fiscal_year": 2023, "value": 6, "sector_median": 6, "trend": null, "driver": null },
+          {
+            "fiscal_year": 2024,
+            "value": 6,
+            "sector_median": 6,
+            "trend": { "direction": "flat", "delta": 0, "tone": "neutral" },
+            "driver": { "label": "מרווח יציב", "tone": "neutral" }
+          },
+          {
+            "fiscal_year": 2025,
+            "value": 7,
+            "sector_median": 6,
+            "trend": { "direction": "up", "delta": 1, "tone": "positive" },
+            "driver": { "label": "מרווח תפעולי עולה", "tone": "positive" }
+          }
+        ]
+      },
+      {
+        "id": "safety",
+        "label": "ביטחון",
+        "status": "ok",
+        "detail_url": "/api/companies/MLTM/report/axes/safety",
+        "scores": [
+          { "fiscal_year": 2023, "value": 7, "sector_median": 6, "trend": null, "driver": null },
+          {
+            "fiscal_year": 2024,
+            "value": 6,
+            "sector_median": 6,
+            "trend": { "direction": "down", "delta": -1, "tone": "negative" },
+            "driver": { "label": "מינוף עולה", "tone": "negative" }
+          },
+          {
+            "fiscal_year": 2025,
+            "value": 5,
+            "sector_median": 6,
+            "trend": { "direction": "down", "delta": -1, "tone": "negative" },
+            "driver": { "label": "חוב נטו גדל", "tone": "negative" }
+          }
+        ]
+      },
+      {
+        "id": "growth",
+        "label": "צמיחה",
+        "status": "ok",
+        "detail_url": "/api/companies/MLTM/report/axes/growth",
+        "scores": [
+          { "fiscal_year": 2023, "value": 5, "sector_median": 6, "trend": null, "driver": null },
+          {
+            "fiscal_year": 2024,
+            "value": 6,
+            "sector_median": 6,
+            "trend": { "direction": "up", "delta": 1, "tone": "positive" },
+            "driver": { "label": "הכנסות עולות", "tone": "positive" }
+          },
+          {
+            "fiscal_year": 2025,
+            "value": 8,
+            "sector_median": 6,
+            "trend": { "direction": "up", "delta": 2, "tone": "positive" },
+            "driver": { "label": "צמיחה של 12% בהכנסות", "tone": "positive" }
+          }
+        ]
+      },
+      {
+        "id": "valuation",
+        "label": "תמחור",
+        "status": "ok",
+        "detail_url": "/api/companies/MLTM/report/axes/valuation",
+        "scores": [
+          { "fiscal_year": 2023, "value": 6, "sector_median": 5, "trend": null, "driver": null },
+          {
+            "fiscal_year": 2024,
+            "value": 5,
+            "sector_median": 5,
+            "trend": { "direction": "down", "delta": -1, "tone": "negative" },
+            "driver": { "label": "מכפיל רווח עלה", "tone": "negative" }
+          },
+          {
+            "fiscal_year": 2025,
+            "value": 5,
+            "sector_median": 5,
+            "trend": { "direction": "flat", "delta": 0, "tone": "neutral" },
+            "driver": { "label": "מכפיל קרוב לחציון", "tone": "neutral" }
+          }
+        ]
+      },
+      {
+        "id": "cash_quality",
+        "label": "איכות תזרים",
+        "status": "ok",
+        "detail_url": "/api/companies/MLTM/report/axes/cash_quality",
+        "scores": [
+          { "fiscal_year": 2023, "value": 7, "sector_median": 6, "trend": null, "driver": null },
+          {
+            "fiscal_year": 2024,
+            "value": 7,
+            "sector_median": 6,
+            "trend": { "direction": "flat", "delta": 0, "tone": "neutral" },
+            "driver": { "label": "המרת רווח לתזרים יציבה", "tone": "neutral" }
+          },
+          {
+            "fiscal_year": 2025,
+            "value": 8,
+            "sector_median": 6,
+            "trend": { "direction": "up", "delta": 1, "tone": "positive" },
+            "driver": { "label": "תזרים חופשי עולה", "tone": "positive" }
+          }
+        ]
+      }
+    ]
+  },
+  "events": [
+    {
+      "id": "ev-20260325-report",
+      "date": "2026-03-25",
+      "date_precision": "day",
+      "type": "report",
+      "title": "דוח שנתי 2025",
+      "summary": "עלייה בהכנסות ובמרווח התפעולי",
+      "importance": 3,
+      "tone": "positive",
+      "source_url": null
+    },
+    {
+      "id": "ev-202511-guidance",
+      "date": "2025-11",
+      "date_precision": "month",
+      "type": "guidance",
+      "title": "עדכון תחזית כלפי מעלה",
+      "summary": "ההנהלה העלתה את תחזית ההכנסות לשנה",
+      "importance": 2,
+      "tone": "positive",
+      "source_url": null
+    },
+    {
+      "id": "ev-202509-credit",
+      "date": "2025-09",
+      "date_precision": "month",
+      "type": "financing",
+      "title": "גיוס אג״ח",
+      "summary": "גיוס חוב למימון רכישה",
+      "importance": 2,
+      "tone": "neutral",
+      "source_url": "https://example.com/news/1"
+    },
+    {
+      "id": "ev-20250612-acquisition",
+      "date": "2025-06-12",
+      "date_precision": "day",
+      "type": "acquisition",
+      "title": "רכישת חברת שירותי ענן",
+      "summary": "רכישה של 100% מהמניות",
+      "importance": 3,
+      "tone": "neutral",
+      "source_url": null
+    },
+    {
+      "id": "ev-20240301-leadership",
+      "date": "2024-03-01",
+      "date_precision": "day",
+      "type": "leadership",
+      "title": "מינוי מנכ״ל חדש",
+      "importance": 1,
+      "tone": "neutral",
+      "source_url": null
+    }
+  ],
+  "key_metrics": [
+    {
+      "id": "revenue",
+      "label": "הכנסות",
+      "format": "currency",
+      "currency": "ILS",
+      "series": [
+        { "fiscal_year": 2023, "value": "3500000000" },
+        { "fiscal_year": 2024, "value": "3750000000" },
+        { "fiscal_year": 2025, "value": "4200000000" }
+      ],
+      "change": { "direction": "up", "pct": 12, "tone": "positive" }
+    },
+    {
+      "id": "operating_margin",
+      "label": "מרווח תפעולי",
+      "format": "percent",
+      "series": [
+        { "fiscal_year": 2023, "value": "0.071" },
+        { "fiscal_year": 2024, "value": "0.074" },
+        { "fiscal_year": 2025, "value": "0.082" }
+      ],
+      "change": { "direction": "up", "pct": 10.8, "tone": "positive" }
+    },
+    {
+      "id": "free_cash_flow",
+      "label": "תזרים חופשי",
+      "format": "currency",
+      "currency": "ILS",
+      "series": [
+        { "fiscal_year": 2023, "value": "210000000" },
+        { "fiscal_year": 2024, "value": "215000000" },
+        { "fiscal_year": 2025, "value": "260000000" }
+      ],
+      "change": { "direction": "up", "pct": 20.9, "tone": "positive" }
+    },
+    {
+      "id": "net_debt",
+      "label": "חוב נטו",
+      "format": "currency",
+      "currency": "ILS",
+      "series": [
+        { "fiscal_year": 2023, "value": "800000000" },
+        { "fiscal_year": 2024, "value": "960000000" },
+        { "fiscal_year": 2025, "value": "1100000000" }
+      ],
+      "change": { "direction": "up", "pct": 15, "tone": "negative" }
+    },
+    {
+      "id": "net_debt_to_ebitda",
+      "label": "חוב נטו ל-EBITDA",
+      "format": "ratio",
+      "series": [
+        { "fiscal_year": 2023, "value": "1.0" },
+        { "fiscal_year": 2024, "value": "1.1" },
+        { "fiscal_year": 2025, "value": "1.2" }
+      ],
+      "change": { "direction": "up", "pct": 9.1, "tone": "negative" }
+    },
+    {
+      "id": "employees",
+      "label": "עובדים",
+      "format": "count",
+      "series": [
+        { "fiscal_year": 2023, "value": "4900" },
+        { "fiscal_year": 2024, "value": "5100" },
+        { "fiscal_year": 2025, "value": "5400" }
+      ],
+      "change": { "direction": "up", "pct": 5.9, "tone": "neutral" }
+    }
+  ],
+  "warnings": []
+}

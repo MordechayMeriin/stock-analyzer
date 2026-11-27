@@ -32,5 +32,6 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm run build
+      - run: npm test
       - name: Generated API types match server/openapi.json
         run: npm run check:api
