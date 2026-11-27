@@ -20,7 +20,7 @@ function Logo({ company }: { company: Company }) {
     <div
       data-testid="logo-fallback"
       aria-hidden="true"
-      className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-[#18181b] text-[22px] font-bold text-[#fafafa]"
+      className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-foreground text-[22px] font-bold text-background"
     >
       {company.name_he.charAt(0)}
     </div>
@@ -37,14 +37,14 @@ export function CompanyHeader({ report }: { report: CompanyReport }) {
         <Logo company={company} />
         <div className="flex min-w-0 flex-col gap-1">
           <h1 className="text-xl font-bold">{company.name_he}</h1>
-          <p className="text-xs text-[#71717a]">
+          <p className="text-xs text-muted-foreground">
             <span dir="ltr" className="[unicode-bidi:isolate]">
               {company.ticker}
             </span>{' '}
             · {company.sector.name} · דוח שנתי {report.report.fiscal_year}
           </p>
           {stale && (
-            <p className="text-xs text-[#71717a]">
+            <p className="text-xs text-muted-foreground">
               נכון ל-
               <span dir="ltr" className="[unicode-bidi:isolate]">
                 {formatDate(report.report.published_at)}

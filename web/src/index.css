@@ -18,6 +18,11 @@
   --secondary-foreground: oklch(0.205 0 0);
   --muted: oklch(0.97 0 0);
   --muted-foreground: oklch(0.556 0 0);
+  /* Report tones: higher is better, so green = better, red = worse. */
+  --tone-positive: #15803d;
+  --tone-negative: #b91c1c;
+  --tone-neutral: #71717a;
+  --radar-ghost: #a1a1aa;
   --accent: oklch(0.97 0 0);
   --accent-foreground: oklch(0.205 0 0);
   --destructive: oklch(0.577 0.245 27.325);
@@ -46,6 +51,10 @@
   --secondary-foreground: oklch(0.985 0 0);
   --muted: oklch(0.269 0 0);
   --muted-foreground: oklch(0.708 0 0);
+  --tone-positive: #4ade80;
+  --tone-negative: #f87171;
+  --tone-neutral: #a1a1aa;
+  --radar-ghost: #71717a;
   --accent: oklch(0.269 0 0);
   --accent-foreground: oklch(0.985 0 0);
   --destructive: oklch(0.704 0.191 22.216);

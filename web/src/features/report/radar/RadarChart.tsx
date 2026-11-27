@@ -2,12 +2,13 @@ import { useEffect, useRef, useState } from 'react'
 
 import { ARROWS, describeRadar, radarLayout, toneColor, VIEW_H, VIEW_W, type RadarAxis } from './geometry'
 
-const INK = '#18181b'
-const GRID = '#e4e4e7'
-const FOREGROUND = '#09090b'
-const MUTED = '#71717a'
-/** The previous-year outline: visible over the #e4e4e7 grid, well under the black polygon. */
-const GHOST = '#a1a1aa'
+// Theme tokens (index.css), so the chart follows light and dark mode.
+const INK = 'var(--foreground)'
+const GRID = 'var(--border)'
+const FOREGROUND = 'var(--foreground)'
+const MUTED = 'var(--muted-foreground)'
+/** The previous-year outline: visible over the grid, well under the polygon. */
+const GHOST = 'var(--radar-ghost)'
 const MORPH_MS = 650
 
 export interface RadarChartProps {
@@ -116,7 +117,7 @@ export function RadarChart({ axes, ghost, ariaLabel }: RadarChartProps) {
               cx={v.point.x}
               cy={v.point.y}
               r={3.5}
-              fill="#ffffff"
+              fill="var(--background)"
               stroke={MUTED}
               strokeWidth={1.5}
             />

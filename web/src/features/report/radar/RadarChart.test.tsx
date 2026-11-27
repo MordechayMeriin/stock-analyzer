@@ -35,8 +35,8 @@ describe('RadarChart with the full fixture', () => {
 
     const safety = screen.getByTestId('arrow-safety')
     expect(safety.textContent).toBe('▼')
-    expect(safety.getAttribute('fill')).toBe('#b91c1c')
-    expect(screen.getByTestId('arrow-growth').getAttribute('fill')).toBe('#15803d')
+    expect(safety.getAttribute('fill')).toBe('var(--tone-negative)')
+    expect(screen.getByTestId('arrow-growth').getAttribute('fill')).toBe('var(--tone-positive)')
     expect(screen.getByTestId('arrow-valuation').textContent).toBe('–')
   })
 

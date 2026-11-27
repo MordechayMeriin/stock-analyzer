@@ -5,6 +5,7 @@ import { NavLink, Outlet, useMatches } from 'react-router-dom'
 import { api } from '@/api/client'
 import { useMode } from '@/app/mode'
 import { ModeControl } from '@/components/ModeControl'
+import { ThemeToggle } from '@/components/ThemeToggle'
 import { cn } from '@/lib/utils'
 import { rememberedYear } from '@/lib/years'
 
@@ -65,7 +66,8 @@ export function Layout() {
             <NavItem to={`/${ticker}/financials`} icon={Table2} label="נתונים כספיים" disabled={!ticker} />
             <NavItem to={`/${ticker}/${year}/playground`} icon={MessageSquare} label="מעבדת LLM" disabled={!ticker || !year} />
           </nav>
-          <div className="ms-auto">
+          <div className="ms-auto flex items-center gap-1">
+            <ThemeToggle />
             <ModeControl />
           </div>
         </div>
