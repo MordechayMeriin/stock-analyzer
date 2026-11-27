@@ -1,6 +1,6 @@
 """Command-line interface (typer). Thin adapter over ``services`` (design D4).
 
-Commands: fetch, usage, structure, parse-check, fin-raw, ratios, compare, story, osint, peer-financials,
+Commands: fetch, usage, structure, parse-check, fin-raw, ratios, compare, story, osint, peer-financials, market-research,
 companies list|add|remove, db init.
 """
 
@@ -487,6 +487,51 @@ def osint_cmd(
         return
     for line in render_osint(result):
         typer.echo(line)
+
+
+@app.command("market-research")
+def market_research_cmd(
+    ticker: str,
+    market: Annotated[
+        list[str] | None, typer.Option("--market", help="IL, EUROPE, or US (repeatable)")
+    ] = None,
+    months: Annotated[int | None, typer.Option("--months", min=1, help="Research window in months")] = None,
+    as_json: Annotated[bool, typer.Option("--json", help="Print the full brief as JSON")] = False,
+    mode: ModeOpt = "cached",
+) -> None:
+    """Research a tracked company's industry across Israel, Europe and the United States."""
+    from stock_analyzer.llm import LLMError
+    from stock_analyzer.osint.market import MARKET_NAMES
+    from stock_analyzer.services.market_research import run_market_research
+
+    try:
+        with closing(_ctx(mode)) as ctx:
+            result = run_market_research(ctx, ticker, markets=market, months=months)
+    except (AnalyzerError, LLMError, MissingCredential, ValueError) as exc:
+        _fail(exc)
+        return
+    if as_json:
+        typer.echo(result.model_dump_json(indent=2))
+        return
+
+    industry = result.industry
+    name = f" ({industry.name})" if industry.name else ""
+    typer.echo(
+        f"{result.ticker} | ISIC Rev. 5 {industry.code}{name} | {result.window_start} to {result.run_date}"
+    )
+    for brief in result.markets:
+        typer.echo(f"\n{MARKET_NAMES[brief.market]}")
+        for section in brief.sections:
+            typer.echo(section.topic.replace("_", " ").capitalize())
+            if section.evidence_gap:
+                typer.echo("  Insufficient evidence")
+            for finding in section.findings:
+                typer.echo(f"  - {finding.claim} [{finding.geography}, {finding.scope}]")
+                details = [finding.classification, finding.coverage, finding.period, finding.unit]
+                if metadata := " | ".join(detail for detail in details if detail):
+                    typer.echo(f"    {metadata}")
+                for url in finding.source_urls:
+                    typer.echo(f"    {url}")
 
 
 def render_comparison(out) -> list[str]:

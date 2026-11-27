@@ -14,6 +14,7 @@ import re
 from collections import Counter
 from datetime import date
 
+from stock_analyzer.osint.blocklist import Blocklist
 from stock_analyzer.osint.models import (
     AREAS,
     AreaAssessment,
@@ -26,6 +27,14 @@ from stock_analyzer.osint.models import (
 )
 
 _DATE = re.compile(r"^\s*(\d{4})(?:-(\d{1,2})(?:-(\d{1,2}))?)?")
+
+
+def citation_problem(url: str, blocklist: Blocklist, searched_urls: set[str]) -> DropReason | None:
+    if blocklist.blocks(url):
+        return "blocked"
+    if normalize_url(url) not in searched_urls:
+        return "not_searched"
+    return None
 
 
 def parse_published(text: str | None) -> date | None:
@@ -50,14 +59,12 @@ def verify_findings(state: RunState) -> tuple[list[KeptFinding], dict[str, int]]
     kept: list[KeptFinding] = []
     dropped: Counter[DropReason] = Counter()
     seen_claims: set[tuple[str, str]] = set()
+    searched_urls = set(state.seen_urls)
     for area, report in state.reports:
         for finding in report.findings:
             url = normalize_url(finding.source_url)
-            if state.blocklist.blocks(finding.source_url):
-                dropped["blocked"] += 1
-                continue
-            if url not in state.seen_urls:
-                dropped["not_searched"] += 1
+            if problem := citation_problem(finding.source_url, state.blocklist, searched_urls):
+                dropped[problem] += 1
                 continue
             published = parse_published(finding.published_at)
             if published is not None and published < state.window_start:
