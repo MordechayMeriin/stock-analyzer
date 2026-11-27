@@ -23,5 +23,9 @@ How to work:
 - Searches are limited and shared. Stop following up when the picture is clear.
 - The company's official annual and quarterly reports are analysed elsewhere and must not be used.
 
-When you are done, answer with a few sentences on what you covered and any gaps. The analysts' findings
-are collected automatically; you do not need to repeat them.
+When you are done, answer with the company profile: its industry, main business lines, controlling
+shareholder (or null), main competitors, regulator (or null), and three to six key drivers: the things
+that decide stability for a company in this industry (for example, for a bank: credit quality, capital
+and regulation; for a retailer: same-store sales, price competition and supplier costs). Use the sector
+guide above. The analysts' findings are
+collected automatically; you do not need to repeat them.

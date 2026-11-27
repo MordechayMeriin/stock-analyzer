@@ -74,7 +74,7 @@ class Settings(BaseModel):
     story_writer_role: Literal["main", "cheap"] = "main"  # the storyteller
     # report text and web evidence a story run may send to the agents (estimated tokens). The change
     # agents get both full versions of each changed section; a Malam FY2023-FY2025 run needs ~272K of
-    # report text (docs/diff_notes.md) plus up to ~84K of search results and stored OSINT excerpts
+    # report text (docs/diff_notes.md) plus up to ~154K of search results and stored OSINT excerpts
     story_max_tokens: int = 1_500_000
     story_describe_intro_tokens: int = 12_000  # opening business sections given to the describe agent
     story_reader_budget_tokens: int = 20_000  # what each agent may read with its read tools
@@ -88,7 +88,7 @@ class Settings(BaseModel):
 
     # --- OSINT research (osint-research spec, add-osint-research design D8) ---
     model_osint: str = "openai/gpt-6.1-sol"
-    osint_max_searches: int = 40  # web searches per research run
+    osint_max_searches: int = 52  # web searches per research run (eight areas plus the company profile)
     osint_search_results: int = 8  # results requested per search
     osint_max_turns: int = 12  # model turns per agent run
     osint_window_months: int = 36  # default research window: the present plus the past few years

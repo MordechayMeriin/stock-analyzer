@@ -41,7 +41,7 @@
 
 - [x] 7.1 In `prepare_story`, load the stored OSINT result, decide whether it is missing or stale, and refuse with `ResearchInProgress` when the slot is taken (design D1); verify unit tests for fresh (10 days, no run), missing (run), stale (45 days, run) and in-progress (refused before any LLM call)
 - [x] 7.2 In `_build`, run `research_async` inside the readers' `gather`, claim and release the slot, turn OSINT failures into warnings, and emit OSINT progress events; verify an end-to-end fake-mode test where the research run's areas finish while the readers run, its result is stored as the latest OSINT result, and the storyteller receives its findings, plus a test where `NoFindings` leaves a warning and the story still succeeds
-- [x] 7.3 Add the search allowance and stored excerpts to the token estimate (design D9); verify a unit test that raising `story_max_searches` raises the estimate, and record Malam's estimate with the new defaults in the test or notes, confirming it stays under `STORY_MAX_TOKENS` (Malam ≈ 356K; the default was raised to 1,500,000 by decision)
+- [x] 7.3 Add the search allowance and stored excerpts to the token estimate (design D9); verify a unit test that raising `story_max_searches` raises the estimate, and record Malam's estimate with the new defaults in the test or notes, confirming it stays under `STORY_MAX_TOKENS` (Malam ≈ 426K with 3,000-character excerpts; the default was raised to 1,500,000 by decision)
 - [x] 7.4 Run the story pipeline end to end in fake mode twice on the same `as_of`; verify the second run makes no provider or search calls and produces the same story, and a third run with a raised `story_max_searches` misses the cache
 
 ## 8. API, CLI and web

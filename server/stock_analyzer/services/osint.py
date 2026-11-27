@@ -190,7 +190,7 @@ async def research_async(
     model_factory = model_factory or (fake_model_factory(ticker) if fake else live_model_factory(settings))
     log = StoreLog(ctx.store, "llm")
 
-    scorecard, kept, dropped = await run_pipeline(
+    out = await run_pipeline(
         settings, state, backend=backend, log=log, model_factory=model_factory, today=today
     )
     result = ResearchResult(
@@ -200,9 +200,11 @@ async def research_async(
         window_months=months,
         window_start=state.window_start,
         model=f"fake/{settings.model_osint}" if fake else settings.model_osint,
-        scorecard=scorecard,
-        findings=kept,
-        dropped=dropped,
+        scorecard=out.scorecard,
+        findings=out.findings,
+        dropped=out.dropped,
+        profile=out.profile,
+        merged=out.merged,
         searches_used=state.searches_used,
         search_limit=state.max_searches,
         cost_usd=round(state.cost_usd, 6) if state.cost_known else None,

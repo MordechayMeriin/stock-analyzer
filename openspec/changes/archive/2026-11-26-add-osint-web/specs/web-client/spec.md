@@ -1,11 +1,10 @@
 ## MODIFIED Requirements
 
 ### Requirement: OSINT stability view
-The client SHALL offer, from the company page, a view of the company's latest stored OSINT result for a chosen
-research window: the overall label, rationale and Hebrew summary, the six areas with Hebrew names, labels and
-assessments, risks and strengths, and numbered sources with link, publish date, area, signal and confidence.
-Finding numbers cited by an area, risk or strength SHALL link to their sources. The view SHALL show the run
-metadata and dropped-finding counts, and SHALL state that it uses open sources only, never official filings.
+The client SHALL offer, from the company page, the latest stored OSINT result for a chosen window: overall
+label, rationale and Hebrew summary, the six areas with Hebrew names, labels and assessments, risks, strengths,
+and numbered sources with link, date, area, signal and confidence. Cited finding numbers SHALL link to their
+sources. The view SHALL show run metadata and dropped-finding counts, and state it uses open sources only.
 
 #### Scenario: Stored scorecard
 - **WHEN** the user opens the OSINT view of ELAL, which has a stored 36-month result

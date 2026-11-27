@@ -273,7 +273,8 @@ def web_tools(ctx: StoryContext, purpose: str) -> list[Any]:
         """Read the stored OSINT findings for one research area, filtered to the story's as_of.
 
         Args:
-            area: news, market, credit, operations, labor_government or competition_macro.
+            area: news, market, credit, operations, legal, regulation, labor_government or
+                competition_macro.
         """
         stored = ctx.ledger.stored()
         found = [s for s in stored if s.area == area]

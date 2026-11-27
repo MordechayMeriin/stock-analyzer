@@ -19,6 +19,10 @@ class CompanyNotFound(AnalyzerError):
     code = "company_not_found"
 
 
+class MissingSubIndustry(AnalyzerError):
+    code = "missing_sub_industry"
+
+
 class CompanyAlreadyTracked(AnalyzerError):
     """The ticker or provider company id is already in the tracked companies."""
 

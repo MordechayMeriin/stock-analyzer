@@ -3,11 +3,12 @@ from __future__ import annotations
 from datetime import date
 from typing import Annotated
 
-from fastapi import APIRouter, Query, Response, status
+from fastapi import APIRouter, Body, Query, Response, status
 
 from stock_analyzer.api.deps import CtxDep
 from stock_analyzer.diff.align import Comparison
-from stock_analyzer.services import companies, compare, filings, financials, ratios
+from stock_analyzer.services import companies, compare, filings, financials, peer_benchmark, ratios
+from stock_analyzer.services.context import Ctx
 from stock_analyzer.services.models import (
     AddCompanyIn,
     CompanyOut,
@@ -16,6 +17,7 @@ from stock_analyzer.services.models import (
     FinancialsOut,
     RatiosOut,
 )
+from stock_analyzer.services.peer_benchmark import PeerBenchmarkOut, PeerBenchmarkRunIn, PeerBenchmarkRunOut
 
 router = APIRouter(prefix="/api/companies", tags=["companies"])
 
@@ -94,6 +96,36 @@ def get_ratios(
     as_of: Annotated[date | None, Query(description="Only values available by this date")] = None,
 ) -> RatiosOut:
     return ratios.ratios(ctx, ticker, as_of=as_of)
+
+
+@router.get(
+    "/{ticker}/peer-benchmark",
+    response_model=PeerBenchmarkOut,
+    summary="Ratios beside listed peers and per-market medians (stored data only, never calls a provider)",
+    description="Peers come from the company's curated list, or else the exact ISIC sub-industry match per "
+    "market (Israel, US, Europe). Peers without stored financials are listed as `financials_not_cached`. "
+    "`not_cached` (409) when the company's financials, profile or peer directory are not stored.",
+)
+def get_peer_benchmark(ctx: CtxDep, ticker: str) -> PeerBenchmarkOut:
+    cached = Ctx(ctx.settings, mode="cached")
+    try:
+        return peer_benchmark.benchmark(cached, ticker)
+    finally:
+        cached.close()
+
+
+@router.post(
+    "/{ticker}/peer-benchmark",
+    response_model=PeerBenchmarkRunOut,
+    summary="Estimate, then fetch, what the peer benchmark is missing (live mode)",
+    description="Without `confirm` it only reports the requests and estimated credits (financials cost 40 "
+    "each). With `confirm` it fetches up to `max_fetch` missing financials and returns the benchmark. "
+    "Refused with `live_required` in cached mode or `live_disabled` on a cached-only server.",
+)
+def run_peer_benchmark(
+    ctx: CtxDep, ticker: str, body: Annotated[PeerBenchmarkRunIn | None, Body()] = None
+) -> PeerBenchmarkRunOut:
+    return peer_benchmark.live_run(ctx, ticker, body or PeerBenchmarkRunIn())
 
 
 @router.get(

@@ -6,3 +6,6 @@ companies:
     name_en: Malam-Team Ltd.
     fr_company_id: 6901
     isin: IL0001560189
+    # Curated benchmark peers; country = the listing market that decides the cohort.
+    peers:
+      - {fr_company_id: 29813, name: Accenture plc, country: US}  # NYSE: ACN (domiciled in IE)

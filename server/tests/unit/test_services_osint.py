@@ -69,7 +69,7 @@ def test_live_run_is_always_fresh_and_stores_latest(settings):
     assert "אל על" in first.company_name
     assert [a.area for a in first.scorecard.areas] == list(AREAS)
     assert first.window_months == 36 and first.window_start == date(2023, 11, 26)
-    assert first.searches_used == 6 and first.search_limit == settings.osint_max_searches
+    assert first.searches_used == len(AREAS) and first.search_limit == settings.osint_max_searches
     calls = len(spy.search.calls)
 
     second = osint.run_research(ctx, "ELAL", today=TODAY, backend=spy.search, model_factory=spy.factory)
@@ -143,8 +143,14 @@ def test_cached_mode_serves_stored_or_explains(settings):
 def test_fake_mode_runs_offline(settings):
     fake = settings.model_copy(update={"llm_fake": True, "openrouter_api_key": None})
     result = osint.run_research(Ctx(fake), "ELAL", today=TODAY)
-    assert result.model.startswith("fake/") and len(result.scorecard.areas) == 6
+    assert result.model.startswith("fake/") and len(result.scorecard.areas) == len(AREAS)
     assert result.findings and result.scorecard.summary_he
+    # improve-osint-evidence: profile, key drivers, trends, importance and verdicts are part of the result
+    assert result.profile is not None and result.profile.key_drivers
+    assert result.scorecard.key_drivers and result.scorecard.overall_trend
+    assert all(a.trend and a.importance for a in result.scorecard.areas)
+    assert {f.verdict for f in result.findings} == {"supported"}
+    assert result.dropped["unsupported"] == 0 and result.merged == 0
     # stored under its own key: a fake result is never served to a real run
     assert Ctx(fake).store.cache("llm").get("osint-fake:ELAL:36m:latest") is not None
     assert osint.cached_result(Ctx(settings), "ELAL", 36) is None

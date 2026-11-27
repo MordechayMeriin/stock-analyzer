@@ -3,8 +3,9 @@
 - :func:`verify_findings` keeps a finding only if its URL is not blocked, was returned by a search in this
   run, and its publish date (when known) is inside the window. Findings without a usable date are kept at
   low confidence. Each kept finding carries the excerpt its search returned, so a story can quote it.
-- :func:`check_scorecard` makes every area, risk and strength cite kept findings, marks areas without
-  findings as ``insufficient_data`` and keeps at most three risks and strengths.
+- :func:`check_scorecard` makes every area, risk, strength and key driver cite kept findings, marks areas
+  without findings as ``insufficient_data`` with trend ``unclear``, keeps at most three risks and
+  strengths, and lists every key driver of the company profile (``unknown`` when nothing supports it).
 """
 
 from __future__ import annotations
@@ -14,11 +15,15 @@ import re
 from collections import Counter
 from datetime import date
 
+from stock_analyzer.osint.blocklist import Blocklist
 from stock_analyzer.osint.models import (
     AREAS,
+    DROP_REASONS,
     AreaAssessment,
+    CompanyProfile,
     DropReason,
     KeptFinding,
+    KeyDriver,
     Point,
     RunState,
     Scorecard,
@@ -26,6 +31,14 @@ from stock_analyzer.osint.models import (
 )
 
 _DATE = re.compile(r"^\s*(\d{4})(?:-(\d{1,2})(?:-(\d{1,2}))?)?")
+
+
+def citation_problem(url: str, blocklist: Blocklist, searched_urls: set[str]) -> DropReason | None:
+    if blocklist.blocks(url):
+        return "blocked"
+    if normalize_url(url) not in searched_urls:
+        return "not_searched"
+    return None
 
 
 def parse_published(text: str | None) -> date | None:
@@ -50,14 +63,12 @@ def verify_findings(state: RunState) -> tuple[list[KeptFinding], dict[str, int]]
     kept: list[KeptFinding] = []
     dropped: Counter[DropReason] = Counter()
     seen_claims: set[tuple[str, str]] = set()
+    searched_urls = set(state.seen_urls)
     for area, report in state.reports:
         for finding in report.findings:
             url = normalize_url(finding.source_url)
-            if state.blocklist.blocks(finding.source_url):
-                dropped["blocked"] += 1
-                continue
-            if url not in state.seen_urls:
-                dropped["not_searched"] += 1
+            if problem := citation_problem(finding.source_url, state.blocklist, searched_urls):
+                dropped[problem] += 1
                 continue
             published = parse_published(finding.published_at)
             if published is not None and published < state.window_start:
@@ -73,25 +84,31 @@ def verify_findings(state: RunState) -> tuple[list[KeptFinding], dict[str, int]]
                 data["published_at"] = None
             excerpt = state.seen_urls[url].snippet.strip() or None
             kept.append(KeptFinding(**data, id=f"F{len(kept) + 1}", area=area, excerpt=excerpt))
-    return kept, {reason: dropped.get(reason, 0) for reason in ("blocked", "not_searched", "outside_window")}
+    return kept, {reason: dropped.get(reason, 0) for reason in DROP_REASONS}
 
 
-def check_scorecard(card: Scorecard, kept: list[KeptFinding]) -> Scorecard:
-    """A scorecard whose every claim cites kept findings, with one entry per area."""
+def check_scorecard(
+    card: Scorecard, kept: list[KeptFinding], profile: CompanyProfile | None = None
+) -> Scorecard:
+    """A scorecard whose every claim cites kept findings, with one entry per area and per key driver."""
     by_id = {f.id: f for f in kept}
-    by_area = {area: [f.id for f in kept if f.area == area] for area in AREAS}
+    by_area = {area: [f.id for f in kept if f.area == area or area in f.also_areas] for area in AREAS}
 
     given = {a.area: a for a in card.areas}
     areas: list[AreaAssessment] = []
     for area in AREAS:
         own = by_area[area]
         entry = given.get(area)
+        importance = entry.importance if entry else "medium"
         if not own:
             areas.append(
                 AreaAssessment(
                     area=area,
                     label="insufficient_data",
+                    importance=importance,
                     assessment=entry.assessment if entry else "לא נמצאו ממצאים בתחום זה.",
+                    trend="unclear",
+                    trend_reason=entry.trend_reason if entry else "",
                     finding_ids=[],
                 )
             )
@@ -102,7 +119,10 @@ def check_scorecard(card: Scorecard, kept: list[KeptFinding]) -> Scorecard:
             AreaAssessment(
                 area=area,
                 label=label,
+                importance=importance,
                 assessment=entry.assessment if entry else "",
+                trend=entry.trend if entry else "unclear",
+                trend_reason=entry.trend_reason if entry else "",
                 finding_ids=ids or own,
             )
         )
@@ -115,9 +135,28 @@ def check_scorecard(card: Scorecard, kept: list[KeptFinding]) -> Scorecard:
                 out.append(Point(text=p.text, finding_ids=ids))
         return out[:3]
 
+    drivers: list[KeyDriver] = []
+    for d in card.key_drivers:
+        ids = [i for i in d.finding_ids if i in by_id]
+        drivers.append(
+            KeyDriver(
+                driver=d.driver,
+                status=d.status if ids else "unknown",
+                explanation=d.explanation,
+                finding_ids=ids,
+            )
+        )
+    if not drivers and profile:  # the model named no drivers: list the profile's, without evidence
+        drivers = [
+            KeyDriver(driver=n, status="unknown", explanation="", finding_ids=[]) for n in profile.key_drivers
+        ]
+
     return Scorecard(
         overall_label=card.overall_label,
         overall_rationale=card.overall_rationale,
+        overall_trend=card.overall_trend,
+        overall_trend_reason=card.overall_trend_reason,
+        key_drivers=drivers,
         areas=areas,
         risks=cited(card.risks),
         strengths=cited(card.strengths),

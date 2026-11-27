@@ -138,6 +138,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/companies/{ticker}/peer-benchmark": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Ratios beside listed peers and per-market medians (stored data only, never calls a provider)
+         * @description Peers come from the company's curated list, or else the exact ISIC sub-industry match per market (Israel, US, Europe). Peers without stored financials are listed as `financials_not_cached`. `not_cached` (409) when the company's financials, profile or peer directory are not stored.
+         */
+        get: operations["get_peer_benchmark_api_companies__ticker__peer_benchmark_get"];
+        put?: never;
+        /**
+         * Estimate, then fetch, what the peer benchmark is missing (live mode)
+         * @description Without `confirm` it only reports the requests and estimated credits (financials cost 40 each). With `confirm` it fetches up to `max_fetch` missing financials and returns the benchmark. Refused with `live_required` in cached mode or `live_disabled` on a cached-only server.
+         */
+        post: operations["run_peer_benchmark_api_companies__ticker__peer_benchmark_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/companies/{ticker}/ratios": {
         parameters: {
             query?: never;
@@ -333,7 +357,7 @@ export interface components {
              * Area
              * @enum {string}
              */
-            area: "news" | "market" | "credit" | "operations" | "labor_government" | "competition_macro";
+            area: "news" | "market" | "credit" | "operations" | "legal" | "regulation" | "labor_government" | "competition_macro";
             /**
              * Assessment
              * @description Hebrew, two or three sentences.
@@ -342,10 +366,80 @@ export interface components {
             /** Finding Ids */
             finding_ids: string[];
             /**
+             * Importance
+             * @description How much this area matters for stability in this industry.
+             * @enum {string}
+             */
+            importance: "high" | "medium" | "low";
+            /**
              * Label
              * @enum {string}
              */
             label: "stable" | "watch" | "fragile" | "insufficient_data";
+            /**
+             * Trend
+             * @enum {string}
+             */
+            trend: "improving" | "stable" | "deteriorating" | "unclear";
+            /**
+             * Trend Reason
+             * @description Hebrew, one sentence on the direction.
+             */
+            trend_reason: string;
+        };
+        /** BenchCompanyOut */
+        BenchCompanyOut: {
+            /** Country */
+            country?: string | null;
+            /** Currency */
+            currency?: string | null;
+            /** Fiscal Year */
+            fiscal_year?: number | null;
+            /** Id */
+            id: number;
+            /**
+             * In Median
+             * @default false
+             */
+            in_median: boolean;
+            /** Name */
+            name: string;
+            /**
+             * Status
+             * @default ok
+             * @enum {string}
+             */
+            status: "ok" | "financials_not_cached" | "template_not_supported" | "other_template";
+            /** Template */
+            template?: string | null;
+            /** Ticker */
+            ticker?: string | null;
+            /**
+             * Values
+             * @default {}
+             */
+            values: {
+                [key: string]: string | null;
+            };
+        };
+        /** BenchRatioOut */
+        BenchRatioOut: {
+            /** Code */
+            code: string;
+            /**
+             * Direction
+             * @enum {string}
+             */
+            direction: "higher" | "lower" | "neutral";
+            /** Group */
+            group: string;
+            /** Name He */
+            name_he: string;
+            /**
+             * Unit
+             * @enum {string}
+             */
+            unit: "percent" | "ratio" | "days";
         };
         /** ChangeNote */
         ChangeNote: {
@@ -407,6 +501,28 @@ export interface components {
             /** Paragraph Id */
             paragraph_id: string;
         };
+        /** CohortOut */
+        CohortOut: {
+            /** Countries */
+            countries: string[];
+            /** Label He */
+            label_he: string;
+            /** Market */
+            market: string;
+            /** Medians */
+            medians: {
+                [key: string]: components["schemas"]["MedianOut"];
+            };
+            /** Peers */
+            peers: components["schemas"]["BenchCompanyOut"][];
+            /** Reason */
+            reason?: string | null;
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "curated" | "sub_industry";
+        };
         /** CompanyOut */
         CompanyOut: {
             /** Fr Company Id */
@@ -425,11 +541,6 @@ export interface components {
             source: "registry" | "added";
             /** Ticker */
             ticker: string;
-        };
-        /** CompanyProfile */
-        CompanyProfile: {
-            /** Items */
-            items: components["schemas"]["ProfileItem"][];
         };
         /** CompanySearchHit */
         CompanySearchHit: {
@@ -706,11 +817,15 @@ export interface components {
         };
         /** KeptFinding */
         KeptFinding: {
+            /** Also Areas */
+            also_areas?: ("news" | "market" | "credit" | "operations" | "legal" | "regulation" | "labor_government" | "competition_macro")[];
+            /** Also Sources */
+            also_sources?: components["schemas"]["SourceRef"][];
             /**
              * Area
              * @enum {string}
              */
-            area: "news" | "market" | "credit" | "operations" | "labor_government" | "competition_macro";
+            area: "news" | "market" | "credit" | "operations" | "legal" | "regulation" | "labor_government" | "competition_macro";
             /**
              * Claim
              * @description One factual statement, in English or Hebrew.
@@ -748,6 +863,32 @@ export interface components {
              * @description Exact URL of a web_search result that supports the claim.
              */
             source_url: string;
+            /**
+             * Verdict
+             * @default unverified
+             * @enum {string}
+             */
+            verdict: "supported" | "partial" | "unverified";
+        };
+        /** KeyDriver */
+        KeyDriver: {
+            /**
+             * Driver
+             * @description A key driver of stability for this industry.
+             */
+            driver: string;
+            /**
+             * Explanation
+             * @description Hebrew, one or two sentences.
+             */
+            explanation: string;
+            /** Finding Ids */
+            finding_ids: string[];
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "positive" | "negative" | "mixed" | "unknown";
         };
         /** ManagementClaim */
         ManagementClaim: {
@@ -766,6 +907,13 @@ export interface components {
             paragraph_ids: string[];
             /** Topic */
             topic: string;
+        };
+        /** MedianOut */
+        MedianOut: {
+            /** N */
+            n: number;
+            /** Value */
+            value: string | null;
         };
         /** NodeOut */
         NodeOut: {
@@ -826,7 +974,7 @@ export interface components {
          */
         OsintProgress: {
             /** Area */
-            area?: ("news" | "market" | "credit" | "operations" | "labor_government" | "competition_macro") | null;
+            area?: ("news" | "market" | "credit" | "operations" | "legal" | "regulation" | "labor_government" | "competition_macro") | null;
             /** Query */
             query?: string | null;
             /** Search Limit */
@@ -922,6 +1070,63 @@ export interface components {
             seq: number;
             /** Text */
             text: string;
+        };
+        /** PeerBenchmarkOut */
+        PeerBenchmarkOut: {
+            /** Cohorts */
+            cohorts: components["schemas"]["CohortOut"][];
+            company: components["schemas"]["BenchCompanyOut"];
+            /**
+             * Match Parameter
+             * @description curated: the company's hand-picked peer list; sub_industry: exact ISIC class match
+             * @enum {string}
+             */
+            match_parameter: "curated" | "sub_industry";
+            /** Ratios */
+            ratios: components["schemas"]["BenchRatioOut"][];
+            /** Reason */
+            reason?: string | null;
+            /** Sub Industry */
+            sub_industry?: string | null;
+            /** Sub Industry Label */
+            sub_industry_label?: string | null;
+            /** Ticker */
+            ticker: string;
+        };
+        /** PeerBenchmarkRunIn */
+        PeerBenchmarkRunIn: {
+            /**
+             * Confirm
+             * @default false
+             */
+            confirm: boolean;
+            /**
+             * Max Fetch
+             * @description Most financials requests (40 credits each) per run
+             * @default 5
+             */
+            max_fetch: number;
+        };
+        /** PeerBenchmarkRunOut */
+        PeerBenchmarkRunOut: {
+            benchmark?: components["schemas"]["PeerBenchmarkOut"] | null;
+            /** Estimated Credits */
+            estimated_credits: number;
+            /**
+             * Fetched
+             * @default []
+             */
+            fetched: number[];
+            /**
+             * Financials Requests
+             * @description Peers whose financials are not stored
+             */
+            financials_requests: number;
+            /**
+             * Metadata Requests
+             * @description Profile/directory requests still needed (1 credit each)
+             */
+            metadata_requests: number;
         };
         /** PlaygroundDelta */
         PlaygroundDelta: {
@@ -1160,8 +1365,14 @@ export interface components {
              * @default false
              */
             from_cache: boolean;
+            /**
+             * Merged
+             * @default 0
+             */
+            merged: number;
             /** Model */
             model: string;
+            profile?: components["schemas"]["stock_analyzer__osint__models__CompanyProfile"] | null;
             /**
              * Run Date
              * Format: date
@@ -1187,6 +1398,11 @@ export interface components {
             /** Areas */
             areas: components["schemas"]["AreaAssessment"][];
             /**
+             * Key Drivers
+             * @description One entry per key driver of the industry.
+             */
+            key_drivers: components["schemas"]["KeyDriver"][];
+            /**
              * Overall Label
              * @enum {string}
              */
@@ -1196,6 +1412,16 @@ export interface components {
              * @description Hebrew, two or three sentences.
              */
             overall_rationale: string;
+            /**
+             * Overall Trend
+             * @enum {string}
+             */
+            overall_trend: "improving" | "stable" | "deteriorating" | "unclear";
+            /**
+             * Overall Trend Reason
+             * @description Hebrew, one sentence on the overall direction.
+             */
+            overall_trend_reason: string;
             /**
              * Risks
              * @description Top three risks, most important first.
@@ -1230,6 +1456,13 @@ export interface components {
              * @enum {string}
              */
             type: "text" | "fact" | "caveat";
+        };
+        /** SourceRef */
+        SourceRef: {
+            /** Title */
+            title: string;
+            /** Url */
+            url: string;
         };
         /** StorageHealth */
         StorageHealth: {
@@ -1364,7 +1597,7 @@ export interface components {
              *     }
              */
             osint: components["schemas"]["OsintUse"];
-            profile: components["schemas"]["CompanyProfile"] | null;
+            profile: components["schemas"]["stock_analyzer__story__agents__CompanyProfile"] | null;
             /** Prompt Hashes */
             prompt_hashes: {
                 [key: string]: string;
@@ -1506,7 +1739,7 @@ export interface components {
          */
         WebSource: {
             /** Area */
-            area?: ("news" | "market" | "credit" | "operations" | "labor_government" | "competition_macro") | null;
+            area?: ("news" | "market" | "credit" | "operations" | "legal" | "regulation" | "labor_government" | "competition_macro") | null;
             /** Claim */
             claim?: string | null;
             /**
@@ -1541,6 +1774,47 @@ export interface components {
             title: string;
             /** Url */
             url: string;
+        };
+        /**
+         * CompanyProfile
+         * @description What the orchestrator learns about the company before briefing the specialists (design D2).
+         */
+        stock_analyzer__osint__models__CompanyProfile: {
+            /**
+             * Business Lines
+             * @description Main business lines or segments.
+             */
+            business_lines: string[];
+            /**
+             * Competitors
+             * @description Main competitors.
+             */
+            competitors: string[];
+            /**
+             * Controlling Shareholder
+             * @description Controlling shareholder, or null if none or unknown.
+             */
+            controlling_shareholder: string | null;
+            /**
+             * Industry
+             * @description The company's industry, in a few words.
+             */
+            industry: string;
+            /**
+             * Key Drivers
+             * @description Three to six short phrases: what decides stability for a company in this industry.
+             */
+            key_drivers: string[];
+            /**
+             * Regulator
+             * @description Main regulator, or null if none or unknown.
+             */
+            regulator: string | null;
+        };
+        /** CompanyProfile */
+        stock_analyzer__story__agents__CompanyProfile: {
+            /** Items */
+            items: components["schemas"]["ProfileItem"][];
         };
     };
     responses: never;
@@ -1885,6 +2159,78 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["OsintEvents"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_peer_benchmark_api_companies__ticker__peer_benchmark_get: {
+        parameters: {
+            query?: {
+                /** @description cached: local data only, no provider calls. live: fetch what is missing (if the server allows). */
+                mode?: "cached" | "live";
+            };
+            header?: never;
+            path: {
+                ticker: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PeerBenchmarkOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    run_peer_benchmark_api_companies__ticker__peer_benchmark_post: {
+        parameters: {
+            query?: {
+                /** @description cached: local data only, no provider calls. live: fetch what is missing (if the server allows). */
+                mode?: "cached" | "live";
+            };
+            header?: never;
+            path: {
+                ticker: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PeerBenchmarkRunIn"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PeerBenchmarkRunOut"];
                 };
             };
             /** @description Validation Error */

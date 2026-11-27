@@ -169,21 +169,121 @@ The ratios view SHALL offer the same "available by date" control as the financia
 - **THEN** the charts have no FY2025 point
 
 ### Requirement: OSINT stability view
-The client SHALL offer, from the company page, a view of the company's OSINT stability scorecard: the overall
-label with its rationale and Hebrew summary, the top risks and strengths, a label and assessment per research
-area, and the kept findings grouped by area with their source links, publish dates, confidence and a mark on
-filing-derived findings. Every risk, strength and area SHALL link to the findings it cites. The view SHALL show
-the run date, window, model, search usage, dropped-finding counts and cost, and SHALL let the user choose the
-research window.
+The client SHALL offer, from the company page, the latest stored OSINT result for a chosen window: overall
+label, rationale and Hebrew summary, the research areas with Hebrew names, labels and assessments, risks, strengths,
+and numbered sources with link, date, area, signal and confidence. Cited finding numbers SHALL link to their
+sources. The view SHALL show run metadata and dropped-finding counts, and state it uses open sources only.
 
 #### Scenario: Stored scorecard
-- **WHEN** the user opens the OSINT view of ELAL, which has a stored result
-- **THEN** the scorecard and its findings are shown, marked as a stored result
+- **WHEN** the user opens the OSINT view of ELAL, which has a stored 36-month result
+- **THEN** the scorecard, its areas, risks, strengths, summary and numbered sources are shown, marked as a stored result
+
+#### Scenario: Cited source reachable
+- **WHEN** the user follows a finding number cited by a risk
+- **THEN** the page moves to that numbered source, which is not hidden under the page header
+
+#### Scenario: Another window
+- **WHEN** the user chooses a 12-month window
+- **THEN** the view shows the stored 12-month result, or says none has been run for that window
 
 #### Scenario: Never researched
 - **WHEN** the user opens the OSINT view of a company with no stored result for the window
-- **THEN** the view says the company has not been researched and that a run costs money and takes minutes
+- **THEN** an empty state says no research has been run for that window
 
 #### Scenario: Run only in live mode
 - **WHEN** the client is in cached mode or the server is cached-only
-- **THEN** the run button is disabled with an explanation; in live mode it runs the research and shows progress until the new scorecard arrives
+- **THEN** no action to run research is shown and the view explains why; in live mode the run action is offered
+
+### Requirement: Filing-derived and undated findings marked
+In the OSINT view, a finding whose source restates figures from the company's official reports SHALL be
+visibly marked as filing-derived, and a finding with no publish date SHALL be visibly marked as undated.
+
+#### Scenario: Marks shown
+- **WHEN** the sources include a filing-derived finding and an undated finding
+- **THEN** the first carries a filing-derived mark and the second an undated mark, and other findings carry
+  neither
+
+### Requirement: Live OSINT run from the client
+In live mode the OSINT view SHALL offer to run fresh research for the chosen window, starting only after the
+user confirms a warning that a run searches afresh, takes minutes and costs about $1 of OpenRouter credit.
+While it runs the view SHALL show progress and keep the previous result; it SHALL then show the new result, or
+the error. In cached mode the action SHALL NOT be offered, and the view SHALL say live mode is needed.
+
+#### Scenario: Confirmed live run
+- **WHEN** the user in live mode chooses to run research and confirms the cost warning
+- **THEN** progress is shown while it runs, and the new result replaces the old one when it is done
+
+#### Scenario: Cancelled before start
+- **WHEN** the user dismisses the cost warning
+- **THEN** no run is started
+
+### Requirement: Story view
+The client SHALL show a company's latest saved story on its own page, linked from the company page. The page SHALL show the fiscal years covered, `as_of`, and the three sections in Hebrew. Story-versus-numbers findings SHALL be shown with their label, using text as well as colour.
+
+#### Scenario: Open Malam's story
+- **WHEN** the user opens the story page for Malam after a story was saved
+- **THEN** the covered fiscal years, `as_of` and the three sections are shown, and each finding shows its label in words
+
+#### Scenario: No story yet
+- **WHEN** the user opens the story page for a company with no saved story
+- **THEN** the page explains that there is no story yet and offers to generate one when live mode is allowed
+
+### Requirement: Fact provenance in the story
+Each number in the story SHALL be shown as formatted by the server, and SHALL reveal its provenance on hover or focus: the fact's name, fiscal years, exact value, inputs or operation, source filing, and confidence. Low-confidence numbers SHALL be visibly marked and SHALL list their failed checks.
+
+#### Scenario: Hover a ratio
+- **WHEN** the user hovers or focuses the operating-margin number in the story
+- **THEN** its definition, input values, fiscal year and confidence are shown
+
+#### Scenario: Low-confidence mark
+- **WHEN** the story shows a low-confidence free-cash-flow number
+- **THEN** the number is marked, and its provenance lists the failed check ids
+
+### Requirement: Story citations
+Each citation in the story SHALL link to its page in the original document and SHALL also link to the paragraph in the report reader.
+
+#### Scenario: Follow a citation
+- **WHEN** the user clicks a citation's reader link
+- **THEN** the report reader opens at the cited fiscal year and section
+
+### Requirement: Generate a story live
+When live mode is allowed and selected, the client SHALL let the user start a story run, SHALL show its progress events as they arrive, and SHALL show the new story when the run finishes, or the error if it fails.
+
+#### Scenario: Live generation
+- **WHEN** the user starts a story run in live mode
+- **THEN** progress steps appear as they happen, and the finished story replaces the previous one with its cost shown
+
+#### Scenario: Cached mode
+- **WHEN** the client is in cached mode
+- **THEN** the generate action is disabled with an explanation that it needs live mode
+
+### Requirement: OSINT industry focus shown
+The OSINT view SHALL show the company profile (industry and business lines) and the key-drivers section,
+each driver with its status, explanation and links to its findings, before the area details.
+
+#### Scenario: Profile and drivers
+- **WHEN** a user opens the OSINT view of a result that has a profile and key drivers
+- **THEN** the industry and each key driver with its status are shown, and each driver's finding ids link to the numbered sources
+
+### Requirement: OSINT trend and importance shown
+The OSINT view SHALL show the trend of each area and of the overall assessment, and each area's importance
+for the industry.
+
+#### Scenario: Area row
+- **WHEN** a user looks at an area in the OSINT view
+- **THEN** its label, importance and trend (improving, stable, deteriorating or unclear) are shown
+
+### Requirement: OSINT verdicts and merged sources shown
+Each numbered source in the OSINT view SHALL show its verdict (supported, partial or unverified) and, for a
+merged finding, the other sources that reported the same event.
+
+#### Scenario: Merged finding
+- **WHEN** a finding was merged from three sources
+- **THEN** the view shows its main source and links to the two other sources
+
+### Requirement: Older OSINT results shown without new sections
+The OSINT view SHALL show results that lack the new fields, leaving out the sections they would fill.
+
+#### Scenario: Result from before the change
+- **WHEN** the stored result has no profile, trends or verdicts
+- **THEN** the view shows the scorecard as before, without empty sections or errors

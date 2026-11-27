@@ -23,7 +23,15 @@ def kept(url: str, fid: str = "F1", published: str | None = "2026-10-01", **extr
 
 def result(*findings: KeptFinding) -> ResearchResult:
     card = Scorecard(
-        overall_label="watch", overall_rationale="r", areas=[], risks=[], strengths=[], summary_he="s"
+        overall_label="watch",
+        overall_rationale="r",
+        overall_trend="stable",
+        overall_trend_reason="r",
+        key_drivers=[],
+        areas=[],
+        risks=[],
+        strengths=[],
+        summary_he="s",
     )
     return ResearchResult(
         ticker="MLTM", company_name="מלם", run_date=TODAY, window_months=36, window_start=date(2023, 11, 26),

@@ -11,6 +11,7 @@ from typer.testing import CliRunner
 from stock_analyzer.cli import app
 from stock_analyzer.companies import TrackedCompany
 from stock_analyzer.config import get_settings, reset_settings_cache
+from stock_analyzer.osint.models import AREAS
 from stock_analyzer.store import get_store
 
 
@@ -35,18 +36,22 @@ def test_text_output(cli):
     out = res.output
     assert out.startswith("ELAL — אל על / El Al Israel Airlines")
     assert "Overall: WATCH" in out
-    for area in ("news", "market", "credit", "operations", "labor_government", "competition_macro"):
+    for area in AREAS:
         assert f"  {area} (" in out
     assert "Risks:" in out and "Strengths:" in out and "Sources:" in out
     assert "https://news.example.com/osint/" in out
-    assert "searches 6/40" in out
+    assert "searches 8/52" in out
+    # improve-osint-evidence: profile, key drivers, importance, trend and verdicts
+    assert "industry: example industry" in out and "Key drivers:" in out
+    assert "importance high" in out and "trend up" in out and "(trend flat: stable)" in out
+    assert "supported" in out and "duplicates merged 0" in out and "not supported by source 0" in out
 
 
 @respx.mock
 def test_json_output(cli):
     first = json.loads(cli("ELAL", "--json", "--months", "6").output)
     assert first["ticker"] == "ELAL" and first["window_months"] == 6 and not first["from_cache"]
-    assert len(first["scorecard"]["areas"]) == 6 and first["findings"]
+    assert len(first["scorecard"]["areas"]) == len(AREAS) and first["findings"]
     second = json.loads(cli("ELAL", "--json", "--months", "6").output)
     assert second["from_cache"] is False  # every run is fresh
 

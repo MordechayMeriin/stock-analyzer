@@ -21,7 +21,7 @@ from stock_analyzer.fin.normalize import check_currency, decimal_str
 from stock_analyzer.fin.ratios import GROUP_LABELS_HE, RatioSeries, RatioValue, compute
 from stock_analyzer.services.companies import resolve_company
 from stock_analyzer.services.context import Ctx
-from stock_analyzer.services.financials import company_financials
+from stock_analyzer.services.financials import issuer_financials
 from stock_analyzer.services.models import (
     CheckOut,
     RatioGroupOut,
@@ -55,14 +55,21 @@ def window(sheet_years: list[int], max_years: int) -> list[int]:
 
 def analyze(ctx: Ctx, ticker: str, *, as_of: date | None = None, max_years: int | None = None) -> Analysis:
     company = resolve_company(ctx, ticker)
-    fin = company_financials(ctx, company.ticker, as_of=as_of)
+    return analyze_id(ctx, company.fr_company_id, company.ticker, as_of=as_of, max_years=max_years)
+
+
+def analyze_id(
+    ctx: Ctx, company_id: int, label: str, *, as_of: date | None = None, max_years: int | None = None
+) -> Analysis:
+    """Ratios for any provider company (tracked or not); ``label`` names it in errors and output."""
+    fin = issuer_financials(ctx, company_id, as_of)
     try:
         sheet = build_sheet(fin.values, fin.template)
     except TemplateNotSupported as exc:
-        raise TemplateNotSupported(f"{company.ticker}: {exc.message}") from None
+        raise TemplateNotSupported(f"{label}: {exc.message}") from None
     checks = run_checks(sheet)
     return Analysis(
-        ticker=company.ticker,
+        ticker=label,
         template=sheet.template,
         currency=check_currency(fin.values),
         as_of=as_of,

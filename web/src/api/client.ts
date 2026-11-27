@@ -19,6 +19,8 @@ export type PageParagraphs = Schemas['PageParagraphsOut']
 export type Paragraph = Schemas['ParagraphOut']
 export type Financials = Schemas['FinancialsOut']
 export type Ratios = Schemas['RatiosOut']
+export type PeerBenchmark = Schemas['PeerBenchmarkOut']
+export type PeerBenchmarkRun = Schemas['PeerBenchmarkRunOut']
 export type RatioSeries = Schemas['RatioSeriesOut']
 export type RatioValue = Schemas['RatioValueOut']
 export type CheckResult = Schemas['CheckOut']
@@ -40,6 +42,9 @@ export type OsintPoint = Schemas['Point']
 export type OsintProgress = Schemas['OsintProgress']
 export type OsintLabel = Schemas['AreaAssessment']['label']
 export type OsintArea = Schemas['AreaAssessment']['area']
+export type OsintTrend = Schemas['AreaAssessment']['trend']
+export type OsintImportance = Schemas['AreaAssessment']['importance']
+export type OsintDriver = Schemas['KeyDriver']
 
 /** An API failure carrying the server's machine-readable code. */
 export class ApiError extends Error {
@@ -120,6 +125,12 @@ export const api = {
     get<Financials>(`/api/companies/${enc(ticker)}/financials`, { mode, as_of: asOf }, signal),
   ratios: (ticker: string, mode: Mode, asOf?: string, signal?: AbortSignal) =>
     get<Ratios>(`/api/companies/${enc(ticker)}/ratios`, { mode, as_of: asOf }, signal),
+  /** Ratios beside curated or same-ISIC peers per market. Stored data only, in either mode. */
+  peerBenchmark: (ticker: string, mode: Mode, signal?: AbortSignal) =>
+    get<PeerBenchmark>(`/api/companies/${enc(ticker)}/peer-benchmark`, { mode }, signal),
+  /** Live only: without confirm, the credit estimate; with confirm, fetch up to max_fetch financials. */
+  runPeerBenchmark: (ticker: string, mode: Mode, confirm: boolean) =>
+    send<PeerBenchmarkRun>('POST', `/api/companies/${enc(ticker)}/peer-benchmark`, { mode }, { confirm }),
   structure: (ticker: string, fy: number, mode: Mode, signal?: AbortSignal) =>
     get<Structure>(`/api/companies/${enc(ticker)}/reports/${fy}/structure`, { mode }, signal),
   node: (ticker: string, fy: number, nodeId: string, mode: Mode, signal?: AbortSignal) =>

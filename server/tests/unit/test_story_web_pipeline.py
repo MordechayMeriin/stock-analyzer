@@ -32,7 +32,15 @@ def stored_result(
         derived_from_filing=False, id="F1", area="credit", excerpt=excerpt,
     )  # fmt: skip
     card = Scorecard(
-        overall_label="stable", overall_rationale="r", areas=[], risks=[], strengths=[], summary_he="s"
+        overall_label="stable",
+        overall_rationale="r",
+        overall_trend="stable",
+        overall_trend_reason="r",
+        key_drivers=[],
+        areas=[],
+        risks=[],
+        strengths=[],
+        summary_he="s",
     )
     return ResearchResult(
         ticker="MLTM", company_name="מלם", run_date=run_date, window_months=36,
@@ -289,5 +297,6 @@ def test_malam_fits_the_default_budget_with_web_evidence():
 
     s = Settings.from_env({})
     allowance = web_allowance_tokens(s, None)
-    assert allowance == 84_000  # recorded: Malam needs about 272K + 84K = 356K
+    # recorded: SNIPPET_CHARS is 3,000 (improve-osint-evidence), so Malam needs about 272K + 154K = 426K
+    assert allowance == 154_000
     assert 272_000 + allowance < s.story_max_tokens == 1_500_000

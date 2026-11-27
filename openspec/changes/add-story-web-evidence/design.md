@@ -130,7 +130,7 @@ The estimate adds `story_max_searches × story_search_results × (SNIPPET_CHARS 
 - [Many live hits are undated, so stories with a past `as_of` get little live evidence] → That is accepted for point-in-time safety. Stored findings (dated by OSINT) still help.
 - [A run that crashed on the cap replays into the same crash] → Raising the limit changes the cache keys (D4), and the crash error lists the queries and says this.
 - [Cost: an OSINT run plus 20 searches on top of the story] → The OSINT run happens only when the stored result is missing or stale and is stored right away. A story crash doesn't repeat it, and a rerun on the same `as_of` is free.
-- [The extra search allowance pushes large companies over `STORY_MAX_TOKENS`] → Measured in task 7.3: Malam needs about 272K of report text plus an 84K web allowance (356K), over the old 300K default, and lowering `story_search_results` alone could not fix it (320K at 2 results). Decision: `STORY_MAX_TOKENS` defaults to 1,500,000.
+- [The extra search allowance pushes large companies over `STORY_MAX_TOKENS`] → Measured in task 7.3: Malam needs about 272K of report text plus an 84K web allowance (356K; 154K and 426K once `SNIPPET_CHARS` rose to 3,000 in improve-osint-evidence), over the old 300K default, and lowering `story_search_results` alone could not fix it (320K at 2 results). Decision: `STORY_MAX_TOKENS` defaults to 1,500,000.
 - [The storyteller paraphrases a claim that isn't in the excerpt] → Claims can't be checked like numbers. The citation always shows the source and its excerpt, so a reader can check.
 
 ## Migration Plan

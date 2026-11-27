@@ -64,13 +64,13 @@ Agent features (the company story) use the OpenAI Agents SDK, but every model tu
 | `AGENT_MAX_OUTPUT_TOKENS` | `16000` | Output tokens per agent turn (separate from the playground's `LLM_MAX_TOKENS`) |
 | `STORY_READER_ROLE` | `cheap` | Role of the agents that read report text |
 | `STORY_WRITER_ROLE` | `main` | Role of the storyteller agent |
-| `STORY_MAX_TOKENS` | `1500000` | Report text and web evidence a story run may send; larger runs are refused before any LLM call (a Malam FY2023–FY2025 run needs ~272K of report text, see `docs/diff_notes.md`, plus up to ~84K for 20 searches and the stored OSINT excerpts) |
+| `STORY_MAX_TOKENS` | `1500000` | Report text and web evidence a story run may send; larger runs are refused before any LLM call (a Malam FY2023–FY2025 run needs ~272K of report text, see `docs/diff_notes.md`, plus up to ~154K for 20 searches and the stored OSINT excerpts) |
 | `STORY_DESCRIBE_INTRO_TOKENS` | `12000` | Opening business sections given to the describe agent |
 | `STORY_READER_BUDGET_TOKENS` | `20000` | What each agent may read with its read tools |
 | `STORY_CHANGE_BATCH_TOKENS` | `40000` | Changed sections (both full versions) per change-agent call |
 | `STORY_WRITER_MAX_TURNS` | `40` | The storyteller's turn limit (room for fact tools and up to `STORY_MAX_SEARCHES` searches) |
 | `STORY_MAX_SEARCHES` | `20` | Storyteller web searches per story run, shared by the first attempt and the repair; asking for one more fails the run |
-| `STORY_SEARCH_RESULTS` | `5` | Results requested per storyteller search (each costs up to ~1,500 characters of excerpt in the token estimate) |
+| `STORY_SEARCH_RESULTS` | `5` | Results requested per storyteller search (each costs up to ~3,000 characters of excerpt in the token estimate) |
 | `STORY_OSINT_MAX_AGE_DAYS` | `30` | A live story run starts a new OSINT research run when the stored one is missing or older than this |
 
 The story pipeline (`stock_analyzer/story/`): `prepare_story` selects the last three annual reports
@@ -107,6 +107,22 @@ uv run stock-analyzer usage                        # provider credits + LLM spen
 `--mode cached` (default for reading commands) never calls the provider; `fetch` is always live.
 Always let `fetch` save the financials (never pass `--no-financials`): ratios are computed from them.
 
+### Industry market research
+
+`market-research` takes a tracked ticker and resolves its ISIC Rev. 5 class from the provider company
+profile. It researches demand, competition, and regulation across Israel, Europe, and the US by default.
+Use repeatable `--market` options to focus the brief. Each market shows source citations and evidence gaps.
+
+```bash
+uv run --env-file ../.env stock-analyzer market-research MLTM --mode live
+uv run --env-file ../.env stock-analyzer market-research MLTM --mode live --market EUROPE --market US --json
+uv run --env-file ../.env stock-analyzer market-research MLTM --market EUROPE --market US --json
+```
+
+Live mode uses the configured FinancialFilings and OpenRouter credentials and may incur provider charges.
+Cached mode is the default and replays the latest result for the same ticker, market set, and month window.
+Evidence from a narrower geography or a different industry classification retains its original scope.
+
 ### Peer financials
 
 From `server/`, run the command in live mode to populate the cache, then replay the same query offline.
@@ -136,7 +152,8 @@ Nothing is fetched or stored: ratios are recomputed from the cached financials o
 ### OSINT research
 
 `osint` judges how stable a tracked company is from open sources only: news, market and bond data, credit
-ratings, analyst forecasts, operations, labor, competition and geopolitics. It never uses the official
+ratings, analyst forecasts, operations, court cases, upcoming regulation, labor and government, competition
+and geopolitics. It never uses the official
 filings: the filing systems (Maya, Magna) and the filings provider are on the block-list in
 `data/osint_blocklist.yaml`, which is sent with every search and checked again on every result, and the
 code never reads stored reports or financials. Everything else is open, including the company's
@@ -147,13 +164,26 @@ Israeli market: every agent gets `prompts/osint/israel_market.md` (Israeli press
 and Midroog, local analysts and regulators, controlling shareholders, the shekel, security risk, and a
 guide to the indicators that matter in each sector). An orchestrating agent (OpenAI Agents SDK,
 `MODEL_OSINT` on OpenRouter) first profiles the company (industry, controller, competitors, regulator),
-then sends six specialist agents to search the web with that profile; each search is one OpenRouter call on `MODEL_CHEAP` with the web plugin on the Exa engine.
-A finding is kept only if it cites a URL that a search in the same run returned and was published inside
-the window, which by default covers the present and the past three years (`--months`). The output is a
-label per area and overall (stable / watch / fragile, or insufficient data
-for an area without findings), up to three risks and strengths, and a Hebrew summary, every claim tied to
-its numbered sources. Each kept finding also stores the excerpt its search returned (`excerpt`), so the
-company story can quote numbers from it; results stored before excerpts were kept load with none.
+then sends eight specialist agents to search the web with that profile (news, market, credit,
+operations, legal proceedings, upcoming regulation, labor and government, competition and macro); each
+search is one OpenRouter call on `MODEL_CHEAP` with the web plugin on the Exa engine.
+
+Every finding then goes through checks:
+- it must cite a URL that a search in the same run returned and be published inside the window, which by
+  default covers the present and the past three years (`--months`);
+- a cheap verifier model (`MODEL_CHEAP`) checks the claim against that source's excerpt: unsupported
+  claims are dropped, partly supported or unverifiable ones are kept at low confidence, and each finding
+  shows its verdict;
+- findings about the same event (often from different articles or areas) are merged into one, which lists
+  the other sources, so each event counts once.
+
+The output centres on what matters for the company's industry: the company profile, a key-drivers section
+(each driver of stability in that industry with its status and findings), and a label per area and overall
+(stable / watch / fragile, or insufficient data for an area without findings), each with its importance for
+the industry and its trend (improving / stable / deteriorating / unclear). It also gives up to three risks
+and strengths and a Hebrew summary, every claim tied to its numbered sources. Each kept finding also stores
+the excerpt its search returned (`excerpt`), so the company story can quote numbers from it; results
+stored before excerpts were kept load with none.
 
 ```bash
 uv run --env-file ../.env stock-analyzer osint ELAL              # text scorecard with sources
@@ -164,8 +194,8 @@ LLM_FAKE=true uv run --env-file ../.env stock-analyzer osint ELAL  # offline dem
 The ticker must be tracked in the store you point at (ELAL is tracked in the hosted store; on a local file
 store add it first with `companies add`).
 
-Cost: up to `OSINT_MAX_SEARCHES` searches per run (default 40, about $0.007 each for Exa) plus the agents'
-tokens; the run prints the searches used and the total cost OpenRouter reported. Every live run searches
+Cost: up to `OSINT_MAX_SEARCHES` searches per run (default 52, about $0.007 each for Exa) plus the agents'
+tokens and the cheap verifier and duplicate-grouping calls, about $1.2 per run in total; the run prints the searches used and the total cost OpenRouter reported. Every live run searches
 the web afresh, so each run costs credit. The latest result per ticker and window is stored (in the `llm`
 cache under `osint:` keys) and is printed instead when live calls are off: `--mode cached`, or
 `ALLOW_LIVE=false`. Fake-mode results are stored under separate keys and never served as real ones. Usage records go to the LLM
@@ -178,6 +208,11 @@ result) or `error` event; it is refused before streaming with `403 live_required
 `503 missing_credential` or `409 research_in_progress` (one run per ticker and window per server process).
 A run that finds nothing usable ends with `osint_no_findings`. A client that disconnects does not stop the
 run; its result is still stored. The web client shows this at `/{ticker}/osint` (linked from the company page).
+
+On the hosted deployment (Render, see the root README) OSINT runs in the same API image: the image carries
+`data/osint_blocklist.yaml` and `prompts/osint/`, and `render.yaml` sets `MODEL_OSINT`,
+`OSINT_MAX_SEARCHES` and `OSINT_WINDOW_MONTHS`. With `ALLOW_LIVE=false` it serves the stored results from
+the shared Supabase store; a live run needs `ALLOW_LIVE=true` and `OPENROUTER_API_KEY`.
 
 ### Tracked companies
 

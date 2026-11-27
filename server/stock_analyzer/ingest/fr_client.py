@@ -76,6 +76,7 @@ class CompanyMatch(BaseModel):
 
 class SubIndustry(BaseModel):
     code: str | None = None
+    name: str | None = None
 
 
 class CompanyProfile(BaseModel):
