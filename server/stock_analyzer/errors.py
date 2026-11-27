@@ -157,3 +157,19 @@ class ResearchInProgress(AnalyzerError):
     """An OSINT run for the same ticker and window is already running in this server process."""
 
     code = "research_in_progress"
+
+
+class StorySearchLimitExceeded(AnalyzerError):
+    """The storyteller asked for more web searches than the story's limit; the run fails (company-story spec)."""
+
+    code = "story_search_limit"
+
+    def __init__(self, limit: int, queries: list[str]):
+        self.limit = limit
+        self.queries = list(queries)
+        listed = "; ".join(repr(q) for q in queries)
+        super().__init__(
+            f"the storyteller asked for more than {limit} web searches (STORY_MAX_SEARCHES); nothing was saved. "
+            f"Searches run: {listed}. A rerun with the same as_of replays the same turns from the cache and "
+            "fails the same way: raise STORY_MAX_SEARCHES (or change the as_of) to retry"
+        )

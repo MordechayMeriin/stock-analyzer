@@ -19,21 +19,28 @@ import threading
 import uuid
 from collections.abc import Iterator
 from dataclasses import dataclass
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from typing import Any, Literal
 
 from pydantic import BaseModel
 
-from stock_analyzer.agents_model import UsageTotals, run_agent
+from stock_analyzer.agents_model import FakeAgentModels, UsageTotals, run_agent
+from stock_analyzer.config import MissingCredential
 from stock_analyzer.diff.align import AlignedSection, Comparison, Report, compare_business
-from stock_analyzer.errors import NotCached, StoryTooLarge, StoryVerificationFailed
+from stock_analyzer.errors import NotCached, ResearchInProgress, StoryTooLarge, StoryVerificationFailed
 from stock_analyzer.ingest.structure import STRUCTURE_VERSION
+from stock_analyzer.osint.agents import ModelFactory as OsintModelFactory
+from stock_analyzer.osint.agents import fake_model_factory as fake_osint_models
+from stock_analyzer.osint.blocklist import load_blocklist
+from stock_analyzer.osint.models import OsintProgress, ResearchResult
+from stock_analyzer.osint.search import SNIPPET_CHARS, FakeSearch, OpenRouterSearch, SearchBackend
 from stock_analyzer.services import filings as filings_service
+from stock_analyzer.services import osint as osint_service
 from stock_analyzer.services import ratios as ratios_service
 from stock_analyzer.services import reports
 from stock_analyzer.services.companies import resolve_company
 from stock_analyzer.services.context import Ctx
-from stock_analyzer.store import Store
+from stock_analyzer.store import Store, StoreLog
 from stock_analyzer.story.agents import (
     ChangeNote,
     ChangeNotes,
@@ -58,6 +65,7 @@ from stock_analyzer.story.reading import ReadBudget, ReportLibrary
 from stock_analyzer.story.render import RenderedFinding, RenderedParagraph, render_finding, render_paragraph
 from stock_analyzer.story.select import story_reports
 from stock_analyzer.story.verify import VerificationError, text_errors, verify_story
+from stock_analyzer.story.web import StorySearch, WebSource, load_stored
 
 # ---------------------------------------------------------------- run record
 
@@ -90,8 +98,19 @@ class VerificationAttempt(BaseModel):
 class StoryUsage(BaseModel):
     input_tokens: int
     output_tokens: int
-    cost_usd: float
+    cost_usd: float  # everything the run paid: model turns, storyteller searches, a research run
     model_turns: int
+    search_cost_usd: float = 0.0
+    osint_cost_usd: float = 0.0  # the research run this story started, if any
+
+
+class OsintUse(BaseModel):
+    """The OSINT result a story used (add-story-web-evidence)."""
+
+    run_date: str | None = None  # None: no result was available
+    started: bool = False  # this story ran the research because none was stored or it was stale
+    findings: int = 0  # stored findings given to the storyteller, after the as_of filter
+    left_out: int = 0  # stored findings the as_of filter left out
 
 
 class StoryRun(BaseModel):
@@ -116,6 +135,10 @@ class StoryRun(BaseModel):
     prompt_hashes: dict[str, str]
     config_hash: str
     usage: StoryUsage
+    # web evidence (add-story-web-evidence); defaults keep runs saved before it loadable
+    web_sources: dict[str, WebSource] = {}  # the cited sources, with their excerpts
+    osint: OsintUse = OsintUse()
+    searches: list[str] = []  # the storyteller's search queries, in order
 
 
 class StoryEvent(BaseModel):
@@ -141,6 +164,17 @@ class PreparedStory:
     explain_texts: dict[int, str]
     estimated_tokens: int
     store: Store | None = None
+    # web evidence (add-story-web-evidence design D1)
+    ctx: Ctx | None = None  # for the research run, when one is needed
+    today: date | None = None
+    latest_report_published: date | None = None
+    osint_months: int = 36
+    osint_stored: ResearchResult | None = None  # a fresh stored result, used as is
+    osint_needed: bool = False  # missing or stale: the run researches before the storyteller
+    # injectable for tests; when unset, fakes follow the story's model factory or LLM_FAKE
+    search_backend: SearchBackend | None = None
+    osint_backend: SearchBackend | None = None
+    osint_models: OsintModelFactory | None = None
 
 
 def prepare_story(ctx: Ctx, ticker: str, *, as_of: date | None = None) -> PreparedStory:
@@ -169,18 +203,35 @@ def prepare_story(ctx: Ctx, ticker: str, *, as_of: date | None = None) -> Prepar
     describe_text = describe_input(story_ctx)
     change_texts = change_batches(story_ctx, comparison)
     explain_texts = {y: t for y in years if (t := explain_input(story_ctx, y))}
+    latest_filing = chosen[-1][1]
+    latest_published = latest_filing.release_datetime.date() if latest_filing.release_datetime else None
+    story_ctx.as_of = cutoff
+    story_ctx.latest_report_published = latest_published
+
+    # the stored OSINT result: used if fresh; missing or stale means a research run (design D1)
+    today = datetime.now(UTC).date()
+    months = s.osint_window_months
+    stored = osint_service.cached_result(ctx, company.ticker, months)
+    fresh = stored is not None and stored.run_date >= today - timedelta(days=s.story_osint_max_age_days)
+    if not fresh and osint_service.is_running(company.ticker, months):
+        raise ResearchInProgress(
+            f"this story needs a new OSINT research run for {company.ticker}, and one is already in "
+            "progress; try again when it finishes"
+        )
+
     estimate = ReadBudget(tokens=0, chars_per_token=s.chars_per_token).estimate
     # report text the run may send: the fixed inputs, plus what the describe agent and the
-    # storyteller may read with their tools
+    # storyteller may read with their tools, plus the web evidence the storyteller may receive
     estimated = (
         estimate(describe_text)
         + sum(estimate(t) for t in change_texts)
         + sum(estimate(t) for t in explain_texts.values())
         + 2 * s.story_reader_budget_tokens
+        + web_allowance_tokens(s, stored if fresh else None)
     )
     if estimated > s.story_max_tokens:
         raise StoryTooLarge(
-            f"this story would send about {estimated:,} tokens of report text, over the "
+            f"this story would send about {estimated:,} tokens of report text and web evidence, over the "
             f"{s.story_max_tokens:,}-token budget (STORY_MAX_TOKENS)"
         )
     return PreparedStory(
@@ -195,7 +246,30 @@ def prepare_story(ctx: Ctx, ticker: str, *, as_of: date | None = None) -> Prepar
         explain_texts=explain_texts,
         estimated_tokens=estimated,
         store=ctx.store,
+        ctx=ctx,
+        today=today,
+        latest_report_published=latest_published,
+        osint_months=months,
+        osint_stored=stored if fresh else None,
+        osint_needed=not fresh,
     )
+
+
+# a stored result's findings are not known before a research run: allow this many
+UNKNOWN_FINDINGS_ALLOWANCE = 40
+SOURCE_OVERHEAD_CHARS = 300  # title, URL, claim and field names around each excerpt
+
+
+def web_allowance_tokens(settings, stored: ResearchResult | None) -> int:
+    """The most web evidence the storyteller can receive (design D9): every search result at full
+    excerpt length, and every stored finding's excerpt."""
+    per_result = SNIPPET_CHARS + SOURCE_OVERHEAD_CHARS
+    searches = settings.story_max_searches * settings.story_search_results * per_result
+    if stored is not None:
+        findings = sum(len(f.excerpt or "") + len(f.claim) + SOURCE_OVERHEAD_CHARS for f in stored.findings)
+    else:
+        findings = UNKNOWN_FINDINGS_ALLOWANCE * per_result
+    return int((searches + findings) / settings.chars_per_token)
 
 
 # ---------------------------------------------------------------- run (agents)
@@ -258,7 +332,31 @@ async def _build(prep: PreparedStory, make_model: ModelFactory, emit) -> StoryRu
     for y in prep.years:
         if y not in prep.explain_texts:
             warnings.append(f"no directors' report explanations found for FY{y}")
-    results = await asyncio.gather(*jobs)
+    # offline when the story's models are fakes (tests, LLM_FAKE): no paid search or research
+    fake = s.llm_fake or isinstance(make_model, FakeAgentModels)
+    results, researched = await asyncio.gather(asyncio.gather(*jobs), _research(prep, fake, emit, warnings))
+
+    # web evidence: the stored (or just researched) findings, filtered to as_of, then live search
+    osint_result = researched or prep.osint_stored
+    today = prep.today or datetime.now(UTC).date()
+    osint_use = OsintUse(started=prep.osint_needed)
+    web_note = None
+    if osint_result is not None:
+        osint_use.left_out = load_stored(ctx.ledger, osint_result, prep.as_of, today)
+        osint_use.run_date = osint_result.run_date.isoformat()
+        osint_use.findings = len(ctx.ledger.stored())
+        web_note = f"The OSINT research result is from {osint_use.run_date}."
+    ctx.search = StorySearch(
+        backend=prep.search_backend or (FakeSearch() if fake else OpenRouterSearch(s)),
+        blocklist=load_blocklist(prep.ticker),
+        max_searches=s.story_max_searches,
+        results_per_search=s.story_search_results,
+        as_of=prep.as_of,
+        today=today,
+        store=prep.store,
+        log=StoreLog(prep.store, "llm") if prep.store is not None else None,
+        fake=fake,
+    )
 
     profile: CompanyProfile | None = results[0]
     if profile is not None:
@@ -287,7 +385,7 @@ async def _build(prep: PreparedStory, make_model: ModelFactory, emit) -> StoryRu
         claims[y] = kept_claims
 
     unchanged = _unchanged(prep.comparison)
-    base_input = storyteller_input(ctx, profile, notes, claims, unchanged)
+    base_input = storyteller_input(ctx, profile, notes, claims, unchanged, web_note)
     attempts: list[VerificationAttempt] = []
     story_input = base_input
     story: Story | None = None
@@ -302,7 +400,16 @@ async def _build(prep: PreparedStory, make_model: ModelFactory, emit) -> StoryRu
         )
         emit("agent_done", "storyteller finished", {"agent": "storyteller"})
         emit("verify", f"verifying the story (attempt {attempt})", {"attempt": attempt})
-        errors = verify_story(story, ctx.registry, ctx.library.paragraphs, prep.years)
+        errors = verify_story(
+            story,
+            ctx.registry,
+            ctx.library.paragraphs,
+            prep.years,
+            ledger=ctx.ledger,
+            as_of=prep.as_of,
+            today=today,
+            latest_report_published=prep.latest_report_published,
+        )
         attempts.append(VerificationAttempt(attempt=attempt, errors=errors))
         if not errors:
             break
@@ -327,11 +434,10 @@ async def _build(prep: PreparedStory, make_model: ModelFactory, emit) -> StoryRu
         story_vs_numbers=[render_finding(f, ctx.registry) for f in story.story_vs_numbers],
         unchanged_sections=[UnchangedSection(key=u.key, title=u.title) for u in unchanged],
     )
-    cited = {
-        pid
-        for item in [*story.what_it_does, *story.what_changed, *story.story_vs_numbers]
-        for pid in item.paragraph_ids
-    }
+    items = [*story.what_it_does, *story.what_changed, *story.story_vs_numbers]
+    cited = {pid for item in items for pid in item.paragraph_ids}
+    cited_sources = {sid for item in items for sid in item.source_ids}
+    osint_cost = (researched.cost_usd or 0.0) if researched is not None else 0.0
     citations = {}
     for pid in sorted(cited):
         p = ctx.library.paragraphs[pid]
@@ -367,10 +473,54 @@ async def _build(prep: PreparedStory, make_model: ModelFactory, emit) -> StoryRu
         usage=StoryUsage(
             input_tokens=usage.input_tokens,
             output_tokens=usage.output_tokens,
-            cost_usd=round(usage.cost, 6),
+            cost_usd=round(usage.cost + ctx.search.cost + osint_cost, 6),
             model_turns=usage.turns,
+            search_cost_usd=round(ctx.search.cost, 6),
+            osint_cost_usd=round(osint_cost, 6),
         ),
+        web_sources={sid: src for sid in sorted(cited_sources) if (src := ctx.ledger.get(sid)) is not None},
+        osint=osint_use,
+        searches=list(ctx.search.queries),
     )
+
+
+async def _research(prep: PreparedStory, fake: bool, emit, warnings: list[str]) -> ResearchResult | None:
+    """The OSINT research run a story starts when the stored result is missing or stale (design D1).
+
+    Runs beside the report readers and stores its result as the latest OSINT result. A failure is
+    a warning, not a failed story; a run already holding the slot fails the story."""
+    if not prep.osint_needed or prep.ctx is None:
+        return None
+    months = prep.osint_months
+    osint_service.acquire_run(prep.ticker, months)  # ResearchInProgress fails the story
+    emit("osint", f"OSINT research started for {prep.ticker}", {"osint": "started"})
+
+    def on_progress(p: OsintProgress) -> None:
+        if p.step in ("area_done", "synthesis"):
+            what = f"area finished: {p.area}" if p.step == "area_done" else "writing the scorecard"
+            emit("osint", f"OSINT research {what}", {"osint": p.step, "area": p.area})
+
+    try:
+        result = await osint_service.research_async(
+            prep.ctx,
+            prep.ticker,
+            months,
+            today=prep.today,
+            backend=prep.osint_backend or (FakeSearch() if fake else None),
+            model_factory=prep.osint_models or (fake_osint_models(prep.ticker) if fake else None),
+            on_progress=on_progress,
+            fake=fake,
+        )
+    except MissingCredential:
+        raise
+    except Exception as exc:  # the story goes on without stored findings (company-story spec)
+        warnings.append(f"OSINT research failed: {exc}")
+        emit("osint", f"OSINT research failed: {exc}", {"osint": "failed"})
+        return None
+    finally:
+        osint_service.release_run(prep.ticker, months)
+    emit("osint", f"OSINT research stored ({len(result.findings)} findings)", {"osint": "stored"})
+    return result
 
 
 def _config_hash_from(settings) -> str:
@@ -401,6 +551,18 @@ def stream_story(prep: PreparedStory, make_model: ModelFactory) -> Iterator[Stor
                 f"about {prep.estimated_tokens:,} tokens of report text, {len(prep.change_texts)} change batches",
                 {"estimated_tokens": prep.estimated_tokens},
             )
+            if prep.osint_stored is not None:
+                emit(
+                    "osint",
+                    f"using the stored OSINT result from {prep.osint_stored.run_date.isoformat()}",
+                    {"osint": "stored_used", "run_date": prep.osint_stored.run_date.isoformat()},
+                )
+            else:
+                emit(
+                    "osint",
+                    "no fresh stored OSINT result: a research run starts beside the report readers",
+                    {"osint": "needed"},
+                )
             run = asyncio.run(_build(prep, make_model, emit))
             if prep.store is not None:  # only verified runs get here: a failed run saves nothing
                 save_run(prep.store, run)

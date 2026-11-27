@@ -7,6 +7,8 @@ Agents never write numbers. They cite facts by id, and code renders the values:
 - ``RATIO:<code>:<fy>``        a core ratio
 - ``TXT:<n>``                  a number quoted from a report paragraph, verified by code
 - ``DER:<n>``                  a derived value from a closed set of operations
+- ``WEB:<n>``                  a number quoted from a web source's excerpt, verified by code; always
+                               low confidence (add-story-web-evidence)
 
 Every fact records its inputs, so any number in a story can be traced to provider values or to
 the paragraph it was quoted from, and carries the confidence of its weakest input.
@@ -27,17 +29,19 @@ from stock_analyzer.fin.checks import failed_by_cell
 from stock_analyzer.fin.normalize import decimal_str
 from stock_analyzer.fin.ratios import GROUP_LABELS_HE
 from stock_analyzer.ingest.parse_md import Paragraph
+from stock_analyzer.story.web import WebSource
 
 if TYPE_CHECKING:
     from stock_analyzer.services.ratios import Analysis
 
-FactKind = Literal["FIN", "CHG", "RATIO", "TXT", "DER"]
+FactKind = Literal["FIN", "CHG", "RATIO", "TXT", "DER", "WEB"]
 FactUnit = Literal["money", "percent", "pp", "multiple", "count", "per_share", "days", "number"]
 Confidence = Literal["high", "low"]
 Operation = Literal["pct_change", "ratio", "share", "sum", "diff"]
 
 PRECISION = 28
 OPERATIONS: tuple[Operation, ...] = ("pct_change", "ratio", "share", "sum", "diff")
+WEB_CHECK = "web_source"  # the "failed check" every web fact carries: a press source, not audited
 
 
 class Fact(BaseModel):
@@ -53,7 +57,8 @@ class Fact(BaseModel):
     operation: str | None = None  # DER: the operation; RATIO: the definition; TXT: "quote"
     source_filing_id: int | None = None
     paragraph_id: str | None = None  # TXT: where the number was quoted
-    quote: str | None = None  # TXT: the exact quoted text
+    source_id: str | None = None  # WEB: the web source it was quoted from
+    quote: str | None = None  # TXT / WEB: the exact quoted text
     reason: str | None = None  # why there is no value
     confidence: Confidence = "high"
     failed_checks: list[str] = []
@@ -217,6 +222,63 @@ class FactRegistry:
             )
         )
 
+    # -- quote_web_number (add-story-web-evidence design D5)
+
+    def quote_web_number(self, source: WebSource, text: str, unit: str) -> Fact:
+        """Register a number quoted verbatim from a web source's excerpt (never a search summary)."""
+        if unit not in ("money", "count", "percent", "number"):
+            raise FactError("unit must be money, count, percent or number")
+        if not source.excerpts:
+            raise FactError(
+                f"source {source.source_id} has no excerpt to quote from (it was stored before excerpts "
+                "were kept); describe it without the number"
+            )
+        quote = " ".join(text.split())
+        if not quote:
+            raise FactError("empty quote")
+        for raw in source.excerpts:
+            haystack = " ".join(raw.split())
+            at = haystack.find(quote)
+            if at >= 0:
+                break
+        else:
+            raise FactError(f"the text {text!r} does not appear in the excerpt of source {source.source_id}")
+        before = haystack[max(0, at - 15) : at]
+        after = haystack[at + len(quote) : at + len(quote) + 20]
+        value, parsed_unit = parse_web_number(quote, after)
+        if value is None:
+            raise FactError(f"no number found in {text!r}")
+        if parsed_unit == "percent":
+            unit = "percent"
+        currency = None
+        if unit == "money":
+            currency = detect_currency(before + " " + quote + " " + after)
+            if currency is None:
+                raise FactError(
+                    f"no currency next to {text!r} in the excerpt; quote the amount with its currency "
+                    '(₪, ש"ח, NIS, $, USD, €) or use another unit'
+                )
+        fact_id = self._content_id("WEB", source.source_id, quote, unit, currency or "")
+        if fact_id in self._facts:
+            return self._facts[fact_id]
+        published = source.published
+        return self.add(
+            Fact(
+                fact_id=fact_id,
+                kind="WEB",
+                name_he=f"מצוטט ממקור רשת: {source.title or source.url}",
+                unit=unit,  # type: ignore[arg-type]
+                years=[published.year] if published else [],
+                value=decimal_str(value),
+                currency=currency,
+                operation="quote",
+                source_id=source.source_id,
+                quote=quote,
+                confidence="low",
+                failed_checks=[WEB_CHECK],
+            )
+        )
+
 
 # ---------------------------------------------------------------- number parsing
 
@@ -255,6 +317,54 @@ def parse_quoted_number(quote: str, after: str, paragraph: str) -> tuple[Decimal
         if pattern.search(paragraph) and "|" in paragraph:
             return value * factor, None
     return value, None
+
+
+_WEB_SCALES = (
+    (re.compile(r"^\s*(?:מיליארד|billion\b|bn\b|b\b)", re.IGNORECASE), Decimal(1_000_000_000)),
+    (re.compile(r"^\s*(?:מיליון|million\b|mn\b|m\b)", re.IGNORECASE), Decimal(1_000_000)),
+    (re.compile(r"^\s*(?:אלף|אלפי|thousand\b|k\b)", re.IGNORECASE), Decimal(1_000)),
+)
+_PERCENT_WORDS = re.compile(r"^\s*(?:%|אחוז|percent\b|per cent\b)", re.IGNORECASE)
+_CURRENCIES = (
+    ("ILS", re.compile(r'₪|ש["״]ח|שקל|\bNIS\b|\bILS\b', re.IGNORECASE)),
+    ("USD", re.compile(r"\$|\bUSD\b|דולר", re.IGNORECASE)),
+    ("EUR", re.compile(r"€|\bEUR\b|אירו|יורו", re.IGNORECASE)),
+    ("GBP", re.compile(r"£|\bGBP\b|ליש\"ט", re.IGNORECASE)),
+)
+
+
+def parse_web_number(quote: str, after: str) -> tuple[Decimal | None, str | None]:
+    """The first number in a web quote, scaled by a Hebrew or English scale word right after it.
+
+    Unlike :func:`parse_quoted_number` there is no table-header scaling: an excerpt is loose text,
+    so a stray "באלפי" elsewhere in it says nothing about this number."""
+    m = _NUMBER.search(quote)
+    if not m:
+        return None, None
+    token = m.group(0)
+    negative = token.startswith("(") and token.endswith(")")
+    try:
+        value = Decimal(token.strip("()").replace(",", ""))
+    except InvalidOperation:
+        return None, None
+    if negative:
+        value = -value
+    rest = quote[m.end() :]
+    nearby = rest if rest.strip() else rest + " " + after
+    if _PERCENT_WORDS.match(rest) or (not rest.strip() and _PERCENT_WORDS.match(after)):
+        with localcontext() as ctx:
+            ctx.prec = PRECISION
+            return value / 100, "percent"
+    for pattern, factor in _WEB_SCALES:
+        if pattern.match(nearby):
+            return value * factor, None
+    return value, None
+
+
+def detect_currency(window: str) -> str | None:
+    """The one currency named in ``window``; None when there is none or more than one."""
+    found = {code for code, pattern in _CURRENCIES if pattern.search(window)}
+    return found.pop() if len(found) == 1 else None
 
 
 # ---------------------------------------------------------------- building the registry

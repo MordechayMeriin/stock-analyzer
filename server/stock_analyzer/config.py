@@ -72,13 +72,19 @@ class Settings(BaseModel):
     agent_max_output_tokens: int = 16_000
     story_reader_role: Literal["main", "cheap"] = "cheap"  # describe / change / explain agents
     story_writer_role: Literal["main", "cheap"] = "main"  # the storyteller
-    # report text a story run may send to the agents (estimated tokens). The change agents get both
-    # full versions of each changed section; a Malam FY2023-FY2025 run needs ~272K (docs/diff_notes.md)
-    story_max_tokens: int = 300_000
+    # report text and web evidence a story run may send to the agents (estimated tokens). The change
+    # agents get both full versions of each changed section; a Malam FY2023-FY2025 run needs ~272K of
+    # report text (docs/diff_notes.md) plus up to ~84K of search results and stored OSINT excerpts
+    story_max_tokens: int = 1_500_000
     story_describe_intro_tokens: int = 12_000  # opening business sections given to the describe agent
     story_reader_budget_tokens: int = 20_000  # what each agent may read with its read tools
     story_change_batch_tokens: int = 40_000  # changed sections per change-agent call
-    story_writer_max_turns: int = 20  # the storyteller calls tools more than the readers
+    # the storyteller calls tools more than the readers; 40 leaves room for its web searches
+    story_writer_max_turns: int = 40
+    # web evidence for the storyteller (add-story-web-evidence)
+    story_max_searches: int = 20  # storyteller web searches per story run; one more fails the run
+    story_search_results: int = 5  # results requested per storyteller search
+    story_osint_max_age_days: int = 30  # older stored OSINT results are refreshed by a live story run
 
     # --- OSINT research (osint-research spec, add-osint-research design D8) ---
     model_osint: str = "openai/gpt-6.1-sol"
@@ -179,6 +185,9 @@ class Settings(BaseModel):
             "STORY_READER_BUDGET_TOKENS": ("story_reader_budget_tokens", int),
             "STORY_CHANGE_BATCH_TOKENS": ("story_change_batch_tokens", int),
             "STORY_WRITER_MAX_TURNS": ("story_writer_max_turns", int),
+            "STORY_MAX_SEARCHES": ("story_max_searches", int),
+            "STORY_SEARCH_RESULTS": ("story_search_results", int),
+            "STORY_OSINT_MAX_AGE_DAYS": ("story_osint_max_age_days", int),
             "MODEL_OSINT": ("model_osint", str),
             "OSINT_MAX_SEARCHES": ("osint_max_searches", int),
             "OSINT_SEARCH_RESULTS": ("osint_search_results", int),

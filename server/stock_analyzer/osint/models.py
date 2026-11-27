@@ -114,6 +114,9 @@ class Scorecard(BaseModel):
 class KeptFinding(Finding):
     id: str
     area: Area
+    # the provider excerpt the search returned for this URL, so a story can quote numbers from it
+    # (add-story-web-evidence); None when the search gave none or the result predates excerpts
+    excerpt: str | None = None
 
 
 class ResearchResult(BaseModel):

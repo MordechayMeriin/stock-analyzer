@@ -60,3 +60,23 @@ def test_story_not_cached(tmp_path, monkeypatch):
     reset_settings_cache()
     result = CliRunner().invoke(app, ["story", "MLTM"])
     assert result.exit_code == 1 and "not_cached" in result.output
+
+
+def test_story_live_prints_web_citations_and_research_progress(story_env, monkeypatch):
+    from stock_analyzer.agents_model import tool_call
+    from tests.api.test_api import web_cited
+
+    with closing(Ctx(story_env)) as ctx:
+        prep = prepare_story(ctx, "MLTM", as_of=AS_OF)
+    fakes = FakeAgentModels(
+        settings=story_env,
+        script={"story.storyteller": [tool_call("web_search", query="מלם"), web_cited(prep)]},
+    )
+    monkeypatch.setattr("stock_analyzer.services.story.agent_model_factory", lambda s, store=None: fakes)
+    result = CliRunner().invoke(app, ["story", "MLTM", "--live", "--as-of", "2026-11-26"])
+    assert result.exit_code == 0, result.output
+    out = result.output
+    assert "· OSINT research started for MLTM" in out and "· OSINT research stored" in out
+    assert "web_search" in out  # the storyteller's search, with the searches left
+    assert "== מקורות רשת" in out and "https://news.example.com/osint/" in out
+    assert "רשת SRC:" in out  # the finding lists its web source next to its report paragraphs

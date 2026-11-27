@@ -14,6 +14,7 @@ from dataclasses import dataclass, field
 from typing import Any, Protocol
 
 from stock_analyzer.config import MissingCredential, Settings
+from stock_analyzer.osint.blocklist import Blocklist
 from stock_analyzer.osint.models import RunState, SearchHit, normalize_url
 from stock_analyzer.store import StoreLog
 
@@ -147,10 +148,90 @@ class FakeSearch:
         )
 
 
+class SearchState(Protocol):
+    """What a search needs from the run that makes it: the OSINT ``RunState`` or a story's context."""
+
+    blocklist: Blocklist
+    results_per_search: int
+    seen_urls: dict[str, SearchHit]
+
+    def add_cost(self, cost: float | None) -> None: ...
+
+
+class SearchFailed(Exception):
+    """The provider or transport failed; the message is safe to show the agent."""
+
+
+@dataclass
+class SearchOutcome:
+    response: SearchResponse
+    hits: list[SearchHit]  # not blocked, in provider order
+    blocked: int
+
+
+async def search_once(
+    state: SearchState,
+    backend: SearchBackend,
+    log: StoreLog | None,
+    query: str,
+    *,
+    purpose: str = SEARCH_PURPOSE,
+) -> SearchOutcome:
+    """One provider search, shared by OSINT and the story (add-story-web-evidence design D4).
+
+    Sends the block-list as excluded domains, drops blocked hits, records the rest in
+    ``state.seen_urls`` (first excerpt wins there), adds the cost and logs usage. Limits and
+    counting are the caller's: OSINT refuses softly, a story fails the run.
+    """
+    started = time.perf_counter()
+    try:
+        response = await backend.search(query, state.results_per_search, state.blocklist.exclude_domains)
+    except MissingCredential:
+        raise
+    except Exception as exc:  # provider or transport error
+        if log is not None:
+            log.write(
+                model=getattr(getattr(backend, "settings", None), "model_cheap", "unknown"),
+                purpose=purpose,
+                input_tokens=0,
+                output_tokens=0,
+                cost=None,
+                latency_ms=int((time.perf_counter() - started) * 1000),
+                cache_hit=False,
+                ok=False,
+                attempts=1,
+                error=repr(exc)[:500],
+            )
+        raise SearchFailed(f"search failed: {exc}"[:300]) from exc
+
+    state.add_cost(response.cost)
+    if log is not None:
+        log.write(
+            model=response.model,
+            purpose=purpose,
+            input_tokens=response.input_tokens,
+            output_tokens=response.output_tokens,
+            cost=response.cost,
+            latency_ms=int((time.perf_counter() - started) * 1000),
+            cache_hit=False,
+            ok=True,
+            attempts=1,
+        )
+    hits: list[SearchHit] = []
+    blocked = 0
+    for hit in response.hits:
+        if state.blocklist.blocks(hit.url):
+            blocked += 1
+            continue
+        state.seen_urls.setdefault(normalize_url(hit.url), hit)
+        hits.append(hit)
+    return SearchOutcome(response=response, hits=hits, blocked=blocked)
+
+
 async def run_search(
     state: RunState, backend: SearchBackend, log: StoreLog | None, query: str
 ) -> dict[str, Any]:
-    """Execute one ``web_search`` tool call. Errors come back as ``{"error": ...}`` for the agent to read."""
+    """Execute one OSINT ``web_search`` tool call. Errors come back as ``{"error": ...}`` for the agent."""
     query = query.strip()
     if not query:
         return {"error": "empty query"}
@@ -161,56 +242,14 @@ async def run_search(
         }
     state.searches_used += 1
     state.progress("search", query=query)
-    started = time.perf_counter()
     try:
-        response = await backend.search(query, state.results_per_search, state.blocklist.exclude_domains)
-    except MissingCredential:
-        raise
-    except Exception as exc:  # provider or transport error: tell the agent, keep the run going
-        if log is not None:
-            log.write(
-                model=getattr(getattr(backend, "settings", None), "model_cheap", "unknown"),
-                purpose=SEARCH_PURPOSE,
-                input_tokens=0,
-                output_tokens=0,
-                cost=None,
-                latency_ms=int((time.perf_counter() - started) * 1000),
-                cache_hit=False,
-                ok=False,
-                attempts=1,
-                error=repr(exc)[:500],
-            )
-        return {
-            "error": f"search failed: {exc}"[:300],
-            "searches_left": state.max_searches - state.searches_used,
-        }
-
-    state.add_cost(response.cost)
-    if log is not None:
-        log.write(
-            model=response.model,
-            purpose=SEARCH_PURPOSE,
-            input_tokens=response.input_tokens,
-            output_tokens=response.output_tokens,
-            cost=response.cost,
-            latency_ms=int((time.perf_counter() - started) * 1000),
-            cache_hit=False,
-            ok=True,
-            attempts=1,
-        )
-
-    results = []
-    blocked = 0
-    for hit in response.hits:
-        if state.blocklist.blocks(hit.url):
-            blocked += 1
-            continue
-        state.seen_urls.setdefault(normalize_url(hit.url), hit)
-        results.append({"url": hit.url, "title": hit.title, "snippet": hit.snippet})
+        outcome = await search_once(state, backend, log, query)
+    except SearchFailed as exc:
+        return {"error": str(exc), "searches_left": state.max_searches - state.searches_used}
     return {
         "query": query,
-        "results": results,
-        "summary": response.summary,
-        "blocked_results": blocked,
+        "results": [{"url": h.url, "title": h.title, "snippet": h.snippet} for h in outcome.hits],
+        "summary": outcome.response.summary,
+        "blocked_results": outcome.blocked,
         "searches_left": state.max_searches - state.searches_used,
     }

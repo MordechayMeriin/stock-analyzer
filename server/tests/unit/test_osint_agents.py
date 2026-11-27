@@ -18,6 +18,7 @@ from stock_analyzer.osint.models import (
     AreaAssessment,
     AreaReport,
     Finding,
+    KeptFinding,
     Point,
     RunState,
     Scorecard,
@@ -132,6 +133,28 @@ def test_verify_drops_by_reason_and_assigns_ids():
     assert kept[0].area == "news" and kept[0].confidence == "high"
     assert kept[1].confidence == "low" and kept[1].published_at is None
     assert dropped == {"blocked": 1, "not_searched": 1, "outside_window": 1}
+
+
+def test_kept_findings_carry_the_search_excerpt():
+    state = make_state()
+    with_text, without = "https://www.globes.co.il/a", "https://www.calcalist.co.il/b"
+    state.seen_urls = {
+        with_text: SearchHit(with_text, "t", "Published 2026-10-01. Revenue rose to 200 million."),
+        without: SearchHit(without, "t", "  "),
+    }
+    state.reports = [("news", AreaReport(findings=[finding(with_text), finding(without)], summary="s"))]
+    kept, _ = verify_findings(state)
+    assert kept[0].excerpt == "Published 2026-10-01. Revenue rose to 200 million."
+    assert kept[1].excerpt is None
+
+
+def test_stored_result_without_excerpts_still_loads():
+    data = {
+        "claim": "c", "signal": "neutral", "confidence": "high", "source_url": "https://a.example/x",
+        "source_title": "t", "published_at": "2026-10-01", "derived_from_filing": False,
+        "id": "F1", "area": "news",
+    }  # fmt: skip
+    assert KeptFinding.model_validate(data).excerpt is None
 
 
 def test_parse_published():

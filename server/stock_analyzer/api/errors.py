@@ -32,6 +32,7 @@ STATUS_BY_CODE: dict[str, int] = {
     "story_too_large": 413,
     "story_reports_missing": 422,
     "story_verification_failed": 502,
+    "story_search_limit": 502,  # in-band: the storyteller asked for more searches than allowed
     "validation_error": 422,
     "report_selection_failed": 422,
     "currency_mismatch": 422,

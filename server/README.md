@@ -64,11 +64,14 @@ Agent features (the company story) use the OpenAI Agents SDK, but every model tu
 | `AGENT_MAX_OUTPUT_TOKENS` | `16000` | Output tokens per agent turn (separate from the playground's `LLM_MAX_TOKENS`) |
 | `STORY_READER_ROLE` | `cheap` | Role of the agents that read report text |
 | `STORY_WRITER_ROLE` | `main` | Role of the storyteller agent |
-| `STORY_MAX_TOKENS` | `300000` | Report text a story run may send; larger runs are refused before any LLM call (a Malam FY2023–FY2025 run needs ~272K, see `docs/diff_notes.md`) |
+| `STORY_MAX_TOKENS` | `1500000` | Report text and web evidence a story run may send; larger runs are refused before any LLM call (a Malam FY2023–FY2025 run needs ~272K of report text, see `docs/diff_notes.md`, plus up to ~84K for 20 searches and the stored OSINT excerpts) |
 | `STORY_DESCRIBE_INTRO_TOKENS` | `12000` | Opening business sections given to the describe agent |
 | `STORY_READER_BUDGET_TOKENS` | `20000` | What each agent may read with its read tools |
 | `STORY_CHANGE_BATCH_TOKENS` | `40000` | Changed sections (both full versions) per change-agent call |
-| `STORY_WRITER_MAX_TURNS` | `20` | The storyteller's turn limit |
+| `STORY_WRITER_MAX_TURNS` | `40` | The storyteller's turn limit (room for fact tools and up to `STORY_MAX_SEARCHES` searches) |
+| `STORY_MAX_SEARCHES` | `20` | Storyteller web searches per story run, shared by the first attempt and the repair; asking for one more fails the run |
+| `STORY_SEARCH_RESULTS` | `5` | Results requested per storyteller search (each costs up to ~1,500 characters of excerpt in the token estimate) |
+| `STORY_OSINT_MAX_AGE_DAYS` | `30` | A live story run starts a new OSINT research run when the stored one is missing or older than this |
 
 The story pipeline (`stock_analyzer/story/`): `prepare_story` selects the last three annual reports
 published by `as_of`, compares their business sections, builds the fact registry and checks the token
@@ -149,7 +152,8 @@ A finding is kept only if it cites a URL that a search in the same run returned 
 the window, which by default covers the present and the past three years (`--months`). The output is a
 label per area and overall (stable / watch / fragile, or insufficient data
 for an area without findings), up to three risks and strengths, and a Hebrew summary, every claim tied to
-its numbered sources.
+its numbered sources. Each kept finding also stores the excerpt its search returned (`excerpt`), so the
+company story can quote numbers from it; results stored before excerpts were kept load with none.
 
 ```bash
 uv run --env-file ../.env stock-analyzer osint ELAL              # text scorecard with sources

@@ -50,7 +50,9 @@ async function storyChecks(browser) {
   await page.screenshot({ path: `${SHOTS}/9-provenance.png` })
 
   // 9.3 citations: PDF page and reader deep link
-  const pdf = await page.locator('[data-testid="citation-pdf-link"]').first().getAttribute('href')
+  // count() first: a missing link records a FAIL instead of a 30 s timeout that ends the whole run
+  const pdfLink = page.locator('[data-testid="citation-pdf-link"]').first()
+  const pdf = (await pdfLink.count()) ? await pdfLink.getAttribute('href') : null
   check('9.3 citation links to the PDF page', /#page=\d+$/.test(pdf || ''), pdf)
   const reader = page.locator('[data-testid="citation-reader-link"]').first()
   const href = await reader.getAttribute('href')
@@ -93,6 +95,60 @@ async function storyChecks(browser) {
     posted?.mode === 'live' && (await p2.locator('[data-testid="story-finding"]').count()) > 0 && (await p2.locator('[role="alert"]').count()) === 0)
   await p2.screenshot({ path: `${SHOTS}/9-live.png` })
   await ctx.close()
+
+  // web evidence (add-story-web-evidence): the saved story with one web source and one press number
+  // injected, so the checks do not need a story generated with live search
+  const webCtx = await browser.newContext({ viewport: { width: 1400, height: 1000 } })
+  // a regex, not a glob: the GET carries ?mode=..., which a glob without a query part does not match
+  await webCtx.route(/\/api\/companies\/MLTM\/story(\?.*)?$/, async (route) => {
+    if (route.request().method() !== 'GET') return route.continue()
+    const res = await route.fetch()
+    const run = await res.json()
+    const excerpt = 'פורסם 12.10.2026. מלם זכתה במכרז ממשלתי בהיקף 200 מיליון ש"ח לחמש שנים.'
+    run.web_sources = {
+      'SRC:1': {
+        source_id: 'SRC:1', url: 'https://www.globes.co.il/news/e2e-tender', title: 'גלובס: מלם זכתה במכרז',
+        excerpts: [excerpt], published_at: '2026-10-12', stored: false, live: true, derived_from_filing: false,
+      },
+    }
+    run.facts = [...run.facts, {
+      fact_id: 'WEB:1', kind: 'WEB', name_he: 'מצוטט ממקור רשת: גלובס', unit: 'money', years: [2026],
+      value: '200000000', currency: 'ILS', inputs: [], operation: 'quote', source_id: 'SRC:1',
+      quote: '200 מיליון', confidence: 'low', failed_checks: ['web_source'],
+    }]
+    run.rendered.what_changed = [...run.rendered.what_changed, {
+      segments: [
+        { type: 'text', text: 'לאחר פרסום הדוח זכתה החברה במכרז בהיקף ' },
+        { type: 'fact', fact_id: 'WEB:1', display: '200 מיליון ₪' },
+        { type: 'caveat', text: 'מקור עיתונאי, לא מבוקר: מצוטט ממקור רשת: גלובס', fact_ids: ['WEB:1'] },
+      ],
+      paragraph_ids: [],
+      source_ids: ['SRC:1'],
+    }]
+    await route.fulfill({ response: res, json: run })
+  })
+  const p3 = await webCtx.newPage()
+  p3.on('pageerror', (e) => errors.push(String(e)))
+  await p3.goto(BASE + '/MLTM/story')
+  await p3.waitForSelector('[data-testid="web-citation"]')
+  const chip = p3.locator('[data-testid="web-citation"]').first()
+  check('web: citation marked as a web source with its title and date',
+    (await chip.locator('xpath=ancestor::li[1]').innerText()).includes('מקור רשת') &&
+      (await p3.locator('[data-testid="web-citation-date"]').first().innerText()) === '2026-10-12')
+  check('web: citation opens the article in a new tab',
+    (await chip.getAttribute('target')) === '_blank' && (await chip.getAttribute('rel'))?.includes('noopener') &&
+      (await chip.getAttribute('href')) === 'https://www.globes.co.il/news/e2e-tender')
+  const press = p3.locator('[data-testid="press-number"]').first().locator('xpath=ancestor::button[1]')
+  check('web: press number is marked', (await p3.locator('[data-testid="press-number"]').count()) === 1)
+  await press.focus()
+  const pressTip = p3.locator(`[id="${await press.getAttribute('aria-describedby')}"]`)
+  const pressText = await pressTip.innerText()
+  check('web: press number provenance shows source, quote in excerpt and not audited',
+    (await pressTip.isVisible()) && pressText.includes('גלובס') && pressText.includes('2026-10-12') &&
+      pressText.includes('לא מבוקר') && (await pressTip.locator('mark').innerText()) === '200 מיליון',
+    pressText.replace(/\s+/g, ' ').slice(0, 160))
+  await p3.screenshot({ path: `${SHOTS}/9-web-evidence.png` })
+  await webCtx.close()
 
   check('story: no console errors', errors.length === 0, errors.slice(0, 3).join(' | '))
   await page.close()
