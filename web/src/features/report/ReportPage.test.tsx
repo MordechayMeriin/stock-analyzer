@@ -100,3 +100,21 @@ describe('KeyMetrics', () => {
     expect(screen.getByText('—')).toBeTruthy()
   })
 })
+
+describe('3-year view', () => {
+  it('?y=all selects the "3 שנים" tab, overlays earlier years and explains the marks', async () => {
+    const { container } = renderAt('/c/MLTM?y=all')
+    expect((await screen.findByRole('tab', { name: '3 שנים' })).getAttribute('aria-selected')).toBe('true')
+    expect(container.querySelector('[data-testid="ghost-2024"]')).toBeTruthy()
+    expect(container.querySelector('[data-testid="ghost-2023"]')).toBeTruthy()
+    expect(screen.getByTestId('history-caption').textContent).toContain('מקווקו: 2024')
+    expect(screen.getByRole('img').getAttribute('aria-label')).toContain('צמיחה 2023–2025: 5, 6, 8')
+  })
+
+  it('clicking a year leaves the 3-year view', async () => {
+    const { container } = renderAt('/c/MLTM?y=all')
+    fireEvent.click(await screen.findByRole('tab', { name: '2024' }))
+    expect(container.querySelector('[data-testid^="ghost-"]')).toBeNull()
+    expect(screen.queryByTestId('history-caption')).toBeNull()
+  })
+})

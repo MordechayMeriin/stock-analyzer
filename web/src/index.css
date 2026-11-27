@@ -98,3 +98,16 @@
     unicode-bidi: isolate;
   }
 }
+
+/* Company report: the radar's data fades in when the year changes (spec: up to 150ms, none
+   when the viewer prefers reduced motion). */
+@keyframes radar-fade {
+  from {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .radar-fade {
+    animation: radar-fade 150ms ease-out;
+  }
+}

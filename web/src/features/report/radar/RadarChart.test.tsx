@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { useState } from 'react'
 import { afterEach, describe, expect, it } from 'vitest'
 
 import full from '../fixtures/mltm.full.json'
@@ -8,7 +9,19 @@ import type { CompanyReport } from '../types'
 import { radarAxesForYear } from '../view'
 import type { RadarAxis } from './geometry'
 import { RadarChart } from './RadarChart'
-import { RadarDevPage } from './RadarDevPage'
+import { YearTabs } from './YearTabs'
+
+/** The year switcher wired to the chart, as on the report page. */
+function RadarDevPage() {
+  const report = full as CompanyReport
+  const [year, setYear] = useState(2025)
+  return (
+    <>
+      <YearTabs years={report.years} value={year} onChange={(c) => typeof c === 'number' && setYear(c)} />
+      <RadarChart axes={radarAxesForYear(report, year)} />
+    </>
+  )
+}
 
 afterEach(cleanup)
 

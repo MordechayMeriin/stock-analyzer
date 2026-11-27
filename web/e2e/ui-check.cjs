@@ -18,6 +18,49 @@ const check = (name, ok, detail = '') => {
   page.on('pageerror', (e) => consoleErrors.push(String(e)))
   page.on('console', (m) => m.type() === 'error' && consoleErrors.push(m.text()))
 
+  // ---- Company report (/c, /c/:ticker). ONLY=report runs just this section. Reports come from
+  // fixtures, so it needs only the dev server; the API may be down (search falls back to fixtures).
+  if (process.env.ONLY === 'report') {
+    await page.setViewportSize({ width: 390, height: 844 })
+    await page.goto(BASE + '/c')
+    await page.getByRole('combobox').fill('מלם')
+    await page.getByRole('option').first().waitFor()
+    check('report: search suggests MLTM first', (await page.getByRole('option').first().innerText()).includes('MLTM'))
+    await page.keyboard.press('Enter')
+    await page.waitForSelector('svg[role="img"]')
+    check('report: Enter opens /c/MLTM', page.url().endsWith('/c/MLTM'))
+    check('report: header shows the company', (await page.locator('h1').innerText()).includes('מלם תים'))
+    const radarLabel = () => page.locator('svg[role="img"]').getAttribute('aria-label')
+    check('report: radar describes 2025 by default', (await radarLabel()).includes('צמיחה 8 מתוך 10'))
+    await page.getByRole('tab', { name: '2023' }).click()
+    await page.waitForURL(/y=2023/)
+    await page.waitForFunction(() => document.querySelector('svg[role="img"]')?.getAttribute('aria-label')?.includes('צמיחה 5'), null, { timeout: 5000 }).catch(() => {})
+    check('report: year switch updates the radar and the URL',
+      (await radarLabel()).includes('צמיחה 5 מתוך 10') && page.url().includes('y=2023'))
+    await page.getByRole('tab', { name: '2025' }).click() // breakdown fixtures cover 2024-2025
+    const row = page.locator('button[aria-expanded]').first()
+    await row.click()
+    await page.getByText('לחציון הסקטור').first().waitFor()
+    check('report: opening a row loads its breakdown', (await row.getAttribute('aria-expanded')) === 'true')
+    check('report: disclaimer visible', await page.getByText('למטרות מידע בלבד').isVisible())
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)
+    check('report: no horizontal scroll at 390px', !overflow)
+    await page.screenshot({ path: `${SHOTS}/c1-report-mltm.png`, fullPage: true })
+    await page.goto(BASE + '/c/SPARSE')
+    await page.getByText('אין מספיק נתונים').first().waitFor()
+    check('report: sparse report has no radar', (await page.locator('svg[role="img"]').count()) === 0)
+    await page.goto(BASE + '/c/NOPE')
+    const notFound = await page.getByText('לא מצאנו את הטיקר').waitFor({ timeout: 5000 }).then(() => true, () => false)
+    check('report: unknown ticker says so', notFound)
+    // The search page asks the API for tracked companies; with the API down that fetch fails by design.
+    const errors = consoleErrors.filter((e) => !/Failed to load resource|ERR_CONNECTION_REFUSED/.test(e))
+    check('report: no console errors', errors.length === 0, errors.slice(0, 3).join(' | '))
+    const failed = results.filter((r) => !r.ok)
+    console.log(`\n${results.length - failed.length}/${results.length} checks passed`)
+    await browser.close()
+    process.exit(failed.length ? 1 : 0)
+  }
+
   // ---- OSINT stability view (add-osint-web). ONLY=osint runs just this section:
   // OSINT_BASE: a dev server whose API is cached-only and has a stored ELAL result (default BASE).
   // OSINT_LIVE_BASE (optional): a dev server whose API has LLM_FAKE=true and ALLOW_LIVE=true, with ELAL
