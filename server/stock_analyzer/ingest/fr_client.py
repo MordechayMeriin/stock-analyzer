@@ -74,6 +74,30 @@ class CompanyMatch(BaseModel):
         return self.primary_isin or (self.isins[0] if self.isins else None)
 
 
+class SubIndustry(BaseModel):
+    code: str | None = None
+
+
+class CompanyProfile(BaseModel):
+    id: int
+    name: str
+    ticker: str | None = None
+    country_code: str | None = None
+    sub_industry: SubIndustry | None = None
+    listing_status: str | None = None
+
+    @property
+    def sub_industry_code(self) -> str | None:
+        if self.sub_industry and self.sub_industry.code:
+            return self.sub_industry.code.strip() or None
+        return None
+
+
+class CompanyDirectoryPage(BaseModel):
+    results: list[CompanyProfile]
+    next: str | None
+
+
 class Filing(BaseModel):
     model_config = ConfigDict(extra="allow")
 
@@ -356,6 +380,28 @@ class FRClient:
             {"search": q, "countries": country or self.settings.fr_country, "view": "full", "page_size": 25},
         ).json_body()
         return [CompanyMatch.model_validate(row) for row in data.get("results", [])]
+
+    def company_profile(self, company_id: int) -> CompanyProfile:
+        response = self.request(f"/companies/{company_id}/")
+        return CompanyProfile.model_validate_json(response.body)
+
+    def list_peer_candidates(self, countries: list[str], sub_industry: str) -> list[CompanyProfile]:
+        params = {
+            "countries": ",".join(countries),
+            "sub_industry": sub_industry,
+            "listing_status": "LISTED",
+            "view": "full",
+            "page_size": 100,
+        }
+        candidates: list[CompanyProfile] = []
+        page = 1
+        while True:
+            response = self.request("/companies/", {**params, "page": page})
+            data = CompanyDirectoryPage.model_validate_json(response.body)
+            candidates.extend(data.results)
+            if not data.next:
+                return candidates
+            page += 1
 
     @staticmethod
     def _filings_params(company_id: int, filing_type: str, page: int) -> dict[str, Any]:

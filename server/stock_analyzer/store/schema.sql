@@ -42,6 +42,17 @@ create table if not exists stock_analyzer.usage_log (
 );
 create index if not exists usage_log_source_idx on stock_analyzer.usage_log (source);
 
+-- Saved company-story runs (company-story spec): the whole run as JSON, newest per ticker first.
+create table if not exists stock_analyzer.story_runs (
+    id         bigint generated always as identity primary key,
+    run_id     text        not null unique,
+    ticker     text        not null,
+    created_at timestamptz not null,
+    as_of      date        not null,
+    payload    jsonb       not null
+);
+create index if not exists story_runs_ticker_created_idx on stock_analyzer.story_runs (ticker, created_at desc);
+
 -- Companies added at runtime (the version-controlled list stays in data/companies.yaml).
 -- Tickers are stored upper-case, so the primary key is case-insensitive in practice.
 create table if not exists stock_analyzer.tracked_companies (
@@ -59,6 +70,7 @@ alter table stock_analyzer.kv_cache             enable row level security;
 alter table stock_analyzer.reports              enable row level security;
 alter table stock_analyzer.financials_snapshots enable row level security;
 alter table stock_analyzer.usage_log            enable row level security;
+alter table stock_analyzer.story_runs           enable row level security;
 alter table stock_analyzer.tracked_companies    enable row level security;
 
 -- Supabase's API roles get no access to this schema. (Skipped where the roles do not exist,

@@ -3,9 +3,9 @@
 import json
 from datetime import date
 
-import httpx
-import respx
+import httpx2
 from fastapi.testclient import TestClient
+from openai import OpenAI
 from pydantic import BaseModel
 
 from stock_analyzer.api.main import create_app
@@ -107,30 +107,38 @@ class Answer(BaseModel):
     text: str
 
 
-@respx.mock
 def test_definitions_pass_through_the_gateway(settings):
-    route = respx.post(URL).mock(
-        return_value=httpx.Response(
-            200,
-            json={
-                "id": "gen-1",
-                "object": "chat.completion",
-                "created": 0,
-                "model": "m",
-                "choices": [
-                    {
-                        "index": 0,
-                        "finish_reason": "stop",
-                        "message": {"role": "assistant", "content": '{"text": "ok"}'},
-                    }
-                ],
-                "usage": {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2, "cost": 0},
-            },
-        )
+    requests: list[httpx2.Request] = []
+    response = httpx2.Response(
+        200,
+        json={
+            "id": "gen-1",
+            "object": "chat.completion",
+            "created": 0,
+            "model": "m",
+            "choices": [
+                {
+                    "index": 0,
+                    "finish_reason": "stop",
+                    "message": {"role": "assistant", "content": '{"text": "ok"}'},
+                }
+            ],
+            "usage": {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2, "cost": 0},
+        },
+    )
+    # openai 3 sends through httpx2, which respx cannot intercept: inject a mocked client (test_llm.py)
+    client = OpenAI(
+        base_url=settings.openrouter_base_url,
+        api_key=settings.openrouter_api_key.get_secret_value(),
+        max_retries=0,
+        http_client=httpx2.Client(transport=httpx2.MockTransport(lambda r: requests.append(r) or response)),
     )
     t = tools(settings)
-    OpenRouterLLM(settings).complete_json("main", "sys", "user", Answer, tools=t.definitions, purpose="t")
-    body = json.loads(route.calls[0].request.content)
+    OpenRouterLLM(settings, client=client).complete_json(
+        "main", "sys", "user", Answer, tools=t.definitions, purpose="t"
+    )
+    assert str(requests[0].url) == URL
+    body = json.loads(requests[0].content)
     assert body["tools"] == t.definitions
 
 

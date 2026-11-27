@@ -70,3 +70,17 @@ def test_ratios_cli_not_cached(tmp_path, monkeypatch):
     reset_settings_cache()
     result = CliRunner().invoke(app, ["ratios", "MLTM"])
     assert result.exit_code == 1 and "not_cached" in result.output
+
+
+def test_provider_id_and_tracked_ticker_share_statement_output(settings):
+    seed_malam(settings)
+    ctx = Ctx(settings)
+    try:
+        tracked = fin_service.financials(ctx, "mltm", max_years=2)
+        by_id = fin_service.annual_statements(ctx, 6901, max_years=2)
+        assert tracked.years == by_id["years"] == [2025, 2024]
+        assert tracked.currency == by_id["currency"] == "ILS"
+        assert tracked.statements == by_id["statements"]
+        assert tracked.available_at == by_id["available_at"]
+    finally:
+        ctx.close()

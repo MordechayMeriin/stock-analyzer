@@ -1,8 +1,9 @@
 import json
+from collections.abc import Callable, Iterator
 
-import httpx
+import httpx2
 import pytest
-import respx
+from openai import OpenAI
 from pydantic import BaseModel, Field
 
 from stock_analyzer.config import MissingCredential, Settings
@@ -25,8 +26,51 @@ class Verdict(BaseModel):
     score: int = Field(ge=1, le=5)
 
 
-def completion(content: str, prompt=100, completion_tokens=20, cost=0.0012) -> httpx.Response:
-    return httpx.Response(
+class OpenRouterMock:
+    """A real openai client whose transport answers from a script and records every request.
+
+    openai 3 sends requests through httpx2, which respx cannot intercept, so the gateway gets
+    an injected client (design D9). The real client still serializes the request and parses
+    the response, so the assertions below cover what goes over the wire.
+    """
+
+    def __init__(self, responses: list[httpx2.Response] | Callable[[], httpx2.Response]):
+        self._responses = responses
+        self.requests: list[httpx2.Request] = []
+
+    def _handle(self, request: httpx2.Request) -> httpx2.Response:
+        self.requests.append(request)
+        if callable(self._responses):
+            return self._responses()
+        return self._responses.pop(0)
+
+    def client(self, settings) -> OpenAI:
+        return OpenAI(
+            base_url=settings.openrouter_base_url,
+            api_key=settings.openrouter_api_key.get_secret_value(),
+            max_retries=0,
+            http_client=httpx2.Client(transport=httpx2.MockTransport(self._handle)),
+        )
+
+    def body(self, i: int) -> dict:
+        return json.loads(self.requests[i].content)
+
+    @property
+    def call_count(self) -> int:
+        return len(self.requests)
+
+
+@pytest.fixture
+def openrouter(settings) -> Iterator[Callable[..., tuple[OpenRouterLLM, OpenRouterMock]]]:
+    def make(responses) -> tuple[OpenRouterLLM, OpenRouterMock]:
+        mock = OpenRouterMock(responses)
+        return OpenRouterLLM(settings, client=mock.client(settings)), mock
+
+    yield make
+
+
+def completion(content: str, prompt=100, completion_tokens=20, cost=0.0012) -> httpx2.Response:
+    return httpx2.Response(
         200,
         json={
             "id": "gen-1",
@@ -51,31 +95,28 @@ def log_records(settings):
     return [json.loads(line) for line in path.read_text().splitlines()]
 
 
-@respx.mock
-def test_valid_output(settings):
-    route = respx.post(URL).mock(return_value=completion('{"verdict": "BUY", "score": 4}'))
-    llm = OpenRouterLLM(settings)
+def test_valid_output(settings, openrouter):
+    llm, mock = openrouter([completion('{"verdict": "BUY", "score": 4}')])
     out = llm.complete_json("main", "sys", "user", Verdict, purpose="t")
     assert out == Verdict(verdict="BUY", score=4)
-    body = json.loads(route.calls[0].request.content)
+    assert str(mock.requests[0].url) == URL
+    body = mock.body(0)
     assert body["model"] == settings.model_main
     assert body["response_format"]["type"] == "json_schema"
     assert body["response_format"]["json_schema"]["schema"]["required"] == ["verdict", "score"]
-    assert route.calls[0].request.headers["authorization"] == "Bearer test-or-key-DO-NOT-LOG"
+    assert body["usage"] == {"include": True}  # OpenRouter reports cost only when asked
+    assert mock.requests[0].headers["authorization"] == "Bearer test-or-key-DO-NOT-LOG"
     (rec,) = log_records(settings)
     assert rec["ok"] and not rec["cache_hit"] and rec["input_tokens"] == 100 and rec["cost"] == 0.0012
     assert "DO-NOT-LOG" not in (settings.logs_dir / "llm.jsonl").read_text()
 
 
-@respx.mock
-def test_successful_repair(settings):
-    route = respx.post(URL).mock(
-        side_effect=[completion('{"verdict": "BUY"}'), completion('{"verdict": "BUY", "score": 3}')]
-    )
-    out = OpenRouterLLM(settings).complete_json("cheap", "sys", "user", Verdict, purpose="repair")
+def test_successful_repair(settings, openrouter):
+    llm, mock = openrouter([completion('{"verdict": "BUY"}'), completion('{"verdict": "BUY", "score": 3}')])
+    out = llm.complete_json("cheap", "sys", "user", Verdict, purpose="repair")
     assert out.score == 3
-    assert route.call_count == 2
-    repair = json.loads(route.calls[1].request.content)
+    assert mock.call_count == 2
+    repair = mock.body(1)
     assert repair["model"] == settings.model_cheap
     assert repair["messages"][-2] == {"role": "assistant", "content": '{"verdict": "BUY"}'}
     assert "score" in repair["messages"][-1]["content"]  # the validation error is carried
@@ -83,41 +124,38 @@ def test_successful_repair(settings):
     assert rec["attempts"] == 2 and rec["input_tokens"] == 200
 
 
-@respx.mock
-def test_failed_repair_raises_with_raw_output(settings):
-    respx.post(URL).mock(side_effect=[completion("not json"), completion('{"verdict": "X", "score": 9}')])
+def test_failed_repair_raises_with_raw_output(settings, openrouter):
+    llm, _ = openrouter([completion("not json"), completion('{"verdict": "X", "score": 9}')])
     with pytest.raises(LLMOutputError) as info:
-        OpenRouterLLM(settings).complete_json("main", "sys", "user", Verdict)
+        llm.complete_json("main", "sys", "user", Verdict)
     assert info.value.raw_output == '{"verdict": "X", "score": 9}'
     assert "score" in str(info.value)
     (rec,) = log_records(settings)
     assert rec["ok"] is False
 
 
-@respx.mock
-def test_second_identical_call_is_cache_hit(settings):
-    route = respx.post(URL).mock(return_value=completion('{"verdict": "HOLD", "score": 2}'))
-    llm = OpenRouterLLM(settings)
+def test_second_identical_call_is_cache_hit(settings, openrouter):
+    llm, mock = openrouter(lambda: completion('{"verdict": "HOLD", "score": 2}'))
     a = llm.complete_json("main", "sys", "user", Verdict, purpose="c")
-    b = OpenRouterLLM(settings).complete_json(
+    b = OpenRouterLLM(settings, client=mock.client(settings)).complete_json(
         "main", "sys", "user", Verdict, purpose="c"
-    )  # new instance, same disk
+    )  # new instance, same store
     assert a == b
-    assert route.call_count == 1
+    assert mock.call_count == 1
     first, second = log_records(settings)
     assert first["cache_hit"] is False and first["cost"] > 0
     assert second["cache_hit"] is True and second["cost"] == 0
     # a different prompt, schema param or model is a different key
     llm.complete_json("main", "sys", "other user", Verdict)
     llm.complete_json("main", "sys", "user", Verdict, params={"temperature": 0.5})
-    assert route.call_count == 3
+    assert mock.call_count == 3
     totals = read_llm_totals(settings.logs_dir / "llm.jsonl")
     assert totals["calls"] == 4 and totals["cache_hits"] == 1
 
 
-def sse(chunks: list[dict]) -> httpx.Response:
+def sse(chunks: list[dict]) -> httpx2.Response:
     body = "".join(f"data: {json.dumps(c)}\n\n" for c in chunks) + "data: [DONE]\n\n"
-    return httpx.Response(200, headers={"content-type": "text/event-stream"}, content=body.encode())
+    return httpx2.Response(200, headers={"content-type": "text/event-stream"}, content=body.encode())
 
 
 def chunk(text=None, usage=None):
@@ -133,23 +171,24 @@ def chunk(text=None, usage=None):
     return c
 
 
-@respx.mock
-def test_stream_text_yields_deltas_then_usage(settings):
-    route = respx.post(URL).mock(
-        return_value=sse(
-            [
-                chunk("שלום "),
-                chunk("עולם"),
-                chunk(usage={"prompt_tokens": 50, "completion_tokens": 7, "cost": 0.0003}),
-            ]
-        )
+def test_stream_text_yields_deltas_then_usage(settings, openrouter):
+    llm, mock = openrouter(
+        [
+            sse(
+                [
+                    chunk("שלום "),
+                    chunk("עולם"),
+                    chunk(usage={"prompt_tokens": 50, "completion_tokens": 7, "cost": 0.0003}),
+                ]
+            )
+        ]
     )
-    events = list(OpenRouterLLM(settings).stream_text("main", "sys", "q", purpose="playground"))
+    events = list(llm.stream_text("main", "sys", "q", purpose="playground"))
     assert [e.text for e in events if isinstance(e, DeltaEvent)] == ["שלום ", "עולם"]
     done = events[-1]
     assert isinstance(done, DoneEvent)
     assert done.usage.input_tokens == 50 and done.usage.output_tokens == 7 and done.usage.cost == 0.0003
-    body = json.loads(route.calls[0].request.content)
+    body = mock.body(0)
     assert body["stream"] is True and body["stream_options"] == {"include_usage": True}
     (rec,) = log_records(settings)
     assert rec["stream"] is True and rec["purpose"] == "playground"
