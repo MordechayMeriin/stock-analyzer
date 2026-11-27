@@ -143,11 +143,19 @@ Errors SHALL use one JSON shape with a machine-readable code, a human-readable m
 - **THEN** a 409 is returned with code `report_not_processed` and a message naming the filing and its provider status
 
 ### Requirement: Health endpoint
-The API SHALL expose an unauthenticated health endpoint that reports liveness and whether provider and LLM credentials are configured, without revealing them.
+The API SHALL expose an unauthenticated health endpoint that reports liveness, whether provider and LLM credentials are configured, and which state store backend is active and whether it is reachable, without revealing credentials or connection details.
 
 #### Scenario: Health check
 - **WHEN** the health endpoint is called
 - **THEN** it returns status ok, plus a true or false flag for each credential
+
+#### Scenario: Storage reported
+- **WHEN** the health endpoint is called on a server using a database
+- **THEN** it names the database backend and reports it as reachable, without the database URL or any part of it
+
+#### Scenario: Storage unreachable
+- **WHEN** the health endpoint is called while the database cannot be reached
+- **THEN** it still answers, and it reports storage as unreachable
 
 ### Requirement: Ratios endpoint
 The API SHALL return a company's ratio series, grouped, for an optional `as_of` date, with the company's template, currency and fiscal years. Every ratio value and input SHALL be serialized as an exact decimal string. The endpoint SHALL call the same server function as the ratios CLI command.

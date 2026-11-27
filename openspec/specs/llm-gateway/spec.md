@@ -32,7 +32,7 @@ The system SHALL support a streamed text completion that yields text increments 
 - **THEN** text increments are yielded in order, and the last event reports tokens and cost
 
 ### Requirement: Response cache
-Non-streamed completions SHALL be cached on disk, keyed by model, prompts, schema and parameters, and identical requests SHALL be served from the cache without a provider call.
+Non-streamed completions SHALL be cached in the server's state store, keyed by model, prompts, schema and parameters, and identical requests SHALL be served from the cache without a provider call.
 
 #### Scenario: Cached completion
 - **WHEN** an identical structured request is made twice
