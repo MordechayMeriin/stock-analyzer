@@ -182,6 +182,98 @@
         "title": "AreaAssessment",
         "type": "object"
       },
+      "Axis": {
+        "properties": {
+          "detail_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail Url"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "scores": {
+            "items": {
+              "$ref": "#/components/schemas/Score"
+            },
+            "title": "Scores",
+            "type": "array"
+          },
+          "status": {
+            "enum": [
+              "ok",
+              "insufficient_data"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "status",
+          "scores"
+        ],
+        "title": "Axis",
+        "type": "object"
+      },
+      "AxisDetail": {
+        "properties": {
+          "axis_id": {
+            "title": "Axis Id",
+            "type": "string"
+          },
+          "factors": {
+            "items": {
+              "$ref": "#/components/schemas/Factor"
+            },
+            "title": "Factors",
+            "type": "array"
+          },
+          "fiscal_year": {
+            "title": "Fiscal Year",
+            "type": "integer"
+          },
+          "headline": {
+            "title": "Headline",
+            "type": "string"
+          },
+          "sector_comparison": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SectorComparison"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "axis_id",
+          "fiscal_year",
+          "headline",
+          "factors",
+          "text"
+        ],
+        "title": "AxisDetail",
+        "type": "object"
+      },
       "BenchCompanyOut": {
         "properties": {
           "country": {
@@ -583,6 +675,66 @@
         "title": "CohortOut",
         "type": "object"
       },
+      "Company": {
+        "properties": {
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
+          "exchange": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exchange"
+          },
+          "logo_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Logo Url"
+          },
+          "name_en": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name En"
+          },
+          "name_he": {
+            "title": "Name He",
+            "type": "string"
+          },
+          "sector": {
+            "$ref": "#/components/schemas/Sector"
+          },
+          "ticker": {
+            "title": "Ticker",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ticker",
+          "name_he",
+          "currency",
+          "sector"
+        ],
+        "title": "Company",
+        "type": "object"
+      },
       "CompanyOut": {
         "properties": {
           "fr_company_id": {
@@ -636,6 +788,93 @@
           "source"
         ],
         "title": "CompanyOut",
+        "type": "object"
+      },
+      "CompanyReport": {
+        "properties": {
+          "company": {
+            "$ref": "#/components/schemas/Company"
+          },
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/ReportEvent"
+            },
+            "title": "Events",
+            "type": "array"
+          },
+          "generated_at": {
+            "title": "Generated At",
+            "type": "string"
+          },
+          "key_metrics": {
+            "items": {
+              "$ref": "#/components/schemas/KeyMetric"
+            },
+            "title": "Key Metrics",
+            "type": "array"
+          },
+          "mode": {
+            "enum": [
+              "cached",
+              "live"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "profile": {
+            "$ref": "#/components/schemas/Profile"
+          },
+          "report": {
+            "$ref": "#/components/schemas/ReportInfo"
+          },
+          "schema_version": {
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Summary"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "warnings": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ReportWarning"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Warnings"
+          },
+          "years": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Years",
+            "type": "array"
+          }
+        },
+        "required": [
+          "schema_version",
+          "generated_at",
+          "mode",
+          "company",
+          "report",
+          "years",
+          "profile",
+          "events",
+          "key_metrics"
+        ],
+        "title": "CompanyReport",
         "type": "object"
       },
       "CompanySearchHit": {
@@ -833,6 +1072,29 @@
         "title": "Coverage",
         "type": "object"
       },
+      "Driver": {
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "tone": {
+            "enum": [
+              "positive",
+              "negative",
+              "neutral"
+            ],
+            "title": "Tone",
+            "type": "string"
+          }
+        },
+        "required": [
+          "label",
+          "tone"
+        ],
+        "title": "Driver",
+        "type": "object"
+      },
       "ErrorOut": {
         "properties": {
           "code": {
@@ -1028,6 +1290,34 @@
           "value"
         ],
         "title": "Fact",
+        "type": "object"
+      },
+      "Factor": {
+        "properties": {
+          "display": {
+            "title": "Display",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "tone": {
+            "enum": [
+              "positive",
+              "negative",
+              "neutral"
+            ],
+            "title": "Tone",
+            "type": "string"
+          }
+        },
+        "required": [
+          "label",
+          "display",
+          "tone"
+        ],
+        "title": "Factor",
         "type": "object"
       },
       "FilingOut": {
@@ -1634,6 +1924,64 @@
         "title": "KeyDriver",
         "type": "object"
       },
+      "KeyMetric": {
+        "properties": {
+          "change": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MetricChange"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "currency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Currency"
+          },
+          "format": {
+            "enum": [
+              "currency",
+              "percent",
+              "ratio",
+              "count"
+            ],
+            "title": "Format",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "series": {
+            "items": {
+              "$ref": "#/components/schemas/MetricPoint"
+            },
+            "title": "Series",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "format",
+          "series"
+        ],
+        "title": "KeyMetric",
+        "type": "object"
+      },
       "ManagementClaim": {
         "properties": {
           "claim_he": {
@@ -1710,6 +2058,70 @@
           "n"
         ],
         "title": "MedianOut",
+        "type": "object"
+      },
+      "MetricChange": {
+        "properties": {
+          "direction": {
+            "enum": [
+              "up",
+              "down",
+              "flat"
+            ],
+            "title": "Direction",
+            "type": "string"
+          },
+          "pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pct"
+          },
+          "tone": {
+            "enum": [
+              "positive",
+              "negative",
+              "neutral"
+            ],
+            "title": "Tone",
+            "type": "string"
+          }
+        },
+        "required": [
+          "direction",
+          "tone"
+        ],
+        "title": "MetricChange",
+        "type": "object"
+      },
+      "MetricPoint": {
+        "properties": {
+          "fiscal_year": {
+            "title": "Fiscal Year",
+            "type": "integer"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "required": [
+          "fiscal_year",
+          "value"
+        ],
+        "title": "MetricPoint",
         "type": "object"
       },
       "NodeOut": {
@@ -2471,6 +2883,22 @@
         "title": "Point",
         "type": "object"
       },
+      "Profile": {
+        "properties": {
+          "axes": {
+            "items": {
+              "$ref": "#/components/schemas/Axis"
+            },
+            "title": "Axes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "axes"
+        ],
+        "title": "Profile",
+        "type": "object"
+      },
       "ProfileItem": {
         "properties": {
           "fact_ids": {
@@ -2893,6 +3321,150 @@
         "title": "RenderedStory",
         "type": "object"
       },
+      "ReportEvent": {
+        "properties": {
+          "date": {
+            "title": "Date",
+            "type": "string"
+          },
+          "date_precision": {
+            "enum": [
+              "day",
+              "month"
+            ],
+            "title": "Date Precision",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "importance": {
+            "enum": [
+              1,
+              2,
+              3
+            ],
+            "title": "Importance",
+            "type": "integer"
+          },
+          "source_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Url"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "tone": {
+            "anyOf": [
+              {
+                "enum": [
+                  "positive",
+                  "negative",
+                  "neutral"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tone"
+          },
+          "type": {
+            "enum": [
+              "report",
+              "acquisition",
+              "leadership",
+              "guidance",
+              "financing",
+              "legal",
+              "regulatory",
+              "buyback",
+              "insider",
+              "other"
+            ],
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "date",
+          "date_precision",
+          "type",
+          "title",
+          "importance"
+        ],
+        "title": "ReportEvent",
+        "type": "object"
+      },
+      "ReportInfo": {
+        "properties": {
+          "fiscal_year": {
+            "title": "Fiscal Year",
+            "type": "integer"
+          },
+          "period_end": {
+            "title": "Period End",
+            "type": "string"
+          },
+          "published_at": {
+            "title": "Published At",
+            "type": "string"
+          },
+          "type": {
+            "const": "annual",
+            "default": "annual",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "fiscal_year",
+          "period_end",
+          "published_at"
+        ],
+        "title": "ReportInfo",
+        "type": "object"
+      },
+      "ReportWarning": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message"
+        ],
+        "title": "ReportWarning",
+        "type": "object"
+      },
       "ResearchResult": {
         "properties": {
           "company_name": {
@@ -2995,6 +3567,62 @@
         "title": "ResearchResult",
         "type": "object"
       },
+      "Score": {
+        "properties": {
+          "driver": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Driver"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "fiscal_year": {
+            "title": "Fiscal Year",
+            "type": "integer"
+          },
+          "sector_median": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sector Median"
+          },
+          "trend": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Trend"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "required": [
+          "fiscal_year",
+          "value"
+        ],
+        "title": "Score",
+        "type": "object"
+      },
       "Scorecard": {
         "properties": {
           "areas": {
@@ -3075,6 +3703,47 @@
           "summary_he"
         ],
         "title": "Scorecard",
+        "type": "object"
+      },
+      "Sector": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "Sector",
+        "type": "object"
+      },
+      "SectorComparison": {
+        "properties": {
+          "median": {
+            "title": "Median",
+            "type": "number"
+          },
+          "position": {
+            "enum": [
+              "above",
+              "below",
+              "equal"
+            ],
+            "title": "Position",
+            "type": "string"
+          }
+        },
+        "required": [
+          "position",
+          "median"
+        ],
+        "title": "SectorComparison",
         "type": "object"
       },
       "Segment": {
@@ -3601,6 +4270,19 @@
         "title": "StructureOut",
         "type": "object"
       },
+      "Summary": {
+        "properties": {
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "Summary",
+        "type": "object"
+      },
       "TocEntryOut": {
         "properties": {
           "matched_node": {
@@ -3636,6 +4318,45 @@
           "matched_node"
         ],
         "title": "TocEntryOut",
+        "type": "object"
+      },
+      "Trend": {
+        "properties": {
+          "delta": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Delta"
+          },
+          "direction": {
+            "enum": [
+              "up",
+              "down",
+              "flat"
+            ],
+            "title": "Direction",
+            "type": "string"
+          },
+          "tone": {
+            "enum": [
+              "positive",
+              "negative",
+              "neutral"
+            ],
+            "title": "Tone",
+            "type": "string"
+          }
+        },
+        "required": [
+          "direction",
+          "tone"
+        ],
+        "title": "Trend",
         "type": "object"
       },
       "UnchangedSection": {
@@ -4856,6 +5577,140 @@
         "summary": "Financial ratios by group and year, with confidence and data-quality checks",
         "tags": [
           "companies"
+        ]
+      }
+    },
+    "/api/companies/{ticker}/report": {
+      "get": {
+        "operationId": "get_report_api_companies__ticker__report_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ticker",
+            "required": true,
+            "schema": {
+              "title": "Ticker",
+              "type": "string"
+            }
+          },
+          {
+            "description": "cached: local data only, no provider calls. live: fetch what is missing (if the server allows).",
+            "in": "query",
+            "name": "mode",
+            "required": false,
+            "schema": {
+              "default": "cached",
+              "description": "cached: local data only, no provider calls. live: fetch what is missing (if the server allows).",
+              "enum": [
+                "cached",
+                "live"
+              ],
+              "title": "Mode",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompanyReport"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "The company report (cached: the saved one; live: build it from the latest story when missing)",
+        "tags": [
+          "report"
+        ]
+      }
+    },
+    "/api/companies/{ticker}/report/axes/{axis_id}": {
+      "get": {
+        "operationId": "get_axis_detail_api_companies__ticker__report_axes__axis_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ticker",
+            "required": true,
+            "schema": {
+              "title": "Ticker",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "axis_id",
+            "required": true,
+            "schema": {
+              "title": "Axis Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "year",
+            "required": true,
+            "schema": {
+              "title": "Year",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "cached: local data only, no provider calls. live: fetch what is missing (if the server allows).",
+            "in": "query",
+            "name": "mode",
+            "required": false,
+            "schema": {
+              "default": "cached",
+              "description": "cached: local data only, no provider calls. live: fetch what is missing (if the server allows).",
+              "enum": [
+                "cached",
+                "live"
+              ],
+              "title": "Mode",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AxisDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "One axis's breakdown for a fiscal year, from the saved report",
+        "tags": [
+          "report"
         ]
       }
     },

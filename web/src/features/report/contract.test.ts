@@ -1,6 +1,8 @@
 import Ajv2020 from 'ajv/dist/2020.js'
 import addFormats from 'ajv-formats'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+
+import { api } from '@/api/client'
 
 import full from './fixtures/mltm.full.json'
 import sparse from './fixtures/mltm.sparse.json'
@@ -62,7 +64,11 @@ describe('fetchReport', () => {
     expect(r.company.ticker).toBe('MLTM')
   })
 
-  it('rejects an unknown ticker with a 404 not_found', async () => {
-    await expect(fetchReport('NOPE', 'cached')).rejects.toMatchObject({ code: 'not_found', status: 404 })
+  it('asks the server for any other ticker, in the given mode', async () => {
+    const report = vi.spyOn(api, 'report').mockResolvedValue(full as never)
+    const r = await fetchReport('ELAL', 'live')
+    expect(report).toHaveBeenCalledWith('ELAL', 'live', undefined)
+    expect(validate(r)).toBe(true)
+    report.mockRestore()
   })
 })

@@ -1,6 +1,7 @@
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 
 import { ApiError } from '@/api/client'
+import { useMode } from '@/app/mode'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 
@@ -12,7 +13,7 @@ import { ScoreList } from './components/ScoreList'
 import { hasEnoughForRadar } from './radar/geometry'
 import { RadarChart } from './radar/RadarChart'
 import { YearTabs } from './radar/YearTabs'
-import { useReport } from './queries'
+import { isNotCached, useReport } from './queries'
 import { radarAxesForYear, resolveYear } from './view'
 
 // Design A2: 390-wide reference, page padding 28/20/32, 36px between sections; centered up to 480.
@@ -50,8 +51,33 @@ export function ReportPage() {
   const { ticker = '' } = useParams()
   const [params, setParams] = useSearchParams()
   const query = useReport(ticker)
+  const { mode, setMode, liveAllowed } = useMode()
 
   if (query.isPending) return <ReportSkeleton />
+
+  if (query.error && isNotCached(query.error)) {
+    return (
+      <div className={COLUMN}>
+        <div role="alert" className="space-y-3">
+          <p className="text-base font-semibold">עוד לא נבנה דוח לחברה הזו</p>
+          <p className="text-sm text-muted-foreground">
+            {liveAllowed
+              ? 'אפשר לבנות אותו מהסיפור האחרון של החברה. הבנייה קוראת למודל שפה ועולה כסף.'
+              : 'בניית דוח דורשת מצב חי, והשרת הזה מאפשר רק נתונים שמורים.'}
+          </p>
+          {liveAllowed && (
+            <Button
+              className="min-h-11"
+              onClick={() => (mode === 'live' ? query.refetch() : setMode('live'))}
+            >
+              בנו את הדוח
+            </Button>
+          )}
+        </div>
+        <NewCompanyLink />
+      </div>
+    )
+  }
 
   if (query.error) {
     const notFound = query.error instanceof ApiError && query.error.status === 404

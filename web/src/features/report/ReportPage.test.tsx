@@ -8,7 +8,23 @@ import { KeyMetrics } from './components/KeyMetrics'
 import { ReportPage } from './ReportPage'
 import type { KeyMetric } from './types'
 
-vi.mock('@/app/mode', () => ({ useMode: () => ({ mode: 'cached' }) }))
+const setMode = vi.fn()
+vi.mock('@/app/mode', () => ({ useMode: () => ({ mode: 'cached', setMode, liveAllowed: true }) }))
+
+// Non-fixture tickers load from the API: NOPE is unknown, ELAL has no report built yet.
+vi.mock('@/api/client', async (importOriginal) => {
+  const mod = await importOriginal<typeof import('@/api/client')>()
+  return {
+    ...mod,
+    api: {
+      ...mod.api,
+      report: vi.fn(async (ticker: string) => {
+        if (ticker === 'ELAL') throw new mod.ApiError('not_cached', 'no report built yet', 409)
+        throw new mod.ApiError('company_not_found', 'unknown ticker', 404)
+      }),
+    },
+  }
+})
 
 afterEach(cleanup)
 
@@ -83,6 +99,13 @@ describe('ReportPage edge states', () => {
     renderAt('/c/NOPE')
     expect(await screen.findByText('לא מצאנו את הטיקר')).toBeTruthy()
     expect(screen.getByText('נתח מניה חדשה')).toBeTruthy()
+  })
+
+  it('report not built yet: says so and offers to build it in live mode', async () => {
+    renderAt('/c/ELAL')
+    expect(await screen.findByText('עוד לא נבנה דוח לחברה הזו')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'בנו את הדוח' }))
+    expect(setMode).toHaveBeenCalledWith('live')
   })
 })
 

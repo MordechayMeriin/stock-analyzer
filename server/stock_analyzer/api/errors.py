@@ -21,6 +21,7 @@ STATUS_BY_CODE: dict[str, int] = {
     "report_not_found": 404,
     "node_not_found": 404,
     "page_not_found": 404,
+    "axis_not_found": 404,
     "not_cached": 409,
     "company_already_tracked": 409,
     "company_not_removable": 409,
@@ -32,6 +33,7 @@ STATUS_BY_CODE: dict[str, int] = {
     "story_too_large": 413,
     "story_reports_missing": 422,
     "story_verification_failed": 502,
+    "report_verification_failed": 502,
     "story_search_limit": 502,  # in-band: the storyteller asked for more searches than allowed
     "validation_error": 422,
     "report_selection_failed": 422,

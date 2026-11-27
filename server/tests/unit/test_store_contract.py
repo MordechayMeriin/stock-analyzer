@@ -46,6 +46,13 @@ def test_cache_get_set_contains_per_namespace(store):
     assert "other" not in fr
 
 
+def test_report_namespace_round_trip(store):
+    reports = store.cache("report")
+    reports.set("ELAL:run1", {"schema_version": "1.0", "summary": {"text": "סיכום"}})
+    assert reports.get("ELAL:run1") == {"schema_version": "1.0", "summary": {"text": "סיכום"}}
+    assert "ELAL:run1" not in store.cache("llm")
+
+
 def test_cache_overwrite_and_delete(store):
     cache = store.cache("fr")
     cache.set("k", {"v": 1})

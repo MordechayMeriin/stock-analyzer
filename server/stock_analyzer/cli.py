@@ -718,6 +718,30 @@ def story(
         typer.echo(line)
 
 
+@app.command("report")
+def report_cmd(
+    ticker: str,
+    live: Annotated[
+        bool,
+        typer.Option(
+            "--live", help="Build the report from the latest story when it is missing (calls the LLM)"
+        ),
+    ] = False,
+) -> None:
+    """Print the company report (five-axis scores from the latest story) as JSON."""
+    from stock_analyzer.services import report as report_service
+
+    ctx = _ctx("live" if live else "cached")
+    try:
+        rep = report_service.get_report(ctx, ticker)
+    except Exception as exc:  # noqa: BLE001  (reported with its code, like every command)
+        _fail(exc)
+        return
+    finally:
+        ctx.close()
+    typer.echo(rep.model_dump_json(indent=2))
+
+
 def main() -> None:  # pragma: no cover
     app()
 

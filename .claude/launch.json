@@ -6,6 +6,22 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["--prefix", "web", "run", "dev", "--", "--port", "5173", "--strictPort"],
       "port": 5173
+    },
+    {
+      "name": "api",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": [
+        "/c",
+        "set CORS_ORIGINS=http://localhost:5173,http://localhost:5174&& server\\.venv\\Scripts\\python.exe -X utf8 -m uvicorn stock_analyzer.api.main:app --app-dir server --env-file .env --port 8001"
+      ],
+      "port": 8001,
+      "autoPort": false
+    },
+    {
+      "name": "web-local-api",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "web", "run", "dev", "--", "--mode", "localapi", "--port", "5173", "--strictPort"],
+      "port": 5173
     }
   ]
 }

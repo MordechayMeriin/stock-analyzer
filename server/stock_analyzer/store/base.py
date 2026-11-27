@@ -16,9 +16,9 @@ from pydantic import BaseModel
 
 from stock_analyzer.companies import TrackedCompany
 
-Namespace = Literal["fr", "llm"]
+Namespace = Literal["fr", "llm", "report"]
 Source = Literal["fr", "llm"]
-NAMESPACES: tuple[Namespace, ...] = ("fr", "llm")
+NAMESPACES: tuple[Namespace, ...] = ("fr", "llm", "report")
 
 
 class ReportMeta(BaseModel):

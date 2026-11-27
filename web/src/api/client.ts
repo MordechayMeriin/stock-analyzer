@@ -45,6 +45,8 @@ export type OsintArea = Schemas['AreaAssessment']['area']
 export type OsintTrend = Schemas['AreaAssessment']['trend']
 export type OsintImportance = Schemas['AreaAssessment']['importance']
 export type OsintDriver = Schemas['KeyDriver']
+export type CompanyReportOut = Schemas['CompanyReport']
+export type AxisDetailOut = Schemas['AxisDetail']
 
 /** An API failure carrying the server's machine-readable code. */
 export class ApiError extends Error {
@@ -140,6 +142,12 @@ export const api = {
   usage: (mode: Mode, signal?: AbortSignal) => get<Usage>('/api/usage', { mode }, signal),
   story: (ticker: string, mode: Mode, signal?: AbortSignal) =>
     get<StoryRun>(`/api/companies/${enc(ticker)}/story`, { mode }, signal),
+  /** The five-axis company report. Cached: the saved one (409 not_cached if none); live: built when missing. */
+  report: (ticker: string, mode: Mode, signal?: AbortSignal) =>
+    get<CompanyReportOut>(`/api/companies/${enc(ticker)}/report`, { mode }, signal),
+  /** One axis's breakdown for a year, from the saved report. */
+  reportAxis: (ticker: string, axisId: string, year: number, signal?: AbortSignal) =>
+    get<AxisDetailOut>(`/api/companies/${enc(ticker)}/report/axes/${enc(axisId)}`, { year }, signal),
   /** Latest stored OSINT scorecard. Never searches, in either mode; 409 not_cached when never researched. */
   osint: (ticker: string, months: number, mode: Mode, signal?: AbortSignal) =>
     get<OsintResult>(`/api/companies/${enc(ticker)}/osint`, { mode, months }, signal),
