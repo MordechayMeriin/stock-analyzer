@@ -19,6 +19,8 @@ export type PageParagraphs = Schemas['PageParagraphsOut']
 export type Paragraph = Schemas['ParagraphOut']
 export type Financials = Schemas['FinancialsOut']
 export type Ratios = Schemas['RatiosOut']
+export type PeerBenchmark = Schemas['PeerBenchmarkOut']
+export type PeerBenchmarkRun = Schemas['PeerBenchmarkRunOut']
 export type RatioSeries = Schemas['RatioSeriesOut']
 export type RatioValue = Schemas['RatioValueOut']
 export type CheckResult = Schemas['CheckOut']
@@ -129,6 +131,12 @@ export const api = {
     get<AxisDetailOut>(`/api/companies/${enc(ticker)}/report/axes/${enc(axisId)}`, { year }, signal),
   ratios: (ticker: string, mode: Mode, asOf?: string, signal?: AbortSignal) =>
     get<Ratios>(`/api/companies/${enc(ticker)}/ratios`, { mode, as_of: asOf }, signal),
+  /** Ratios beside curated or same-ISIC peers per market. Stored data only, in either mode. */
+  peerBenchmark: (ticker: string, mode: Mode, signal?: AbortSignal) =>
+    get<PeerBenchmark>(`/api/companies/${enc(ticker)}/peer-benchmark`, { mode }, signal),
+  /** Live only: without confirm, the credit estimate; with confirm, fetch up to max_fetch financials. */
+  runPeerBenchmark: (ticker: string, mode: Mode, confirm: boolean) =>
+    send<PeerBenchmarkRun>('POST', `/api/companies/${enc(ticker)}/peer-benchmark`, { mode }, { confirm }),
   structure: (ticker: string, fy: number, mode: Mode, signal?: AbortSignal) =>
     get<Structure>(`/api/companies/${enc(ticker)}/reports/${fy}/structure`, { mode }, signal),
   node: (ticker: string, fy: number, nodeId: string, mode: Mode, signal?: AbortSignal) =>

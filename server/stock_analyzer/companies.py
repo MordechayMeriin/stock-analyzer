@@ -18,6 +18,14 @@ log = logging.getLogger(__name__)
 CompanySource = Literal["registry", "added"]
 
 
+class CuratedPeer(BaseModel):
+    """A hand-picked comparable issuer (provider ID), used instead of the sub-industry match."""
+
+    fr_company_id: int
+    name: str
+    country: str  # ISO 3166-1 alpha-2 listing market; decides the cohort
+
+
 class TrackedCompany(BaseModel):
     ticker: str
     name_he: str
@@ -26,6 +34,8 @@ class TrackedCompany(BaseModel):
     isin: str | None = None
     # "registry": data/companies.yaml (version-controlled); "added": kept in the state store.
     source: CompanySource = "registry"
+    # Curated benchmark peers (peer-benchmark spec); empty = select by exact ISIC sub-industry.
+    peers: list[CuratedPeer] = []
 
 
 @lru_cache(maxsize=8)
