@@ -130,13 +130,20 @@ async function finish(browser) {
     check('osint: open-sources-only note', (await page.locator('[data-testid="osint-open-sources"]').innerText()).includes('ולא מהדוחות הרשמיים'))
     const areas = await page.locator('[data-testid^="area-"]').count()
     const labelled = await page.locator('[data-testid^="area-"] [data-label]').count()
-    check('osint: six areas, each with a label', areas === 6 && labelled === 6, `${areas}/${labelled}`)
+    // Eight areas since improve-osint-evidence; results stored before it have six (and still load).
+    const newAreas = await page.locator('[data-testid="area-legal"], [data-testid="area-regulation"]').count()
+    check('osint: six areas (older result) or eight with legal and regulation, each with a label',
+      ((areas === 6 && newAreas === 0) || (areas === 8 && newAreas === 2)) && labelled === areas, `${areas} areas, ${labelled} labelled`)
     check('osint: overall label shown', (await page.locator('[data-testid="osint-result"] [data-label]').first().count()) === 1)
     check('osint: risks and strengths listed', (await page.locator('[data-testid="osint-risks"] li').count()) > 0 &&
       (await page.locator('[data-testid="osint-strengths"] li').count()) > 0)
     const sources = page.locator('[data-testid="source"]')
     const n = await sources.count()
-    check('osint: numbered sources with links', n > 0 && (await sources.locator('a[target="_blank"]').count()) === n, String(n))
+    // One primary link per source; merged duplicates add theirs under "also reported in" (also-sources).
+    const primaryLinks = await sources.evaluateAll((els) =>
+      els.map((e) => [...e.querySelectorAll('a[target="_blank"]')].filter((a) => !a.closest('[data-testid="also-sources"]')).length))
+    check('osint: numbered sources, each with one primary link', n > 0 && primaryLinks.every((k) => k === 1),
+      `${n} sources, ${await page.locator('[data-testid="also-sources"]').count()} with merged duplicates`)
     const filing = await page.locator('[data-testid="source"][data-filing="true"]').count()
     const filingMarks = await page.locator('[data-testid="filing-mark"]').count()
     const undated = await page.locator('[data-testid="source"][data-undated="true"]').count()
