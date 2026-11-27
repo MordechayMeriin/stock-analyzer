@@ -63,6 +63,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/companies/{ticker}/compare": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Business sections aligned across fiscal years, with a change status per year pair */
+        get: operations["get_comparison_api_companies__ticker__compare_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/companies/{ticker}/filings": {
         parameters: {
             query?: never;
@@ -238,6 +255,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/companies/{ticker}/story": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The latest saved company story (no LLM or provider call) */
+        get: operations["get_story_api_companies__ticker__story_get"];
+        put?: never;
+        /** Generate a company story (live mode; streamed progress, then the saved run) */
+        post: operations["run_story_api_companies__ticker__story_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/playground": {
         parameters: {
             query?: never;
@@ -315,13 +350,30 @@ export interface components {
              */
             ticker: string;
         };
+        /** AlignedSection */
+        AlignedSection: {
+            /** Key */
+            key: string;
+            /** Level */
+            level: number;
+            /** Node Ids */
+            node_ids: {
+                [key: string]: string;
+            };
+            /** Pairs */
+            pairs: components["schemas"]["PairStatus"][];
+            /** Parent */
+            parent: string | null;
+            /** Title */
+            title: string;
+        };
         /** AreaAssessment */
         AreaAssessment: {
             /**
              * Area
              * @enum {string}
              */
-            area: "news" | "market" | "credit" | "operations" | "labor_government" | "competition_macro";
+            area: "news" | "market" | "credit" | "operations" | "legal" | "regulation" | "labor_government" | "competition_macro";
             /**
              * Assessment
              * @description Hebrew, two or three sentences.
@@ -330,10 +382,26 @@ export interface components {
             /** Finding Ids */
             finding_ids: string[];
             /**
+             * Importance
+             * @description How much this area matters for stability in this industry.
+             * @enum {string}
+             */
+            importance: "high" | "medium" | "low";
+            /**
              * Label
              * @enum {string}
              */
             label: "stable" | "watch" | "fragile" | "insufficient_data";
+            /**
+             * Trend
+             * @enum {string}
+             */
+            trend: "improving" | "stable" | "deteriorating" | "unclear";
+            /**
+             * Trend Reason
+             * @description Hebrew, one sentence on the direction.
+             */
+            trend_reason: string;
         };
         /** AxisDetailOut */
         AxisDetailOut: {
@@ -375,6 +443,31 @@ export interface components {
              */
             value: number | null;
         };
+        /** ChangeNote */
+        ChangeNote: {
+            /** Fact Ids */
+            fact_ids?: string[];
+            /** From Year */
+            from_year: number;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "activity" | "customers" | "strategy" | "risk" | "regulation" | "organization" | "legal" | "routine" | "other";
+            /** New Paragraph Ids */
+            new_paragraph_ids?: string[];
+            /** Old Paragraph Ids */
+            old_paragraph_ids?: string[];
+            /**
+             * Section Key
+             * @description The section key given in the input, e.g. s6.5
+             */
+            section_key: string;
+            /** To Year */
+            to_year: number;
+            /** What Changed He */
+            what_changed_he: string;
+        };
         /** CheckOut */
         CheckOut: {
             /** Cells */
@@ -396,6 +489,19 @@ export interface components {
              * @enum {string}
              */
             status: "passed" | "failed" | "not_applicable";
+        };
+        /** Citation */
+        Citation: {
+            /** Fiscal Year */
+            fiscal_year: number;
+            /** Node Id */
+            node_id?: string | null;
+            /** Page Index */
+            page_index: number;
+            /** Page Printed */
+            page_printed: number | null;
+            /** Paragraph Id */
+            paragraph_id: string;
         };
         /** CompanyOut */
         CompanyOut: {
@@ -461,6 +567,17 @@ export interface components {
             /** Tracked Ticker */
             tracked_ticker?: string | null;
         };
+        /** Comparison */
+        Comparison: {
+            /** Sections */
+            sections: components["schemas"]["AlignedSection"][];
+            /** Ticker */
+            ticker: string;
+            /** Unchanged Threshold */
+            unchanged_threshold: number;
+            /** Years */
+            years: number[];
+        };
         /** Coverage */
         Coverage: {
             /** Auditor Reports */
@@ -504,6 +621,57 @@ export interface components {
             code: string;
             /** Message */
             message: string;
+        };
+        /** Fact */
+        Fact: {
+            /** Code */
+            code?: string | null;
+            /**
+             * Confidence
+             * @default high
+             * @enum {string}
+             */
+            confidence: "high" | "low";
+            /** Currency */
+            currency?: string | null;
+            /** Fact Id */
+            fact_id: string;
+            /**
+             * Failed Checks
+             * @default []
+             */
+            failed_checks: string[];
+            /**
+             * Inputs
+             * @default []
+             */
+            inputs: string[];
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "FIN" | "CHG" | "RATIO" | "TXT" | "DER";
+            /** Name He */
+            name_he: string;
+            /** Operation */
+            operation?: string | null;
+            /** Paragraph Id */
+            paragraph_id?: string | null;
+            /** Quote */
+            quote?: string | null;
+            /** Reason */
+            reason?: string | null;
+            /** Source Filing Id */
+            source_filing_id?: number | null;
+            /**
+             * Unit
+             * @enum {string}
+             */
+            unit: "money" | "percent" | "pp" | "multiple" | "count" | "per_share" | "days" | "number";
+            /** Value */
+            value: string | null;
+            /** Years */
+            years: number[];
         };
         /** FilingOut */
         FilingOut: {
@@ -579,6 +747,31 @@ export interface components {
             /** Years */
             years: number[];
         };
+        /** Finding */
+        Finding: {
+            /** Caveat Fact Ids */
+            caveat_fact_ids?: string[];
+            /**
+             * Fact Ids
+             * @description Facts the finding rests on (tokens in the text count too).
+             */
+            fact_ids: string[];
+            /**
+             * Label
+             * @enum {string}
+             */
+            label: "consistent" | "tension" | "unexplained";
+            /**
+             * Paragraph Ids
+             * @description Report paragraphs the finding rests on.
+             */
+            paragraph_ids: string[];
+            /**
+             * Text He
+             * @description Hebrew prose with fact tokens: how the story fits (or not) the numbers.
+             */
+            text_he: string;
+        };
         /** FiscalYearFilings */
         FiscalYearFilings: {
             /** Filings */
@@ -627,11 +820,15 @@ export interface components {
         };
         /** KeptFinding */
         KeptFinding: {
+            /** Also Areas */
+            also_areas?: ("news" | "market" | "credit" | "operations" | "legal" | "regulation" | "labor_government" | "competition_macro")[];
+            /** Also Sources */
+            also_sources?: components["schemas"]["SourceRef"][];
             /**
              * Area
              * @enum {string}
              */
-            area: "news" | "market" | "credit" | "operations" | "labor_government" | "competition_macro";
+            area: "news" | "market" | "credit" | "operations" | "legal" | "regulation" | "labor_government" | "competition_macro";
             /**
              * Claim
              * @description One factual statement, in English or Hebrew.
@@ -667,6 +864,32 @@ export interface components {
              * @description Exact URL of a web_search result that supports the claim.
              */
             source_url: string;
+            /**
+             * Verdict
+             * @default unverified
+             * @enum {string}
+             */
+            verdict: "supported" | "partial" | "unverified";
+        };
+        /** KeyDriver */
+        KeyDriver: {
+            /**
+             * Driver
+             * @description A key driver of stability for this industry.
+             */
+            driver: string;
+            /**
+             * Explanation
+             * @description Hebrew, one or two sentences.
+             */
+            explanation: string;
+            /** Finding Ids */
+            finding_ids: string[];
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "positive" | "negative" | "mixed" | "unknown";
         };
         /** KeyMetric */
         KeyMetric: {
@@ -684,6 +907,24 @@ export interface components {
             label: string;
             /** Series */
             series: components["schemas"]["MetricPoint"][];
+        };
+        /** ManagementClaim */
+        ManagementClaim: {
+            /** Claim He */
+            claim_he: string;
+            /**
+             * Direction
+             * @enum {string}
+             */
+            direction: "up" | "down" | "stable" | "mixed" | "none";
+            /** Fact Ids */
+            fact_ids?: string[];
+            /** Line Item Codes */
+            line_item_codes: string[];
+            /** Paragraph Ids */
+            paragraph_ids: string[];
+            /** Topic */
+            topic: string;
         };
         /** MetricChange */
         MetricChange: {
@@ -769,7 +1010,7 @@ export interface components {
          */
         OsintProgress: {
             /** Area */
-            area?: ("news" | "market" | "credit" | "operations" | "labor_government" | "competition_macro") | null;
+            area?: ("news" | "market" | "credit" | "operations" | "legal" | "regulation" | "labor_government" | "competition_macro") | null;
             /** Query */
             query?: string | null;
             /** Search Limit */
@@ -811,6 +1052,20 @@ export interface components {
             first: number;
             /** Last */
             last: number;
+        };
+        /** PairStatus */
+        PairStatus: {
+            /** From Year */
+            from_year: number;
+            /** Similarity */
+            similarity: number | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "unchanged" | "changed" | "new" | "dropped";
+            /** To Year */
+            to_year: number;
         };
         /** ParagraphOut */
         ParagraphOut: {
@@ -904,6 +1159,23 @@ export interface components {
              * @enum {string}
              */
             status: "ok" | "insufficient_data";
+        };
+        /** ProfileItem */
+        ProfileItem: {
+            /**
+             * Fact Ids
+             * @description TXT facts from quote_number, if any
+             */
+            fact_ids?: string[];
+            /** Paragraph Ids */
+            paragraph_ids: string[];
+            /** Text He */
+            text_he: string;
+            /**
+             * Topic
+             * @enum {string}
+             */
+            topic: "business_line" | "products" | "customers" | "markets" | "scale" | "other";
         };
         /** RatioGroupOut */
         RatioGroupOut: {
@@ -1006,6 +1278,38 @@ export interface components {
             /** Years */
             years: number[];
         };
+        /** RenderedFinding */
+        RenderedFinding: {
+            /** Fact Ids */
+            fact_ids: string[];
+            /**
+             * Label
+             * @enum {string}
+             */
+            label: "consistent" | "tension" | "unexplained";
+            /** Paragraph Ids */
+            paragraph_ids: string[];
+            /** Segments */
+            segments: components["schemas"]["Segment"][];
+        };
+        /** RenderedParagraph */
+        RenderedParagraph: {
+            /** Paragraph Ids */
+            paragraph_ids: string[];
+            /** Segments */
+            segments: components["schemas"]["Segment"][];
+        };
+        /** RenderedStory */
+        RenderedStory: {
+            /** Story Vs Numbers */
+            story_vs_numbers: components["schemas"]["RenderedFinding"][];
+            /** Unchanged Sections */
+            unchanged_sections: components["schemas"]["UnchangedSection"][];
+            /** What Changed */
+            what_changed: components["schemas"]["RenderedParagraph"][];
+            /** What It Does */
+            what_it_does: components["schemas"]["RenderedParagraph"][];
+        };
         /** ReportCompany */
         ReportCompany: {
             /** Currency */
@@ -1033,8 +1337,12 @@ export interface components {
             date_precision: "day" | "month";
             /** Id */
             id: string;
-            /** Importance */
-            importance: number;
+            /**
+             * Importance
+             * @description 1-3; the screen shows 2 and up by default
+             * @enum {integer}
+             */
+            importance: 1 | 2 | 3;
             /** Source Url */
             source_url?: string | null;
             /** Summary */
@@ -1111,8 +1419,14 @@ export interface components {
              * @default false
              */
             from_cache: boolean;
+            /**
+             * Merged
+             * @default 0
+             */
+            merged: number;
             /** Model */
             model: string;
+            profile?: components["schemas"]["stock_analyzer__osint__models__CompanyProfile"] | null;
             /**
              * Run Date
              * Format: date
@@ -1163,6 +1477,11 @@ export interface components {
             /** Areas */
             areas: components["schemas"]["AreaAssessment"][];
             /**
+             * Key Drivers
+             * @description One entry per key driver of the industry.
+             */
+            key_drivers: components["schemas"]["KeyDriver"][];
+            /**
              * Overall Label
              * @enum {string}
              */
@@ -1172,6 +1491,16 @@ export interface components {
              * @description Hebrew, two or three sentences.
              */
             overall_rationale: string;
+            /**
+             * Overall Trend
+             * @enum {string}
+             */
+            overall_trend: "improving" | "stable" | "deteriorating" | "unclear";
+            /**
+             * Overall Trend Reason
+             * @description Hebrew, one sentence on the overall direction.
+             */
+            overall_trend_reason: string;
             /**
              * Risks
              * @description Top three risks, most important first.
@@ -1198,6 +1527,32 @@ export interface components {
              */
             position: "above" | "below" | "equal";
         };
+        /** Segment */
+        Segment: {
+            /** Display */
+            display?: string | null;
+            /** Fact Id */
+            fact_id?: string | null;
+            /**
+             * Fact Ids
+             * @default []
+             */
+            fact_ids: string[];
+            /** Text */
+            text?: string | null;
+            /**
+             * Type
+             * @enum {string}
+             */
+            type: "text" | "fact" | "caveat";
+        };
+        /** SourceRef */
+        SourceRef: {
+            /** Title */
+            title: string;
+            /** Url */
+            url: string;
+        };
         /** StorageHealth */
         StorageHealth: {
             /**
@@ -1210,6 +1565,143 @@ export interface components {
              * @description The state store is reachable and ready (connection details are never shown)
              */
             ok: boolean;
+        };
+        /** Story */
+        Story: {
+            /**
+             * Story Vs Numbers
+             * @description How management's story fits the numbers.
+             */
+            story_vs_numbers: components["schemas"]["Finding"][];
+            /**
+             * What Changed
+             * @description What changed across the covered fiscal years.
+             */
+            what_changed: components["schemas"]["StoryParagraph"][];
+            /**
+             * What It Does
+             * @description What the company does, from the latest report.
+             */
+            what_it_does: components["schemas"]["StoryParagraph"][];
+        };
+        /**
+         * StoryEvents
+         * @description Documentation of the server-sent events: ``event: progress|done|error`` with these JSON payloads.
+         *     ``done`` carries the saved story run (see ``StoryRun``).
+         */
+        StoryEvents: {
+            /** Done */
+            done: {
+                [key: string]: unknown;
+            };
+            error: components["schemas"]["ErrorOut"];
+            progress: components["schemas"]["StoryProgress"];
+        };
+        /** StoryParagraph */
+        StoryParagraph: {
+            /**
+             * Caveat Fact Ids
+             * @description Low-confidence facts this paragraph cites; code writes the caveat.
+             */
+            caveat_fact_ids?: string[];
+            /**
+             * Paragraph Ids
+             * @description Report paragraph ids this paragraph draws on.
+             */
+            paragraph_ids: string[];
+            /**
+             * Text He
+             * @description Hebrew prose. Quantities only as fact tokens such as {{FIN:revenue:2025}}.
+             */
+            text_he: string;
+        };
+        /** StoryProgress */
+        StoryProgress: {
+            /** Data */
+            data?: {
+                [key: string]: unknown;
+            } | null;
+            /** Message */
+            message: string;
+            /**
+             * Step
+             * @description reports, budget, agent_start, agent_done, agent_failed, tool, verify or saved
+             */
+            step: string;
+        };
+        /** StoryRequest */
+        StoryRequest: {
+            /**
+             * As Of
+             * @description Use only reports published by this date (default: today)
+             */
+            as_of?: string | null;
+            /**
+             * Mode
+             * @default live
+             */
+            mode: string;
+        };
+        /**
+         * StoryRun
+         * @description Everything a saved story needs to be shown again, unchanged (company-story spec).
+         */
+        StoryRun: {
+            /** As Of */
+            as_of: string;
+            /** Change Notes */
+            change_notes: components["schemas"]["ChangeNote"][];
+            /** Citations */
+            citations: {
+                [key: string]: components["schemas"]["Citation"];
+            };
+            /** Claims */
+            claims: {
+                [key: string]: components["schemas"]["ManagementClaim"][];
+            };
+            /** Config Hash */
+            config_hash: string;
+            /** Created At */
+            created_at: string;
+            /** Facts */
+            facts: components["schemas"]["Fact"][];
+            /** Filing Ids */
+            filing_ids: {
+                [key: string]: number;
+            };
+            /** Models */
+            models: {
+                [key: string]: string;
+            };
+            profile: components["schemas"]["stock_analyzer__story__agents__CompanyProfile"] | null;
+            /** Prompt Hashes */
+            prompt_hashes: {
+                [key: string]: string;
+            };
+            rendered: components["schemas"]["RenderedStory"];
+            /** Run Id */
+            run_id: string;
+            story: components["schemas"]["Story"];
+            /** Ticker */
+            ticker: string;
+            usage: components["schemas"]["StoryUsage"];
+            /** Verification */
+            verification: components["schemas"]["VerificationAttempt"][];
+            /** Warnings */
+            warnings: string[];
+            /** Years */
+            years: number[];
+        };
+        /** StoryUsage */
+        StoryUsage: {
+            /** Cost Usd */
+            cost_usd: number;
+            /** Input Tokens */
+            input_tokens: number;
+            /** Model Turns */
+            model_turns: number;
+            /** Output Tokens */
+            output_tokens: number;
         };
         /** StructureOut */
         StructureOut: {
@@ -1242,6 +1734,13 @@ export interface components {
             /** Title */
             title: string;
         };
+        /** UnchangedSection */
+        UnchangedSection: {
+            /** Key */
+            key: string;
+            /** Title */
+            title: string;
+        };
         /** UsageOut */
         UsageOut: {
             /** Fr Log */
@@ -1271,6 +1770,63 @@ export interface components {
             msg: string;
             /** Error Type */
             type: string;
+        };
+        /** VerificationAttempt */
+        VerificationAttempt: {
+            /** Attempt */
+            attempt: number;
+            /** Errors */
+            errors: components["schemas"]["VerificationError"][];
+        };
+        /** VerificationError */
+        VerificationError: {
+            /** Message */
+            message: string;
+            /** Rule */
+            rule: number;
+            /** Where */
+            where: string;
+        };
+        /**
+         * CompanyProfile
+         * @description What the orchestrator learns about the company before briefing the specialists (design D2).
+         */
+        stock_analyzer__osint__models__CompanyProfile: {
+            /**
+             * Business Lines
+             * @description Main business lines or segments.
+             */
+            business_lines: string[];
+            /**
+             * Competitors
+             * @description Main competitors.
+             */
+            competitors: string[];
+            /**
+             * Controlling Shareholder
+             * @description Controlling shareholder, or null if none or unknown.
+             */
+            controlling_shareholder: string | null;
+            /**
+             * Industry
+             * @description The company's industry, in a few words.
+             */
+            industry: string;
+            /**
+             * Key Drivers
+             * @description Three to six short phrases: what decides stability for a company in this industry.
+             */
+            key_drivers: string[];
+            /**
+             * Regulator
+             * @description Main regulator, or null if none or unknown.
+             */
+            regulator: string | null;
+        };
+        /** CompanyProfile */
+        stock_analyzer__story__agents__CompanyProfile: {
+            /** Items */
+            items: components["schemas"]["ProfileItem"][];
         };
     };
     responses: never;
@@ -1436,6 +1992,42 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_comparison_api_companies__ticker__compare_get: {
+        parameters: {
+            query: {
+                /** @description Fiscal years to compare (repeat the parameter) */
+                years: number[];
+                /** @description cached: local data only, no provider calls. live: fetch what is missing (if the server allows). */
+                mode?: "cached" | "live";
+            };
+            header?: never;
+            path: {
+                ticker: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Comparison"];
+                };
             };
             /** @description Validation Error */
             422: {
@@ -1793,6 +2385,75 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["StructureOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_story_api_companies__ticker__story_get: {
+        parameters: {
+            query?: {
+                /** @description cached: local data only, no provider calls. live: fetch what is missing (if the server allows). */
+                mode?: "cached" | "live";
+            };
+            header?: never;
+            path: {
+                ticker: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StoryRun"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    run_story_api_companies__ticker__story_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ticker: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StoryRequest"];
+            };
+        };
+        responses: {
+            /** @description text/event-stream of `progress` events, then one `done` (the saved StoryRun) or `error` event. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StoryEvents"];
                 };
             };
             /** @description Validation Error */

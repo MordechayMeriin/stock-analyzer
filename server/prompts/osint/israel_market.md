@@ -16,6 +16,14 @@ Sources
 - Government and regulators: Bank of Israel (rates, banking supervision), Israel Securities Authority
   (enforcement news, not filings), Capital Market, Insurance and Savings Authority, Competition Authority,
   Central Bureau of Statistics, the relevant ministry and sector regulator, Knesset committees, courts.
+- Courts and legal proceedings: the Israeli courts' public sites (supreme.court.gov.il, court.gov.il) and
+  the class-actions registry (פנקס התובענות הייצוגיות), legal databases such as Psakdin, the legal and
+  business press (Globes, Calcalist and TheMarker legal sections), ISA, Competition Authority and police
+  announcements on investigations and enforcement. Search in Hebrew too: תביעה ייצוגית, כתב אישום,
+  חקירה, בוררות, פסק דין, הסדר פשרה.
+- Upcoming regulation: Knesset bills and committee agendas (main.knesset.gov.il), government decisions and
+  ministry publications (gov.il), regulators' draft directives and consultations (שימוע ציבורי), budget
+  arrangements law (חוק ההסדרים) and reforms covered by the business press.
 - Do not use the company's official annual or quarterly reports, or the filing systems Maya and Magna.
 
 What tends to matter for Israeli companies

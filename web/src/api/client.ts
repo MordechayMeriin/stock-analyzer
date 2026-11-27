@@ -27,6 +27,11 @@ export type Health = Schemas['HealthOut']
 export type ApiErrorBody = Schemas['ErrorOut']
 export type PlaygroundRequest = Schemas['PlaygroundRequest']
 export type PlaygroundDone = Schemas['PlaygroundDone']
+export type StoryRun = Schemas['StoryRun']
+export type StoryProgress = Schemas['StoryProgress']
+export type StoryFact = Schemas['Fact']
+export type StorySegment = Schemas['Segment']
+export type StoryCitation = Schemas['Citation']
 export type OsintResult = Schemas['ResearchResult']
 export type OsintFinding = Schemas['KeptFinding']
 export type OsintScorecard = Schemas['Scorecard']
@@ -34,6 +39,9 @@ export type OsintPoint = Schemas['Point']
 export type OsintProgress = Schemas['OsintProgress']
 export type OsintLabel = Schemas['AreaAssessment']['label']
 export type OsintArea = Schemas['AreaAssessment']['area']
+export type OsintTrend = Schemas['AreaAssessment']['trend']
+export type OsintImportance = Schemas['AreaAssessment']['importance']
+export type OsintDriver = Schemas['KeyDriver']
 export type CompanyReportOut = Schemas['CompanyReportOut']
 export type AxisDetailOut = Schemas['AxisDetailOut']
 
@@ -128,6 +136,8 @@ export const api = {
   page: (ticker: string, fy: number, page: number, mode: Mode, signal?: AbortSignal) =>
     get<PageParagraphs>(`/api/companies/${enc(ticker)}/reports/${fy}/pages/${page}`, { mode }, signal),
   usage: (mode: Mode, signal?: AbortSignal) => get<Usage>('/api/usage', { mode }, signal),
+  story: (ticker: string, mode: Mode, signal?: AbortSignal) =>
+    get<StoryRun>(`/api/companies/${enc(ticker)}/story`, { mode }, signal),
   /** Latest stored OSINT scorecard. Never searches, in either mode; 409 not_cached when never researched. */
   osint: (ticker: string, months: number, mode: Mode, signal?: AbortSignal) =>
     get<OsintResult>(`/api/companies/${enc(ticker)}/osint`, { mode, months }, signal),

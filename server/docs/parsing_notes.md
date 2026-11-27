@@ -20,6 +20,10 @@ in `tests/fixtures/`, "synthetic" a test built from the real line.
 | Note headings in five layouts (plain, bold+underline, list item, `N ביאור`, reversed `title - N ביאור`); some notes have no heading at all | FY2024 / FY2025 | All five patterns; gaps reported as `note_numbers_missing` | synthetic + live |
 | An auditor-report sentence mentioning "דוח רואה החשבון" | FY2025 | Auditor headings must start with `דוח` | synthetic |
 | Brand/footer lines after chapter headings (`MalamTeam`, `www… | … | 0`) | both | Excluded from chapter title hints | synthetic |
+| No `פרק שני` heading: the directors' report opens with a plain line `דוח הדירקטוריון לשנת 2023`, which then repeats as each page's running header | Malam FY2023 | Found by the page-head opener rules (structure 2) | live |
+| No `פרק שלישי` heading: the financial statements open with a page head `מלם תים בע"מ דוחות כספיים לשנת 2023` (the company name first) | Malam FY2023 | A page head of up to five words followed by `דוחות כספיים [מאוחדים] לשנת YYYY` starts the chapter, so it no longer falls back to a page-edge header on p132 (structure 3) | synthetic + live |
+| No governance chapter heading: it opens with the line `דוח שנתי בדבר אפקטיביות הבקרה הפנימית…` | Malam FY2023 | Found by the page-head opener rules (structure 2) | live |
+| Section headings lost entirely: `13. הון חוזר` and `19. הליכים משפטיים` are missing, only `13.1.…` / `19.1.…` remain | Malam FY2023 | When a TOC title is not found and the TOC gives the next expected top-level number N, the section starts at the first `N.1` paragraph, titled from the TOC (structure 3) | synthetic + live |
 
 ## Page layer across issuers (parser 2)
 

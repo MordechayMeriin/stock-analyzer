@@ -143,11 +143,19 @@ Errors SHALL use one JSON shape with a machine-readable code, a human-readable m
 - **THEN** a 409 is returned with code `report_not_processed` and a message naming the filing and its provider status
 
 ### Requirement: Health endpoint
-The API SHALL expose an unauthenticated health endpoint that reports liveness and whether provider and LLM credentials are configured, without revealing them.
+The API SHALL expose an unauthenticated health endpoint that reports liveness, whether provider and LLM credentials are configured, and which state store backend is active and whether it is reachable, without revealing credentials or connection details.
 
 #### Scenario: Health check
 - **WHEN** the health endpoint is called
 - **THEN** it returns status ok, plus a true or false flag for each credential
+
+#### Scenario: Storage reported
+- **WHEN** the health endpoint is called on a server using a database
+- **THEN** it names the database backend and reports it as reachable, without the database URL or any part of it
+
+#### Scenario: Storage unreachable
+- **WHEN** the health endpoint is called while the database cannot be reached
+- **THEN** it still answers, and it reports storage as unreachable
 
 ### Requirement: Ratios endpoint
 The API SHALL return a company's ratio series, grouped, for an optional `as_of` date, with the company's template, currency and fiscal years. Every ratio value and input SHALL be serialized as an exact decimal string. The endpoint SHALL call the same server function as the ratios CLI command.
@@ -169,24 +177,82 @@ The API SHALL return a company's ratio series, grouped, for an optional `as_of` 
 - **THEN** a 422 is returned with code `template_not_supported`, naming the template
 
 ### Requirement: OSINT endpoints
-The API SHALL expose a company's OSINT stability research at `/api/companies/{ticker}/osint`, with an optional
-`months` window (1 to 120, default the configured research window). `GET` SHALL return the latest stored result
-for the ticker and window and SHALL never search the web or call an LLM, in any mode. `POST` SHALL run the
-research afresh through the same server function as the research CLI command, store it and return it, and SHALL
-only run in live mode. A run with no verified finding SHALL fail with 422 and code `osint_no_findings`.
+The API SHALL expose OSINT research at `/api/companies/{ticker}/osint` with an optional window of 1 to 120
+months (default the configured one). `GET` SHALL return the latest stored result and never search or call an
+LLM, in any mode. `POST` SHALL run the research afresh in live mode through the research CLI's server function,
+store it, and stream `progress` events, then one `done` event with the result or one `error` event. Refusals
+SHALL come as plain JSON errors before the stream.
 
 #### Scenario: Stored result
-- **WHEN** ELAL has been researched with a 36-month window and the client requests its OSINT result in cached mode
+- **WHEN** ELAL has been researched with a 36-month window and the client requests its OSINT result in either mode
 - **THEN** the stored scorecard, findings and run statistics are returned, marked as stored, and no search or LLM call is made
 
 #### Scenario: Never researched
 - **WHEN** the OSINT result of a tracked company that was never researched for the window is requested
 - **THEN** a 409 is returned with code `not_cached`
 
+#### Scenario: Untracked ticker
+- **WHEN** the OSINT result of a ticker that is not tracked is requested, or a run for it
+- **THEN** a 404 is returned with code `company_not_found`, and no search or LLM call is made
+
 #### Scenario: Run refused outside live mode
 - **WHEN** a research run is requested in cached mode, or on a server with live calls disabled
-- **THEN** a 403 is returned with code `live_required` or `live_disabled`, and no search or LLM call is made
+- **THEN** a 403 is returned with code `live_required` or `live_disabled` before any stream starts, and no search or LLM call is made
 
 #### Scenario: Run in live mode
 - **WHEN** a research run for ELAL is requested in live mode
-- **THEN** the research runs, its result replaces the stored one for that window and is returned
+- **THEN** the stream carries progress events (step, area, searches used, search limit) with searches used never
+  above the limit, then one `done` event with the new result, which replaces the stored one for that window
+
+#### Scenario: Run already in progress
+- **WHEN** a research run is requested for a ticker and window while another run for them is still running
+- **THEN** a 409 is returned with code `research_in_progress`, and the first run is not affected
+
+#### Scenario: Client disconnects during a run
+- **WHEN** the client closes the stream before the run finishes
+- **THEN** the run continues and its result is stored
+
+#### Scenario: No verified findings
+- **WHEN** a run ends without any finding that survives verification
+- **THEN** the stream ends with an `error` event with code `osint_no_findings`, and the previously stored result is kept
+
+#### Scenario: Missing OpenRouter key
+- **WHEN** a live run is requested and the OpenRouter key is not configured
+- **THEN** a 503 is returned with code `missing_credential` before any stream starts
+
+#### Scenario: Window out of range
+- **WHEN** a result or a run is requested with a window below 1 or above 120 months
+- **THEN** a 422 is returned with code `validation_error`
+
+### Requirement: Saved story endpoint
+The API SHALL return a company's latest saved story run, with its sections, findings, rendered fact values, fact registry, citations with page URLs, the fiscal years covered, `as_of`, models and cost. Fact values SHALL be serialized as exact decimal strings. This endpoint SHALL make no LLM or provider call.
+
+#### Scenario: Saved story
+- **WHEN** the story for MLTM is requested after a successful run
+- **THEN** the saved run is returned, each fact value is a decimal string, and each citation has a URL ending in `#page=N`
+
+#### Scenario: No story yet
+- **WHEN** the story is requested for a company with no saved run
+- **THEN** the API answers with the "not cached" error
+
+### Requirement: Streamed story run
+In live mode, the API SHALL accept a story request for a ticker with an optional `as_of`, run it, and stream its progress as server-sent events. The final event SHALL carry either the saved story run or an error. Validation, the token budget and mode checks SHALL be applied before the stream starts and SHALL be returned as ordinary error responses.
+
+#### Scenario: Live run
+- **WHEN** a live story run is requested for MLTM
+- **THEN** progress events arrive in order, and the final event carries the saved story run
+
+#### Scenario: Cached mode refused
+- **WHEN** a story run is requested in cached mode
+- **THEN** the request is refused with an error explaining that a story run needs live mode, and no LLM call is made
+
+#### Scenario: Over budget
+- **WHEN** the estimated input of a story run exceeds the configured budget
+- **THEN** the request is rejected before the stream starts, with the estimate and the budget in the error
+
+### Requirement: Report comparison and ratio endpoints
+The API SHALL return the business-section comparison for a ticker and fiscal years, and the core ratios with their changes, confidence and check results for a ticker, calling the same functions as the CLI.
+
+#### Scenario: Ratio parity
+- **WHEN** the core ratios of MLTM are requested from the CLI and from the API in cached mode
+- **THEN** both return the same values, confidence and failed checks

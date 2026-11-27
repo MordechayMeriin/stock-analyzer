@@ -20,6 +20,8 @@ RUN --mount=type=secret,id=ca,required=false \
 COPY stock_analyzer ./stock_analyzer
 COPY prompts ./prompts
 COPY data/companies.yaml ./data/companies.yaml
+# OSINT filing block-list: read on every OSINT run (osint/blocklist.py)
+COPY data/osint_blocklist.yaml ./data/osint_blocklist.yaml
 RUN --mount=type=secret,id=ca,required=false \
     if [ -s /run/secrets/ca ]; then export SSL_CERT_FILE=/run/secrets/ca UV_NATIVE_TLS=1; fi && \
     uv sync --frozen --no-dev

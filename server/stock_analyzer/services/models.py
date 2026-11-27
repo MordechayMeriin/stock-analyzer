@@ -330,7 +330,7 @@ class ReportEvent(BaseModel):
     ]
     title: str
     summary: str
-    importance: int = Field(ge=1, le=3)
+    importance: Literal[1, 2, 3] = Field(description="1-3; the screen shows 2 and up by default")
     tone: Tone
     source_url: str | None = None
 

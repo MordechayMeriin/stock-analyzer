@@ -6,19 +6,46 @@ import asyncio
 import json
 from datetime import date
 
-import httpx
-import respx
+import httpx2
+from openai import AsyncOpenAI
 
 from stock_analyzer.osint.blocklist import load_blocklist
 from stock_analyzer.osint.models import RunState
 from stock_analyzer.osint.search import FakeSearch, OpenRouterSearch, run_search
 from stock_analyzer.store import StoreLog, get_store
 
-URL = "https://openrouter.ai/api/v1/chat/completions"
+
+class OpenRouterMock:
+    """A real async openai client whose transport answers with one response and records requests.
+
+    openai 3 sends requests through httpx2, which respx cannot intercept, so the search gets an
+    injected client (as in test_llm.py). The real client still serializes the request.
+    """
+
+    def __init__(self, response: httpx2.Response):
+        self._response = response
+        self.requests: list[httpx2.Request] = []
+
+    def _handle(self, request: httpx2.Request) -> httpx2.Response:
+        self.requests.append(request)
+        return self._response
+
+    def search(self, settings) -> OpenRouterSearch:
+        client = AsyncOpenAI(
+            base_url=settings.openrouter_base_url,
+            api_key=settings.openrouter_api_key.get_secret_value(),
+            max_retries=0,
+            http_client=httpx2.AsyncClient(transport=httpx2.MockTransport(self._handle)),
+        )
+        return OpenRouterSearch(settings, client=client)
+
+    @property
+    def call_count(self) -> int:
+        return len(self.requests)
 
 
-def cited(*urls: str, cost: float = 0.0071) -> httpx.Response:
-    return httpx.Response(
+def cited(*urls: str, cost: float = 0.0071) -> httpx2.Response:
+    return httpx2.Response(
         200,
         json={
             "id": "gen-1",
@@ -69,10 +96,9 @@ def log_records(settings):
     return [json.loads(line) for line in path.read_text().splitlines()] if path.exists() else []
 
 
-@respx.mock
 def test_request_uses_exa_with_blocklist_and_drops_blocked_results(settings):
-    route = respx.post(URL).mock(
-        return_value=cited(
+    route = OpenRouterMock(
+        cited(
             "https://www.globes.co.il/news/a",
             "https://maya.tase.co.il/reports/1",  # filing site: must never reach the agent
             "https://mayafiles.tase.co.il/rpdf/1.pdf",  # filing PDF host: blocked
@@ -80,9 +106,10 @@ def test_request_uses_exa_with_blocklist_and_drops_blocked_results(settings):
         )
     )
     state = make_state()
-    out = asyncio.run(run_search(state, OpenRouterSearch(settings), None, "El Al bonds yield"))
+    out = asyncio.run(run_search(state, route.search(settings), None, "El Al bonds yield"))
 
-    body = json.loads(route.calls[0].request.content)
+    assert str(route.requests[0].url) == "https://openrouter.ai/api/v1/chat/completions"
+    body = json.loads(route.requests[0].content)
     assert body["model"] == settings.model_cheap
     plugin = body["plugins"][0]
     assert plugin["id"] == "web" and plugin["engine"] == "exa" and plugin["max_results"] == 5
@@ -96,32 +123,30 @@ def test_request_uses_exa_with_blocklist_and_drops_blocked_results(settings):
     assert abs(state.cost_usd - 0.0071) < 1e-9
 
 
-@respx.mock
 def test_limit_refuses_without_provider_call(settings):
-    route = respx.post(URL).mock(return_value=cited("https://www.globes.co.il/news/a"))
+    route = OpenRouterMock(cited("https://www.globes.co.il/news/a"))
     state = make_state(max_searches=1)
-    asyncio.run(run_search(state, OpenRouterSearch(settings), None, "first"))
-    out = asyncio.run(run_search(state, OpenRouterSearch(settings), None, "second"))
+    asyncio.run(run_search(state, route.search(settings), None, "first"))
+    out = asyncio.run(run_search(state, route.search(settings), None, "second"))
     assert "search limit reached" in out["error"]
     assert route.call_count == 1 and state.searches_used == 1
 
 
-@respx.mock
 def test_provider_error_is_readable_and_logged(settings):
-    respx.post(URL).mock(return_value=httpx.Response(500, json={"error": {"message": "boom"}}))
+    route = OpenRouterMock(httpx2.Response(500, json={"error": {"message": "boom"}}))
     log = StoreLog(get_store(settings), "llm")
     state = make_state()
-    out = asyncio.run(run_search(state, OpenRouterSearch(settings), log, "q"))
+    out = asyncio.run(run_search(state, route.search(settings), log, "q"))
+    assert route.call_count == 1
     assert out["error"].startswith("search failed")
     rec = log_records(settings)[-1]
     assert rec["purpose"] == "osint-search" and rec["ok"] is False
 
 
-@respx.mock
 def test_search_usage_logged_with_cost(settings):
-    respx.post(URL).mock(return_value=cited("https://www.calcalist.co.il/a", cost=0.0075))
+    route = OpenRouterMock(cited("https://www.calcalist.co.il/a", cost=0.0075))
     log = StoreLog(get_store(settings), "llm")
-    asyncio.run(run_search(make_state(), OpenRouterSearch(settings), log, "El Al strike"))
+    asyncio.run(run_search(make_state(), route.search(settings), log, "El Al strike"))
     rec = log_records(settings)[-1]
     assert rec["purpose"] == "osint-search" and rec["ok"] is True
     assert rec["cost"] == 0.0075 and rec["input_tokens"] == 50 and rec["output_tokens"] == 20

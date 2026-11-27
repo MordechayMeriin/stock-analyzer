@@ -82,7 +82,7 @@ The system SHALL retrieve a company's annual structured financial line items for
 - **THEN** line items for every available fiscal year are returned with their values, scale and currency
 
 ### Requirement: Permanent response cache
-Every successful provider response SHALL be cached on disk, keyed by request path and parameters, and reused on later identical requests without contacting the provider. A refresh option SHALL bypass and overwrite the cache.
+Every successful provider response SHALL be cached in the server's state store, keyed by request path and parameters, and reused on later identical requests without contacting the provider. A refresh option SHALL bypass and overwrite the cache.
 
 #### Scenario: Repeat request
 - **WHEN** the same request is made twice
@@ -95,6 +95,10 @@ Every successful provider response SHALL be cached on disk, keyed by request pat
 #### Scenario: Offline mode
 - **WHEN** the system runs in cached-only mode and a request is not cached
 - **THEN** it fails with a "not cached" error and makes no network call
+
+#### Scenario: Cache outlives the server process
+- **WHEN** a response was cached by one server or CLI process and another process with the same store makes the same request
+- **THEN** it is served from the cache and uses no credits
 
 ### Requirement: Resilient provider calls
 The system SHALL retry rate-limited (429) and server-error (5xx) responses with exponential backoff, honoring a `Retry-After` header when present, up to a configured maximum number of attempts. Client errors other than 429 SHALL fail immediately.

@@ -131,7 +131,7 @@ def test_verify_drops_by_reason_and_assigns_ids():
     assert [f.id for f in kept] == ["F1", "F2"]
     assert kept[0].area == "news" and kept[0].confidence == "high"
     assert kept[1].confidence == "low" and kept[1].published_at is None
-    assert dropped == {"blocked": 1, "not_searched": 1, "outside_window": 1}
+    assert dropped == {"blocked": 1, "not_searched": 1, "outside_window": 1, "unsupported": 0}
 
 
 def test_parse_published():
@@ -152,15 +152,45 @@ def _kept():
     return verify_findings(state)[0]
 
 
+def aa(area, label, ids, trend="deteriorating", importance="high"):
+    return AreaAssessment(
+        area=area,
+        label=label,
+        importance=importance,
+        assessment="a",
+        trend=trend,
+        trend_reason="t",
+        finding_ids=ids,
+    )
+
+
+def card_with(areas, **kw):
+    base = dict(
+        overall_label="fragile",
+        overall_rationale="r",
+        overall_trend="deteriorating",
+        overall_trend_reason="t",
+        key_drivers=[],
+        areas=areas,
+        risks=[],
+        strengths=[],
+        summary_he="ס",
+    )
+    return Scorecard(**{**base, **kw})
+
+
 def test_check_scorecard_enforces_citations_and_coverage():
     kept = _kept()  # F1 news, F2 market
     card = Scorecard(
         overall_label="fragile",
         overall_rationale="r",
+        overall_trend="deteriorating",
+        overall_trend_reason="t",
+        key_drivers=[],
         areas=[
-            AreaAssessment(area="news", label="fragile", assessment="a", finding_ids=["F1", "F9"]),
-            AreaAssessment(area="market", label="stable", assessment="a", finding_ids=[]),  # no ids: filled
-            AreaAssessment(area="labor_government", label="watch", assessment="a", finding_ids=["F1"]),
+            aa("news", "fragile", ["F1", "F9"]),
+            aa("market", "stable", []),  # no ids: filled
+            aa("labor_government", "watch", ["F1"]),
         ],
         risks=[Point(text=f"r{i}", finding_ids=["F1"]) for i in range(5)]
         + [Point(text="x", finding_ids=["F9"])],
@@ -177,6 +207,48 @@ def test_check_scorecard_enforces_citations_and_coverage():
     assert len(out.risks) == 3 and all(p.finding_ids for p in out.risks)
     assert out.strengths == []  # cited nothing that was kept
     assert out.overall_label == "fragile"
+    assert by_area["news"].trend == "deteriorating" and by_area["news"].importance == "high"
+    assert by_area["labor_government"].trend == "unclear"  # insufficient data: trend forced to unclear
+    assert by_area["credit"].trend == "unclear"
+
+
+def test_check_scorecard_key_drivers():
+    from stock_analyzer.osint.models import CompanyProfile, KeyDriver
+
+    kept = _kept()
+    profile = CompanyProfile(
+        industry="airlines",
+        business_lines=["passenger flights"],
+        controlling_shareholder=None,
+        competitors=[],
+        regulator=None,
+        key_drivers=["demand", "security", "fuel costs"],
+    )
+    card = card_with(
+        [aa("news", "watch", ["F1"])],
+        key_drivers=[
+            KeyDriver(driver="Demand", status="positive", explanation="e", finding_ids=["F1", "F9"]),
+            KeyDriver(
+                driver="security", status="negative", explanation="e", finding_ids=["F9"]
+            ),  # unknown id
+        ],
+    )
+    out = check_scorecard(card, kept, profile)
+    drivers = {d.driver.lower(): d for d in out.key_drivers}
+    assert drivers["demand"].status == "positive" and drivers["demand"].finding_ids == ["F1"]
+    assert drivers["security"].status == "unknown" and drivers["security"].finding_ids == []
+    assert "fuel costs" not in drivers  # the model's own drivers are kept as given, not padded
+    out = check_scorecard(card_with([aa("news", "watch", ["F1"])]), kept, profile)
+    assert [d.driver for d in out.key_drivers] == profile.key_drivers  # model named none: profile's, unknown
+    assert {d.status for d in out.key_drivers} == {"unknown"}
+
+
+def test_check_scorecard_counts_also_areas_as_evidence():
+    kept = _kept()
+    kept[0] = kept[0].model_copy(update={"also_areas": ["competition_macro"]})
+    out = check_scorecard(card_with([aa("competition_macro", "watch", ["F1"])]), kept)
+    comp = next(a for a in out.areas if a.area == "competition_macro")
+    assert comp.label == "watch" and comp.finding_ids == ["F1"]
 
 
 # ---------------------------------------------------------------- pipeline (fake model, fake search)
@@ -199,10 +271,15 @@ def run(settings, state, **kw):
 def test_orchestrator_calls_every_specialist_and_scorecard_is_cited(settings):
     state = make_state()
     search = FakeSearch()
-    card, kept, dropped = run(settings, state, backend=search)
+    out = run(settings, state, backend=search)
+    card, kept, dropped = out.scorecard, out.findings, out.dropped
     assert {a for a, _ in state.reports} == set(AREAS)
-    assert len(search.calls) == 6 and state.searches_used == 6
-    assert len(kept) == 12 and dropped == {"blocked": 0, "not_searched": 0, "outside_window": 0}
+    assert len(search.calls) == len(AREAS) and state.searches_used == len(AREAS)
+    assert len(kept) == 2 * len(AREAS)
+    assert dropped == {"blocked": 0, "not_searched": 0, "outside_window": 0, "unsupported": 0}
+    assert out.profile is not None and out.profile.key_drivers
+    assert {f.verdict for f in kept} == {"supported"}
+    assert card.key_drivers and card.overall_trend == "stable"
     assert [a.area for a in card.areas] == list(AREAS)
     ids = {f.id for f in kept}
     assert all(set(a.finding_ids) <= ids and a.finding_ids for a in card.areas)
@@ -235,14 +312,15 @@ def test_blocked_results_never_become_findings(settings):
 
 def test_search_limit_still_produces_a_scorecard(settings):
     state = make_state(max_searches=2)
-    card, kept, _ = run(settings, state)
+    out = run(settings, state)
+    card, kept = out.scorecard, out.findings
     assert state.searches_used == 2
     assert kept and {f.area for f in kept} <= set(AREAS)
-    assert sum(a.label == "insufficient_data" for a in card.areas) == 4
+    assert sum(a.label == "insufficient_data" for a in card.areas) == len(AREAS) - 2
 
 
 def test_orchestrator_can_profile_the_company_with_search(settings):
-    """The orchestrator gets web_search next to the six research tools."""
+    """The orchestrator gets web_search next to the research tools of every area."""
     from stock_analyzer.osint import agents as agents_mod
 
     seen = {}

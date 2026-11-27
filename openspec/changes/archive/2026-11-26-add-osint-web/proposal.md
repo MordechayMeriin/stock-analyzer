@@ -12,7 +12,7 @@ fills gaps in the view (undated marks, citation links, browser checks).
 - `GET /api/companies/{ticker}/osint?months=` is unchanged in behaviour (stored result, never a provider
   call, `not_cached` when none).
 - **BREAKING** `POST /api/companies/{ticker}/osint?mode=live` now takes the window in an optional
-  `{ "months": n }` body (not the query) and, instead of returning JSON after the run, `services.osint.run_research` in live mode and streams it as server-sent events: `progress`
+  `{ "months": n }` body (not the query) and, instead of returning JSON after the run, runs `services.osint.run_research` in live mode and streams it as server-sent events: `progress`
   events (searches used out of the limit, the area being researched or finished, the synthesis step), then
   one `done` event carrying the full `ResearchResult`, or one `error` event. Refused before the stream
   starts in cached mode (`live_required`, 403), on a cached-only server (`live_disabled`, 403), for an

@@ -1,0 +1,22 @@
+# Offline scenarios authored 2026-11-26. The MLTM target ID comes from companies.yaml.
+# All other IDs, classes, directory membership and returned financial series are synthetic.
+MLTM:
+  target_id: 6901
+  class: "6220"
+  issuers:
+    6901: {name: Malam-Team Ltd., country: IL}
+    910001: {name: Matrix IT Ltd., country: IL}
+    910002: {name: Unreviewed fixture issuer, country: IL}
+    910003: {name: One Software Technologies Ltd., country: IL}
+  directory:
+    IL: [910003, 6901, 910002, 910001]
+GRID:
+  target_id: 920000
+  class: "3512"
+  issuers:
+    920000: {name: Fixture Israel Grid, country: IL, activity: Regulated transmission network earning access tariffs.}
+    920001: {name: Fixture British Grid, country: GB, activity: Runs a transmission network under regulated tariffs.}
+    920002: {name: Fixture British Generator, country: GB, activity: Owns generators and sells power at wholesale market prices.}
+  directory:
+    IL: [920000]
+    GB: [920002, 920001]

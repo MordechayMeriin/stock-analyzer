@@ -5,8 +5,9 @@
  * fixture tests check every fixture against that file. Field names are snake_case as on the wire,
  * and money values are decimal strings, as in the rest of the API.
  *
- * TODO: once the server ships `GET /api/companies/{ticker}/report`, delete these types and alias
- * the generated ones from `@/api/schema` in `@/api/client`, like every other response type.
+ * Kept by hand for the docs on each field, but held to the server: `fetchReport` returns the
+ * generated `CompanyReportOut` as a `CompanyReport` with no cast, so `tsc` fails as soon as the
+ * server's shape stops fitting these types.
  */
 
 export type Tone = 'positive' | 'negative' | 'neutral'
@@ -105,9 +106,9 @@ export interface KeyMetric {
   id: string
   label: string
   format: 'currency' | 'percent' | 'ratio' | 'count'
-  currency?: string
+  currency?: string | null
   series: MetricPoint[]
-  change?: { direction: Direction; pct?: number; tone: Tone } | null
+  change?: { direction: Direction; pct?: number | null; tone: Tone } | null
 }
 
 export interface ReportWarning {

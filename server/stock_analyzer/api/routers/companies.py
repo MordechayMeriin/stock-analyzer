@@ -6,7 +6,8 @@ from typing import Annotated
 from fastapi import APIRouter, Query, Response, status
 
 from stock_analyzer.api.deps import CtxDep
-from stock_analyzer.services import companies, filings, financials, ratios, report
+from stock_analyzer.diff.align import Comparison
+from stock_analyzer.services import companies, compare, filings, financials, ratios, report
 from stock_analyzer.services.models import (
     AddCompanyIn,
     AxisDetailOut,
@@ -121,3 +122,18 @@ def get_report_axis(
     year: Annotated[int | None, Query(description="Fiscal year; the newest when omitted")] = None,
 ) -> AxisDetailOut:
     return report.axis_detail(ctx, ticker, axis_id, year)
+
+
+@router.get(
+    "/{ticker}/compare",
+    response_model=Comparison,
+    summary="Business sections aligned across fiscal years, with a change status per year pair",
+)
+def get_comparison(
+    ctx: CtxDep,
+    ticker: str,
+    years: Annotated[
+        list[int], Query(min_length=2, description="Fiscal years to compare (repeat the parameter)")
+    ],
+) -> Comparison:
+    return compare.compare(ctx, ticker, years)

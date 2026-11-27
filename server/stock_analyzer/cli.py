@@ -1,12 +1,14 @@
 """Command-line interface (typer). Thin adapter over ``services`` (design D4).
 
-Commands: fetch, usage, structure, parse-check, fin-raw, ratios, osint, companies list|add|remove, db init.
+Commands: fetch, usage, structure, parse-check, fin-raw, ratios, compare, story, osint, peer-financials, market-research,
+companies list|add|remove, db init.
 """
 
 from __future__ import annotations
 
 import json
 import sys
+from contextlib import closing
 from typing import Annotated
 
 import typer
@@ -29,6 +31,27 @@ def _fail(exc: Exception) -> None:
 
 
 ModeOpt = Annotated[str, typer.Option("--mode", help="cached (local data only) or live")]
+
+
+@app.command("peer-financials")
+def peer_financials_cmd(
+    ticker: str,
+    limit: Annotated[int, typer.Option(min=1, help="Maximum number of peers")] = 5,
+    peer_country: Annotated[
+        list[str] | None, typer.Option("--peer-country", help="Additional country code (repeatable)")
+    ] = None,
+    mode: ModeOpt = "cached",
+) -> None:
+    """Print annual statements for listed peers in Israel, optionally filling from named markets."""
+    from stock_analyzer.services.peers import peer_financials
+
+    try:
+        with closing(_ctx(mode)) as ctx:
+            result = peer_financials(ctx, ticker, limit, peer_country or [])
+    except (AnalyzerError, MissingCredential, ValueError) as exc:
+        _fail(exc)
+        return
+    typer.echo(result.model_dump_json(indent=2))
 
 
 @app.command()
@@ -160,7 +183,9 @@ def db_init() -> None:
         _fail(exc)
         return
     if existed:
-        typer.echo(f"schema {store.schema!r} is already present; checked, existing data kept")
+        typer.echo(
+            f"schema {store.schema!r} was already present; applied again to add any new tables, existing data kept"
+        )
     else:
         typer.echo(
             f"created schema {store.schema!r}: kv_cache, reports, financials_snapshots, usage_log, "
@@ -386,8 +411,11 @@ def ratios_cmd(
     )
 
 
+TREND_ARROWS = {"improving": "up", "stable": "flat", "deteriorating": "down", "unclear": "?"}
+
+
 def render_osint(result) -> list[str]:
-    """Text view of an OSINT research result: labels, risks, strengths, then numbered sources."""
+    """Text view of an OSINT result: profile, key drivers, areas by importance, risks, strengths, sources."""
     from stock_analyzer.osint.models import AREA_INFO
 
     card = result.scorecard
@@ -395,17 +423,40 @@ def render_osint(result) -> list[str]:
         f"{result.ticker} — {result.company_name}",
         f"window {result.window_start} to {result.run_date} ({result.window_months} months), model {result.model}"
         + (" [stored result]" if result.from_cache else ""),
-        "",
-        f"Overall: {card.overall_label.upper()}",
-        f"  {card.overall_rationale}",
-        "",
-        "Areas:",
     ]
-    for a in card.areas:
+    if result.profile:
+        p = result.profile
+        lines.append(f"industry: {p.industry}" + (f" · regulator: {p.regulator}" if p.regulator else ""))
+        if p.business_lines:
+            lines.append(f"business lines: {', '.join(p.business_lines)}")
+        if p.controlling_shareholder:
+            lines.append(f"controlling shareholder: {p.controlling_shareholder}")
+    lines += [
+        "",
+        f"Overall: {card.overall_label.upper()} (trend {TREND_ARROWS[card.overall_trend]}: {card.overall_trend})",
+        f"  {card.overall_rationale}",
+    ]
+    if card.overall_trend_reason:
+        lines.append(f"  {card.overall_trend_reason}")
+    if card.key_drivers:
+        lines += ["", "Key drivers:"]
+        for d in card.key_drivers:
+            ids = f" [{', '.join(d.finding_ids)}]" if d.finding_ids else ""
+            lines.append(f"  {d.driver}: {d.status}{ids}")
+            if d.explanation:
+                lines.append(f"    {d.explanation}")
+    lines += ["", "Areas:"]
+    rank = {"high": 0, "medium": 1, "low": 2}
+    for a in sorted(card.areas, key=lambda a: rank[a.importance]):
         ids = f" [{', '.join(a.finding_ids)}]" if a.finding_ids else ""
-        lines.append(f"  {a.area} ({AREA_INFO[a.area][0]}): {a.label}{ids}")
+        lines.append(
+            f"  {a.area} ({AREA_INFO[a.area][0]}): {a.label} · importance {a.importance} · "
+            f"trend {TREND_ARROWS[a.trend]}{ids}"
+        )
         if a.assessment:
             lines.append(f"    {a.assessment}")
+        if a.trend_reason:
+            lines.append(f"    trend: {a.trend_reason}")
     for title, points in (("Risks", card.risks), ("Strengths", card.strengths)):
         lines += ["", f"{title}:"]
         lines += [f"  {i}. {p.text} [{', '.join(p.finding_ids)}]" for i, p in enumerate(points, 1)] or [
@@ -413,17 +464,20 @@ def render_osint(result) -> list[str]:
         ]
     lines += ["", "Summary:", f"  {card.summary_he}", "", "Sources:"]
     for f in result.findings:
-        tags = [f.area, f.signal, f.published_at or "undated"] + (
+        tags = [f.area, *f.also_areas, f.signal, f.published_at or "undated", f.verdict] + (
             ["filing-derived"] if f.derived_from_filing else []
         )
         lines.append(f"  {f.id} [{', '.join(tags)}] {f.claim}")
         lines.append(f"      {f.source_url}")
+        for other in f.also_sources:
+            lines.append(f"      also: {other.url}")
     d = result.dropped
     cost = f"${result.cost_usd:.4f}" if result.cost_usd is not None else "unknown"
     lines += [
         "",
         f"searches {result.searches_used}/{result.search_limit} · dropped: blocked {d.get('blocked', 0)}, "
-        f"not from a search {d.get('not_searched', 0)}, outside window {d.get('outside_window', 0)} · cost {cost}",
+        f"not from a search {d.get('not_searched', 0)}, outside window {d.get('outside_window', 0)}, "
+        f"not supported by source {d.get('unsupported', 0)} · duplicates merged {result.merged} · cost {cost}",
     ]
     return lines
 
@@ -461,6 +515,173 @@ def osint_cmd(
         typer.echo()
         return
     for line in render_osint(result):
+        typer.echo(line)
+
+
+@app.command("market-research")
+def market_research_cmd(
+    ticker: str,
+    market: Annotated[
+        list[str] | None, typer.Option("--market", help="IL, EUROPE, or US (repeatable)")
+    ] = None,
+    months: Annotated[int | None, typer.Option("--months", min=1, help="Research window in months")] = None,
+    as_json: Annotated[bool, typer.Option("--json", help="Print the full brief as JSON")] = False,
+    mode: ModeOpt = "cached",
+) -> None:
+    """Research a tracked company's industry across Israel, Europe and the United States."""
+    from stock_analyzer.llm import LLMError
+    from stock_analyzer.osint.market import MARKET_NAMES
+    from stock_analyzer.services.market_research import run_market_research
+
+    try:
+        with closing(_ctx(mode)) as ctx:
+            result = run_market_research(ctx, ticker, markets=market, months=months)
+    except (AnalyzerError, LLMError, MissingCredential, ValueError) as exc:
+        _fail(exc)
+        return
+    if as_json:
+        typer.echo(result.model_dump_json(indent=2))
+        return
+
+    industry = result.industry
+    name = f" ({industry.name})" if industry.name else ""
+    typer.echo(
+        f"{result.ticker} | ISIC Rev. 5 {industry.code}{name} | {result.window_start} to {result.run_date}"
+    )
+    for brief in result.markets:
+        typer.echo(f"\n{MARKET_NAMES[brief.market]}")
+        for section in brief.sections:
+            typer.echo(section.topic.replace("_", " ").capitalize())
+            if section.evidence_gap:
+                typer.echo("  Insufficient evidence")
+            for finding in section.findings:
+                typer.echo(f"  - {finding.claim} [{finding.geography}, {finding.scope}]")
+                details = [finding.classification, finding.coverage, finding.period, finding.unit]
+                if metadata := " | ".join(detail for detail in details if detail):
+                    typer.echo(f"    {metadata}")
+                for url in finding.source_urls:
+                    typer.echo(f"    {url}")
+
+
+def render_comparison(out) -> list[str]:
+    """Text lines for a :class:`Comparison`; shared by the CLI and the CLI/API parity test."""
+    pairs = [f"FY{a}→{b % 100:02d}" for a, b in zip(out.years, out.years[1:], strict=False)]
+    lines = [
+        f"{out.ticker} — business sections FY{out.years[0]}–FY{out.years[-1]} "
+        f"(unchanged at similarity ≥ {out.unchanged_threshold})",
+        f"{'':52}" + "".join(f"{p:>20}" for p in pairs),
+    ]
+    for s in out.sections:
+        indent = "  " if s.level == 3 else ""
+        title = (indent + s.title)[:50]
+        cells = []
+        for a, b in zip(out.years, out.years[1:], strict=False):
+            pair = next((p for p in s.pairs if (p.from_year, p.to_year) == (a, b)), None)
+            if pair is None:
+                cells.append(f"{'':>20}")
+            else:
+                score = f" {pair.similarity:.2f}" if pair.similarity is not None else ""
+                cells.append(f"{pair.status + score:>20}")
+        ids = " ".join(f"{y}:{n}" for y, n in s.node_ids.items())
+        lines.append(f"{title:52}" + "".join(cells) + f"   {ids}")
+    return lines
+
+
+@app.command("compare")
+def compare_cmd(
+    ticker: str,
+    years: Annotated[list[int], typer.Argument(help="Fiscal years to compare, e.g. 2023 2024 2025")],
+    mode: ModeOpt = "cached",
+) -> None:
+    """Align a company's business-description sections across fiscal years and show what changed."""
+    from stock_analyzer.services import compare as compare_service
+
+    try:
+        out = compare_service.compare(_ctx(mode), ticker, years)
+    except (AnalyzerError, MissingCredential, ValueError) as exc:
+        _fail(exc)
+        return
+    for line in render_comparison(out):
+        typer.echo(line)
+
+
+LABELS_HE = {"consistent": "עקבי", "tension": "מתח", "unexplained": "לא מוסבר"}
+
+
+def _segments_text(segments) -> list[str]:
+    body = "".join(s.text if s.type == "text" else s.display for s in segments if s.type != "caveat")
+    caveats = [f"  ⚠ {s.text}" for s in segments if s.type == "caveat"]
+    return [body, *caveats]
+
+
+def render_story(run) -> list[str]:
+    """Text lines for a :class:`StoryRun`; shared by the CLI and the CLI/API parity test."""
+    years = f"FY{run.years[0]}–FY{run.years[-1]}"
+    lines = [
+        f"{run.ticker} — story {years} (as of {run.as_of}, run {run.run_id[:8]}, ${run.usage.cost_usd:.2f})"
+    ]
+    sections = (("מה החברה עושה", run.rendered.what_it_does), ("מה השתנה", run.rendered.what_changed))
+    for title, paragraphs in sections:
+        lines += ["", f"== {title}"]
+        for p in paragraphs:
+            lines += _segments_text(p.segments)
+            lines.append("   מקורות: " + ", ".join(p.paragraph_ids))
+    lines += ["", "== הסיפור מול המספרים"]
+    for f in run.rendered.story_vs_numbers:
+        first, *rest = _segments_text(f.segments)
+        lines += [f"[{LABELS_HE[f.label]}] {first}", *rest, "   מקורות: " + ", ".join(f.paragraph_ids)]
+    if run.rendered.unchanged_sections:
+        lines += ["", "ללא שינוי בשלוש השנים: " + ", ".join(u.title for u in run.rendered.unchanged_sections)]
+    lines += ["", "== ציטוטים"]
+    for pid, c in sorted(run.citations.items()):
+        page = f"עמ' {c.page_printed}" if c.page_printed is not None else f"עמוד {c.page_index} בקובץ"
+        lines.append(f"[{pid}] FY{c.fiscal_year} {page}")
+    return lines
+
+
+@app.command()
+def story(
+    ticker: str,
+    live: Annotated[
+        bool, typer.Option("--live", help="Generate a new story (calls the LLM, costs money)")
+    ] = False,
+    as_of: Annotated[
+        str | None, typer.Option("--as-of", help="Use only reports published by this date (YYYY-MM-DD)")
+    ] = None,
+) -> None:
+    """Print the latest saved company story, or generate a new one with --live."""
+    from datetime import date
+
+    from stock_analyzer.services import story as story_service
+
+    if not live:
+        try:
+            run = story_service.latest(_ctx("cached"), ticker)
+        except (AnalyzerError, MissingCredential, ValueError) as exc:
+            _fail(exc)
+            return
+        for line in render_story(run):
+            typer.echo(line)
+        return
+    ctx = _ctx("live")
+    try:
+        cutoff = date.fromisoformat(as_of) if as_of else None
+        models = story_service.resolve_models(ctx)
+        prepared = story_service.prepare(ctx, ticker, as_of=cutoff)
+        run = None
+        for event in story_service.run(prepared, models):
+            if event.type == "progress":
+                typer.echo(f"· {event.message}", err=True)
+            elif event.type == "done":
+                run = event.data
+            else:
+                raise event.data
+    except Exception as exc:  # noqa: BLE001  (reported with its code, like every command)
+        _fail(exc)
+        return
+    finally:
+        ctx.close()
+    for line in render_story(run):
         typer.echo(line)
 
 

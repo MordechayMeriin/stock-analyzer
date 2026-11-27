@@ -49,7 +49,8 @@ export async function fetchReport(ticker: string, mode: Mode, signal?: AbortSign
   const key = ticker.toUpperCase()
   if (key === 'SPARSE') return fixtureReport(key, signal)
   try {
-    return (await api.report(key, mode, signal)) as CompanyReport
+    // No cast: tsc fails here if the server's generated type stops matching what the screen reads.
+    return await api.report(key, mode, signal)
   } catch (e) {
     if (isOffline(e) && key in FIXTURES) return fixtureReport(key, signal)
     throw e
@@ -89,7 +90,7 @@ export async function fetchAxisDetail(
   const key = ticker.toUpperCase()
   if (key !== 'SPARSE') {
     try {
-      return (await api.axisDetail(key, axisId, year, signal)) as AxisDetail
+      return await api.axisDetail(key, axisId, year, signal)
     } catch (e) {
       if (!isOffline(e)) throw e
     }

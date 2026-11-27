@@ -87,6 +87,38 @@ def test_cross_reference_is_not_a_chapter():
     assert s.coverage.chapters_found == ["business"]
 
 
+def test_bare_chapter_title_lines_start_chapters():
+    """FY2023: no "פרק שני" heading, only plain or bold title lines (docs/parsing_notes.md)."""
+    s = structure_of(
+        doc(
+            "# פרק ראשון\n\n## תיאור עסקי התאגיד",
+            "גוף העסק. בהמשך ר' דוח הדירקטוריון הכלול בדוח זה.",
+            "דוח הדירקטוריון לשנת 2023\n\nדירקטוריון החברה מתכבד להגיש את הדוח.",
+            "דוח הדירקטוריון לשנת 2023\n\nהמשך הדוח",  # running header: not a second chapter
+            '**מלם תים בע"מ דוחות כספיים לשנת 2023**\n\nתוכן',
+            "# פרק רביעי פרטים נוספים על החברה",
+            "**דוח שנתי בדבר אפקטיביות הבקרה הפנימית על הדיווח הכספי**\n\nההנהלה אחראית",
+        )
+    )
+    c = s.coverage
+    assert c.chapters_found == ["business", "directors", "financials", "additional", "governance"]
+    assert c.chapters_duplicated == [] and not any("found again" in w for w in s.warnings)
+    assert s.node("directors").pages == (3, 4)
+    assert s.node("financials").pages == (5, 5)
+
+
+def test_plain_mentions_of_chapter_titles_are_not_chapters():
+    s = structure_of(
+        doc(
+            "# פרק ראשון\n\n## תיאור עסקי התאגיד",
+            # mid-page lines: chapters open only at a page head
+            'הדוחות הכספיים לשנת 2023 נערכו לפי IFRS.\n\nמלם תים בע"מ דוחות כספיים לשנת 2023',
+            "המשך הפעילות.\n\n**לפרטים ר' דוח הדירקטוריון לשנת 2023 בפרק ב'**",
+        )
+    )
+    assert s.coverage.chapters_found == ["business"]
+
+
 # ---------------------------------------------------------------- 4.5 TOC-anchored sections
 
 
@@ -124,6 +156,29 @@ def test_sections_numbers_glued_spelling_and_references():
         ("6", "דיון בגורמי סיכון"),
     ]
     assert s.node("business-4").pages == (4, 4)  # not the earlier "מימון הלחימה" mention on page 3
+
+
+def test_section_heading_lost_is_recovered_from_toc_number():
+    """FY2023: "13. הון חוזר" is missing from the Markdown; only "13.1. ..." remains."""
+    toc = "# תוכן עניינים\n\n12. שיווק והפצה\n13. הון חוזר\n14. מימון"
+    s = structure_of(
+        doc(
+            "# פרק ראשון - תיאור עסקי החברה",
+            toc,
+            "**12.שיווק והפצה**\n\n12.1.מערכי השיווק",
+            "13.1.היחס השוטף ביום 31 בדצמבר היה כ- 1.31\n\n13.2.מלאי",
+            "**14.מימון**\n\n14.1.אשראי",
+        )
+    )
+    secs = [(n.number, n.title, n.pages) for n in s.nodes if n.kind == "section"]
+    assert secs == [("12", "שיווק והפצה", (3, 3)), ("13", "הון חוזר", (4, 4)), ("14", "מימון", (5, 5))]
+    assert all(e.matched_node for e in s.toc)
+
+
+def test_headless_recovery_needs_the_next_number():
+    toc = "# תוכן עניינים\n\n12. שיווק והפצה\n13. הון חוזר\n14. מימון"
+    s = structure_of(doc("# פרק ראשון - תיאור עסקי התאגיד", toc, "**12.שיווק והפצה**\n\n15.1.משהו אחר"))
+    assert [n.number for n in s.nodes if n.kind == "section"] == ["12"]  # 15.1 is not section 13
 
 
 def test_toc_threshold_from_config():
@@ -289,7 +344,7 @@ def test_stable_structure_across_runs():
 
 
 @pytest.mark.live_data
-@pytest.mark.parametrize("fy", [2024, 2025])
+@pytest.mark.parametrize("fy", [2023, 2024, 2025])
 def test_live_chapters_once_and_sections(fy):
     text, filing_id = live_report("MLTM", fy)
     s = build_structure(parse_report(text, ticker="MLTM", fiscal_year=fy, filing_id=filing_id))

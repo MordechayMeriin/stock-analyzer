@@ -1,11 +1,11 @@
 ## MODIFIED Requirements
 
 ### Requirement: OSINT endpoints
-The API SHALL expose a company's OSINT research at `/api/companies/{ticker}/osint` with an optional window of 1
-to 120 months (default the configured window). `GET` SHALL return the latest stored result and SHALL never search
-the web or call an LLM, in any mode. `POST` SHALL run the research afresh in live mode through the same server
-function as the research CLI command, store it, and stream it as server-sent events: `progress` events, then one
-`done` event with the result or one `error` event. Refusals SHALL come as plain JSON errors before the stream.
+The API SHALL expose OSINT research at `/api/companies/{ticker}/osint` with an optional window of 1 to 120
+months (default the configured one). `GET` SHALL return the latest stored result and never search or call an
+LLM, in any mode. `POST` SHALL run the research afresh in live mode through the research CLI's server function,
+store it, and stream `progress` events, then one `done` event with the result or one `error` event. Refusals
+SHALL come as plain JSON errors before the stream.
 
 #### Scenario: Stored result
 - **WHEN** ELAL has been researched with a 36-month window and the client requests its OSINT result in either mode

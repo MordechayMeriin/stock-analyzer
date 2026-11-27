@@ -19,6 +19,10 @@ class CompanyNotFound(AnalyzerError):
     code = "company_not_found"
 
 
+class MissingSubIndustry(AnalyzerError):
+    code = "missing_sub_industry"
+
+
 class CompanyAlreadyTracked(AnalyzerError):
     """The ticker or provider company id is already in the tracked companies."""
 
@@ -107,6 +111,28 @@ class TemplateNotSupported(AnalyzerError):
 
 class SelectionTooLarge(AnalyzerError):
     code = "selection_too_large"
+
+
+class StoryTooLarge(AnalyzerError):
+    """A story run would send more report text than the configured budget (company-story spec)."""
+
+    code = "story_too_large"
+
+
+class StoryReportsMissing(AnalyzerError):
+    """Fewer than three annual reports were published by the story's as_of date."""
+
+    code = "story_reports_missing"
+
+
+class StoryVerificationFailed(AnalyzerError):
+    """The story failed verification, also after its one repair attempt."""
+
+    code = "story_verification_failed"
+
+    def __init__(self, message: str, errors: list | None = None):
+        super().__init__(message)
+        self.errors = errors or []
 
 
 class ConfigurationError(AnalyzerError):

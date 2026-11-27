@@ -1,0 +1,80 @@
+# Tasks
+
+## 1. Dependencies: openai 3 and the Agents SDK
+
+- [x] 1.1 Confirm `deploy-render-supabase-storage` is archived (or its store tasks are done) before starting; verify its task groups 2–3 (store interface, fs and Postgres backends) are all checked and `server/stock_analyzer/store/` exists (archive order is in the workflow follow-up)
+- [x] 1.2 Bump `openai` to `>=3,<4`, add `openai-agents` pinned to the current release, and refresh `uv.lock`; verify `uv sync --frozen` succeeds and `docker build server/` still builds — openai 3.60.0 and openai-agents 0.26.0 in `uv.lock`; `uv sync --frozen` and the new CI `image` job (build, then `/health` answers ok) pass on PR #20
+- [x] 1.3 Migrate `llm.py` to the openai 3 client with no behavioural change, and move `tests/unit/test_llm.py` from `respx` routes to an injected fake client (design D9); verify the whole test suite passes, `ruff check` / `ruff format --check` are clean, and `scripts/export_openapi.py` produces an unchanged `openapi.json`
+- [x] 1.4 Update the `pyproject.toml` pin comment and `server/README.md` to explain why openai 3 is required; verify the comment names the Agents SDK
+
+## 2. Gateway-backed agent model
+
+- [x] 2.1 Write a round-trip spike test against the pinned SDK: build a `ModelResponse`, serialize it to JSON, load it back, and run an `Agent` whose model returns it; verify the test passes and records the SDK's `Model.get_response` signature in a docstring (design D8 risk)
+- [x] 2.2 Implement `GatewayModel` in `stock_analyzer/agents_model.py` (role → model id, per-turn cache in the `llm` namespace, usage log with an agent purpose label, cost read from `ModelResponse.raw_usage` with `preserve_raw_usage` and the `extra_body` usage include, `stream_response` not supported); verify unit tests cover a miss (one log record, cost recorded), a hit (zero-cost record, no client call) and a missing key (`MissingCredential` naming `OPENROUTER_API_KEY`)
+- [x] 2.3 Implement `FakeAgentModel` with per-purpose scripts of tool calls and final outputs; verify a test agent runs a real tool from the script and returns the scripted output with network access blocked
+- [x] 2.4 Disable SDK tracing and enforce `max_turns` from configuration; verify a test that scripts endless tool calls fails with an error naming the agent and the limit, and a test asserts tracing is disabled after importing the story package
+- [x] 2.5 Add the agent settings to `config.py` (`agent_max_turns`, per-role usage) and document them in `server/README.md`; verify `test_config.py` covers defaults and environment overrides
+
+## 3. Core ratios and data-quality checks
+
+- [x] 3.1 Implement the check registry in `stock_analyzer/fin/checks.py` (BS1–BS5, IS1–IS3, CF1, CF2 per plan.md §3.2, tolerances in `config.py`, "not run" on missing inputs); verify unit tests pass and fail each check, and the Malam FY2025 fixture fails exactly CF1, CF2, IS3, BS4 and BS5
+- [x] 3.2 Implement the core ratio registry in `stock_analyzer/fin/ratios.py` (Decimal only, inputs recorded, no value with a reason for missing inputs and zero or meaningless denominators); verify the Malam FY2025 fixture gives the values in `specs/financial-analysis`, and unit tests cover each formula, sign conventions (capex negative) and each no-value case
+- [x] 3.3 Implement year-over-year changes (percent for money, percentage points for percentage ratios, none on missing, zero or sign change) and confidence propagation from failed checks; verify tests for the revenue change of 9.43%, a margin change in points, a sign change, FCF low-confidence with CF1, and gross margin high-confidence
+- [x] 3.4 Add the `ratios TICKER` CLI command and `GET /api/companies/{ticker}/ratios`, both calling one service function, with `as_of` filtering; verify a CLI test, an API test with decimal strings, and a parity test between them
+
+## 4. Section comparison across years
+
+- [x] 4.1 Fetch Malam FY2023 and FY2024 in live mode and run `structure` on both; verify both trees cover the business-description and directors' chapters, and add regression tests plus `docs/parsing_notes.md` rows for any new parsing quirk found
+- [x] 4.2 Implement the section alignment in `stock_analyzer/diff/align.py` (exact `match_key` first, then fuzzy title matching one-to-one, numbers ignored); verify unit tests for a renumbered section, a spelling variant, a new section and a dropped section
+- [x] 4.3 Implement per-pair status and similarity (`unchanged` / `changed` / `new` / `dropped`, `diff_unchanged_threshold` in config, numbers kept in the text); verify unit tests for each status and that two runs give identical results
+- [x] 4.4 Run a threshold spike on Malam FY2023–FY2025 that prints per-section scores, choose the default threshold, and record the scores and the choice in `docs/parsing_notes.md` (or a new `docs/diff_notes.md`); verify the document lists every business section with its scores
+- [x] 4.5 Add a trimmed three-year alignment fixture under `tests/fixtures/` (generated by `scripts/make_fixtures.py`) and a test of the full comparison on it; verify the test runs offline
+- [x] 4.6 Add the `compare TICKER FY...` CLI command and `GET /api/companies/{ticker}/compare`, both calling one service function; verify a CLI test, an API test and a parity test
+
+## 5. Facts registry, tools and verification
+
+- [x] 5.1 Implement the story facts registry (`FIN`, `CHG`, `RATIO` from section 3, with ids, Decimal values, unit, years, inputs, confidence and failed checks) built for the three covered years with `as_of` filtering; verify a test that the Malam registry holds the FY2024–FY2025 revenue change with both revenue values as inputs
+- [x] 5.2 Implement `derive` (pct_change, ratio, share, sum, diff, unit compatibility, inherited lowest confidence, errors returned as text); verify unit tests for a segment share, a zero divisor, an unknown id and incompatible units
+- [x] 5.3 Implement `quote_number` (verbatim match after normalization, separators, decimals, `%`, scale words in text or table header, refusal with a reason); verify unit tests on real Malam paragraphs, including a table cell with a "באלפי ש"ח" header and a quote that is not in the paragraph
+- [x] 5.4 Implement `read_paragraphs` and `read_section` with a per-agent token budget enforced by the tool; verify tests that over-budget reads are refused with the remaining budget
+- [x] 5.5 Implement the token grammar, story verification rules 1–6 from design D3, and the Hebrew number-word deny-list; verify one failing test per rule, plus a passing story
+- [x] 5.6 Implement rendering to segment lists with the display formats from design D3 and code-written caveat text; verify tests for `4,138 מיליון ₪`, `65.5 מיליון ₪`, a percentage, percentage points and a caveated fact
+
+## 6. Agents and pipeline
+
+- [x] 6.1 Write the prompt files `server/prompts/story_{describe,change,explain,storyteller}.md` (English instructions, Hebrew output, shared rules from design D13); verify each prompt file is loaded by its agent and its sha256 lands in the run
+- [x] 6.2 Implement the describe, change and explain agents with their output schemas (design D2), change batching by token budget, and explain on directors' report part 1 per year; verify offline tests with `FakeAgentModel` that each agent's tools run and its output validates, and that unchanged sections never reach an agent
+- [x] 6.3 Implement report selection by `as_of` (three latest annual reports published on or before it, error naming missing years) and the token budget check (`story_max_tokens`, `StoryTooLarge` before any LLM call); verify tests for default `as_of`, a future report excluded, not enough reports and over budget
+- [x] 6.4 Implement the storyteller agent and the pipeline (parallel readers, storyteller, verify, one repair turn with the errors, render), with progress events from a sync generator over an async core (design D10); verify an offline end-to-end test with scripted agents that produces a verified story in under 5 seconds, a repair-success test, and a repair-failure test that saves nothing
+- [x] 6.5 Run one live story for MLTM, check that every number resolves and every citation opens the right page, and record tokens, cost and latency in `server/README.md`; verify the README states the measured cost per run
+
+## 7. Persistence
+
+- [x] 7.1 Add `save_story_run`, `latest_story_run` and `list_story_runs` to the `Store` protocol and the fs backend (`DATA_DIR/stories/<TICKER>/<created_at>.json`); verify contract tests for round trip with Hebrew and decimal strings, latest and newest-first listing
+- [x] 7.2 Add the `story_runs` table to `schema.sql` (idempotent, RLS on, no anon access) and implement the pg backend methods; verify the contract suite passes on the pg parameter and applying `schema.sql` twice keeps existing rows
+- [x] 7.3 Save each verified run from the pipeline with the full `StoryRun` contents from design D11, and render saved runs from their own registry; verify a test that revising a provider value after saving leaves the saved story's display unchanged
+
+## 8. API and CLI
+
+- [x] 8.1 Add `GET /api/companies/{ticker}/story` (`StoryRunOut`, decimal strings, citation URLs, `not_cached` when none); verify API tests for a saved run and for no run
+- [x] 8.2 Add `POST /api/companies/{ticker}/story` streaming `progress` events then `done` or `error`, with live-mode, report and budget checks before the stream starts; verify API tests for a live run with `FakeAgentModel`, cached-mode refusal, over-budget rejection and an in-band error event
+- [x] 8.3 Add the `story TICKER [--as-of] [--live]` CLI command printing progress and the rendered sections; verify a CLI test with the fake model and a parity test that the CLI and API return the same saved run
+- [x] 8.4 Regenerate `server/openapi.json` and `web/src/api/schema.d.ts`; verify `web/scripts/check-api-types.mjs` passes and `server/README.md` documents the new endpoints and commands
+
+## 9. Web story page
+
+- [x] 9.1 Add the `:ticker/story` route and `StoryPage` with covered years, `as_of`, the three sections and labelled findings (text plus colour), linked from `CompanyPage`, with loading, empty ("no story yet") and error states; verify `npm run build` and lint pass
+- [x] 9.2 Render fact segments with a provenance popover on hover and focus (name, years, exact value, inputs or operation, source filing, confidence and failed checks) and a low-confidence mark; verify keyboard focus opens the popover and the e2e check finds a low-confidence mark on Malam
+- [x] 9.3 Render citations with the source-page link and the reader deep link; verify the e2e check follows a reader link to the cited fiscal year and section
+- [x] 9.4 Add live generation with the progress list via the existing SSE client, disabled with an explanation in cached mode; verify the e2e check shows the disabled state in cached mode, and a manual live run against the local server shows progress and then the new story
+- [x] 9.5 Extend `web/e2e/ui-check.cjs` with the story page checks and update `web/README.md`; verify the e2e script passes against a server with a saved Malam story
+
+## 10. Integration
+
+- [x] 10.1 Run the full server test suite offline, `ruff`, the web build, lint and API-type check (the full e2e script was dropped by decision; the story e2e checks passed 14/14); verify all pass in CI (`server.yml`, `web.yml`) — `server` passed on 6f655d6 and `web` on 6f95d0a, the last commits that changed code; later merges touched specs only
+- [ ] 10.2 Generate a Malam story from the CLI against the hosted database, and open it on the hosted cached-only deployment; verify the hosted story page shows it with no LLM call logged on the server
+
+## Workflow follow-up
+
+- Archive `deploy-render-supabase-storage` before this change, so `openspec/specs/state-store/spec.md` exists when this change's `state-store` delta is applied.
+- Archive the change after review, then confirm `openspec/specs/company-story`, `report-diff` and `financial-analysis` exist and the modified specs include the added requirements.

@@ -10,9 +10,11 @@ from stock_analyzer.errors import AxisNotFound, YearNotFound
 from stock_analyzer.osint.models import ResearchResult
 from stock_analyzer.services import report
 from stock_analyzer.services.context import Ctx
-from tests.conftest import FIXTURES, seed_bank_and_insurer, seed_malam
+from tests.conftest import SERVER_ROOT, seed_bank_and_insurer, seed_malam
 
-SCHEMA = json.loads((FIXTURES / "company_report.schema.json").read_text(encoding="utf-8"))
+# The one copy of the contract: the spec's JSON Schema, which the web client checks its fixtures against.
+SCHEMA_PATH = SERVER_ROOT.parent / "web" / "src" / "features" / "report" / "company-report.schema.json"
+SCHEMA = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
 TODAY = date(2026, 11, 26)
 
 

@@ -47,7 +47,9 @@ from stock_analyzer.ingest.vocab import (
 
 log = logging.getLogger(__name__)
 
-STRUCTURE_VERSION = "2"
+STRUCTURE_VERSION = "3"  # 3: page-head chapters (main) + company-name financials title, headless sections
+# a page head that names the company (up to five words) and then the financial statements of a year
+_COMPANY_FINANCIALS_TITLE = re.compile(r"^(?:\S+\s+){0,5}דוחות כספיים(?:\s+מאוחדים)?\s+לשנת\s*\d{4}$")
 
 NodeKind = Literal["chapter", "section", "subsection", "note", "auditor_report", "statement", "other"]
 
@@ -482,6 +484,8 @@ def find_chapters(
         if started:
             continue
         kind = chapter_title_prefix(page.head[0], threshold)
+        if kind is None and _COMPANY_FINANCIALS_TITLE.match(normalize_title(page.head[0])):
+            kind = "financials"  # Malam FY2023: "מלם תים בע"מ דוחות כספיים לשנת 2023", no ordinal
         if kind is not None and kind not in found:
             start(kind, page, None, page.head[0])
 
@@ -563,6 +567,25 @@ def _adjacent_number(body: list[Paragraph], p: Paragraph, level: int, last: tupl
     return None
 
 
+def _headless_section(
+    body: list[Paragraph], entry: TocEntry, cursor: tuple[int, int], last: tuple[int, ...], level: int
+) -> tuple[Paragraph, int, str, str] | None:
+    """A section whose heading line the Markdown lost, leaving only its subsections (Malam FY2023:
+    "13. הון חוזר" is gone but "13.1.היחס השוטף ..." follows section 12). The TOC gives the
+    number; the section starts at its first ``N.1`` subsection, if that is the next number."""
+    if level != 1 or not entry.number or not entry.number.isdigit():
+        return None
+    if int(entry.number) != (last[0] + 1 if last else 1):
+        return None
+    first_sub = re.compile(rf"^\.?{int(entry.number)}\.1\.?(?!\d)")
+    for p in body:
+        if p.seq < cursor[0] or (p.seq == cursor[0] and cursor[1] > 0):
+            continue
+        if first_sub.match(normalize_title(p.raw.split("\n", 1)[0])):
+            return p, 0, entry.number, "num"
+    return None
+
+
 def find_business_sections(
     paragraphs: list[Paragraph],
     toc: list[TocEntry],
@@ -625,6 +648,8 @@ def find_business_sections(
                 hit = (sub[0], sub[1] + e, sub[2] + e) if sub else None
             if found:
                 break
+        if not found:
+            found = _headless_section(body, entry, cursor, last, level)
         if not found:
             continue
         p, pos, number, kind = found
