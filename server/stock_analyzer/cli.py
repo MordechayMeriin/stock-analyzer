@@ -1,6 +1,6 @@
 """Command-line interface (typer). Thin adapter over ``services`` (design D4).
 
-Commands: fetch, usage, structure, parse-check, fin-raw, ratios, compare, story, osint, peer-financials, market-research,
+Commands: fetch, usage, structure, parse-check, fin-raw, ratios, compare, story, osint, peer-benchmark, peer-financials, market-research,
 companies list|add|remove, db init.
 """
 
@@ -31,6 +31,28 @@ def _fail(exc: Exception) -> None:
 
 
 ModeOpt = Annotated[str, typer.Option("--mode", help="cached (local data only) or live")]
+
+
+@app.command("peer-benchmark")
+def peer_benchmark_cmd(
+    ticker: str,
+    run: Annotated[bool, typer.Option("--run", help="Live: estimate credits for missing data")] = False,
+    confirm: Annotated[bool, typer.Option("--confirm", help="With --run: fetch after estimating")] = False,
+    max_fetch: Annotated[int, typer.Option(min=1, max=12, help="Most financials requests per run")] = 5,
+) -> None:
+    """Print ratios beside curated or same-ISIC peers per market (stored data unless --run)."""
+    from stock_analyzer.services import peer_benchmark as pb
+
+    try:
+        with closing(_ctx("live" if run else "cached")) as ctx:
+            if run:
+                result = pb.live_run(ctx, ticker, pb.PeerBenchmarkRunIn(confirm=confirm, max_fetch=max_fetch))
+            else:
+                result = pb.benchmark(ctx, ticker)
+    except (AnalyzerError, MissingCredential, ValueError) as exc:
+        _fail(exc)
+        return
+    typer.echo(result.model_dump_json(indent=2))
 
 
 @app.command("peer-financials")

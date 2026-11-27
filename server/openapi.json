@@ -182,6 +182,153 @@
         "title": "AreaAssessment",
         "type": "object"
       },
+      "BenchCompanyOut": {
+        "properties": {
+          "country": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Country"
+          },
+          "currency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Currency"
+          },
+          "fiscal_year": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fiscal Year"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "in_median": {
+            "default": false,
+            "title": "In Median",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "status": {
+            "default": "ok",
+            "enum": [
+              "ok",
+              "financials_not_cached",
+              "template_not_supported",
+              "other_template"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "template": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Template"
+          },
+          "ticker": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ticker"
+          },
+          "values": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "default": {},
+            "title": "Values",
+            "type": "object"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "BenchCompanyOut",
+        "type": "object"
+      },
+      "BenchRatioOut": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "direction": {
+            "enum": [
+              "higher",
+              "lower",
+              "neutral"
+            ],
+            "title": "Direction",
+            "type": "string"
+          },
+          "group": {
+            "title": "Group",
+            "type": "string"
+          },
+          "name_he": {
+            "title": "Name He",
+            "type": "string"
+          },
+          "unit": {
+            "enum": [
+              "percent",
+              "ratio",
+              "days"
+            ],
+            "title": "Unit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "name_he",
+          "group",
+          "unit",
+          "direction"
+        ],
+        "title": "BenchRatioOut",
+        "type": "object"
+      },
       "ChangeNote": {
         "properties": {
           "fact_ids": {
@@ -372,6 +519,68 @@
           "page_printed"
         ],
         "title": "Citation",
+        "type": "object"
+      },
+      "CohortOut": {
+        "properties": {
+          "countries": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Countries",
+            "type": "array"
+          },
+          "label_he": {
+            "title": "Label He",
+            "type": "string"
+          },
+          "market": {
+            "title": "Market",
+            "type": "string"
+          },
+          "medians": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/MedianOut"
+            },
+            "title": "Medians",
+            "type": "object"
+          },
+          "peers": {
+            "items": {
+              "$ref": "#/components/schemas/BenchCompanyOut"
+            },
+            "title": "Peers",
+            "type": "array"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "source": {
+            "enum": [
+              "curated",
+              "sub_industry"
+            ],
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "market",
+          "label_he",
+          "countries",
+          "source",
+          "peers",
+          "medians"
+        ],
+        "title": "CohortOut",
         "type": "object"
       },
       "CompanyOut": {
@@ -1447,6 +1656,31 @@
         "title": "ManagementClaim",
         "type": "object"
       },
+      "MedianOut": {
+        "properties": {
+          "n": {
+            "title": "N",
+            "type": "integer"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "required": [
+          "value",
+          "n"
+        ],
+        "title": "MedianOut",
+        "type": "object"
+      },
       "NodeOut": {
         "properties": {
           "chapter": {
@@ -1865,6 +2099,144 @@
           "in_table"
         ],
         "title": "ParagraphOut",
+        "type": "object"
+      },
+      "PeerBenchmarkOut": {
+        "properties": {
+          "cohorts": {
+            "items": {
+              "$ref": "#/components/schemas/CohortOut"
+            },
+            "title": "Cohorts",
+            "type": "array"
+          },
+          "company": {
+            "$ref": "#/components/schemas/BenchCompanyOut"
+          },
+          "match_parameter": {
+            "description": "curated: the company's hand-picked peer list; sub_industry: exact ISIC class match",
+            "enum": [
+              "curated",
+              "sub_industry"
+            ],
+            "title": "Match Parameter",
+            "type": "string"
+          },
+          "ratios": {
+            "items": {
+              "$ref": "#/components/schemas/BenchRatioOut"
+            },
+            "title": "Ratios",
+            "type": "array"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "sub_industry": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sub Industry"
+          },
+          "sub_industry_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sub Industry Label"
+          },
+          "ticker": {
+            "title": "Ticker",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ticker",
+          "match_parameter",
+          "company",
+          "ratios",
+          "cohorts"
+        ],
+        "title": "PeerBenchmarkOut",
+        "type": "object"
+      },
+      "PeerBenchmarkRunIn": {
+        "properties": {
+          "confirm": {
+            "default": false,
+            "title": "Confirm",
+            "type": "boolean"
+          },
+          "max_fetch": {
+            "default": 5,
+            "description": "Most financials requests (40 credits each) per run",
+            "maximum": 12.0,
+            "minimum": 1.0,
+            "title": "Max Fetch",
+            "type": "integer"
+          }
+        },
+        "title": "PeerBenchmarkRunIn",
+        "type": "object"
+      },
+      "PeerBenchmarkRunOut": {
+        "properties": {
+          "benchmark": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PeerBenchmarkOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "estimated_credits": {
+            "title": "Estimated Credits",
+            "type": "integer"
+          },
+          "fetched": {
+            "default": [],
+            "items": {
+              "type": "integer"
+            },
+            "title": "Fetched",
+            "type": "array"
+          },
+          "financials_requests": {
+            "description": "Peers whose financials are not stored",
+            "title": "Financials Requests",
+            "type": "integer"
+          },
+          "metadata_requests": {
+            "description": "Profile/directory requests still needed (1 credit each)",
+            "title": "Metadata Requests",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "financials_requests",
+          "metadata_requests",
+          "estimated_credits"
+        ],
+        "title": "PeerBenchmarkRunOut",
         "type": "object"
       },
       "PlaygroundDelta": {
@@ -4035,6 +4407,139 @@
         "summary": "Run fresh OSINT stability research (live mode, streamed)",
         "tags": [
           "osint"
+        ]
+      }
+    },
+    "/api/companies/{ticker}/peer-benchmark": {
+      "get": {
+        "description": "Peers come from the company's curated list, or else the exact ISIC sub-industry match per market (Israel, US, Europe). Peers without stored financials are listed as `financials_not_cached`. `not_cached` (409) when the company's financials, profile or peer directory are not stored.",
+        "operationId": "get_peer_benchmark_api_companies__ticker__peer_benchmark_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ticker",
+            "required": true,
+            "schema": {
+              "title": "Ticker",
+              "type": "string"
+            }
+          },
+          {
+            "description": "cached: local data only, no provider calls. live: fetch what is missing (if the server allows).",
+            "in": "query",
+            "name": "mode",
+            "required": false,
+            "schema": {
+              "default": "cached",
+              "description": "cached: local data only, no provider calls. live: fetch what is missing (if the server allows).",
+              "enum": [
+                "cached",
+                "live"
+              ],
+              "title": "Mode",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PeerBenchmarkOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Ratios beside listed peers and per-market medians (stored data only, never calls a provider)",
+        "tags": [
+          "companies"
+        ]
+      },
+      "post": {
+        "description": "Without `confirm` it only reports the requests and estimated credits (financials cost 40 each). With `confirm` it fetches up to `max_fetch` missing financials and returns the benchmark. Refused with `live_required` in cached mode or `live_disabled` on a cached-only server.",
+        "operationId": "run_peer_benchmark_api_companies__ticker__peer_benchmark_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ticker",
+            "required": true,
+            "schema": {
+              "title": "Ticker",
+              "type": "string"
+            }
+          },
+          {
+            "description": "cached: local data only, no provider calls. live: fetch what is missing (if the server allows).",
+            "in": "query",
+            "name": "mode",
+            "required": false,
+            "schema": {
+              "default": "cached",
+              "description": "cached: local data only, no provider calls. live: fetch what is missing (if the server allows).",
+              "enum": [
+                "cached",
+                "live"
+              ],
+              "title": "Mode",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/PeerBenchmarkRunIn"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PeerBenchmarkRunOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Estimate, then fetch, what the peer benchmark is missing (live mode)",
+        "tags": [
+          "companies"
         ]
       }
     },

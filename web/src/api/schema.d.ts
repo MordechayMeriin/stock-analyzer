@@ -138,6 +138,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/companies/{ticker}/peer-benchmark": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Ratios beside listed peers and per-market medians (stored data only, never calls a provider)
+         * @description Peers come from the company's curated list, or else the exact ISIC sub-industry match per market (Israel, US, Europe). Peers without stored financials are listed as `financials_not_cached`. `not_cached` (409) when the company's financials, profile or peer directory are not stored.
+         */
+        get: operations["get_peer_benchmark_api_companies__ticker__peer_benchmark_get"];
+        put?: never;
+        /**
+         * Estimate, then fetch, what the peer benchmark is missing (live mode)
+         * @description Without `confirm` it only reports the requests and estimated credits (financials cost 40 each). With `confirm` it fetches up to `max_fetch` missing financials and returns the benchmark. Refused with `live_required` in cached mode or `live_disabled` on a cached-only server.
+         */
+        post: operations["run_peer_benchmark_api_companies__ticker__peer_benchmark_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/companies/{ticker}/ratios": {
         parameters: {
             query?: never;
@@ -363,6 +387,60 @@ export interface components {
              */
             trend_reason: string;
         };
+        /** BenchCompanyOut */
+        BenchCompanyOut: {
+            /** Country */
+            country?: string | null;
+            /** Currency */
+            currency?: string | null;
+            /** Fiscal Year */
+            fiscal_year?: number | null;
+            /** Id */
+            id: number;
+            /**
+             * In Median
+             * @default false
+             */
+            in_median: boolean;
+            /** Name */
+            name: string;
+            /**
+             * Status
+             * @default ok
+             * @enum {string}
+             */
+            status: "ok" | "financials_not_cached" | "template_not_supported" | "other_template";
+            /** Template */
+            template?: string | null;
+            /** Ticker */
+            ticker?: string | null;
+            /**
+             * Values
+             * @default {}
+             */
+            values: {
+                [key: string]: string | null;
+            };
+        };
+        /** BenchRatioOut */
+        BenchRatioOut: {
+            /** Code */
+            code: string;
+            /**
+             * Direction
+             * @enum {string}
+             */
+            direction: "higher" | "lower" | "neutral";
+            /** Group */
+            group: string;
+            /** Name He */
+            name_he: string;
+            /**
+             * Unit
+             * @enum {string}
+             */
+            unit: "percent" | "ratio" | "days";
+        };
         /** ChangeNote */
         ChangeNote: {
             /** Fact Ids */
@@ -422,6 +500,28 @@ export interface components {
             page_printed: number | null;
             /** Paragraph Id */
             paragraph_id: string;
+        };
+        /** CohortOut */
+        CohortOut: {
+            /** Countries */
+            countries: string[];
+            /** Label He */
+            label_he: string;
+            /** Market */
+            market: string;
+            /** Medians */
+            medians: {
+                [key: string]: components["schemas"]["MedianOut"];
+            };
+            /** Peers */
+            peers: components["schemas"]["BenchCompanyOut"][];
+            /** Reason */
+            reason?: string | null;
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "curated" | "sub_industry";
         };
         /** CompanyOut */
         CompanyOut: {
@@ -799,6 +899,13 @@ export interface components {
             /** Topic */
             topic: string;
         };
+        /** MedianOut */
+        MedianOut: {
+            /** N */
+            n: number;
+            /** Value */
+            value: string | null;
+        };
         /** NodeOut */
         NodeOut: {
             /** Chapter */
@@ -931,6 +1038,63 @@ export interface components {
             seq: number;
             /** Text */
             text: string;
+        };
+        /** PeerBenchmarkOut */
+        PeerBenchmarkOut: {
+            /** Cohorts */
+            cohorts: components["schemas"]["CohortOut"][];
+            company: components["schemas"]["BenchCompanyOut"];
+            /**
+             * Match Parameter
+             * @description curated: the company's hand-picked peer list; sub_industry: exact ISIC class match
+             * @enum {string}
+             */
+            match_parameter: "curated" | "sub_industry";
+            /** Ratios */
+            ratios: components["schemas"]["BenchRatioOut"][];
+            /** Reason */
+            reason?: string | null;
+            /** Sub Industry */
+            sub_industry?: string | null;
+            /** Sub Industry Label */
+            sub_industry_label?: string | null;
+            /** Ticker */
+            ticker: string;
+        };
+        /** PeerBenchmarkRunIn */
+        PeerBenchmarkRunIn: {
+            /**
+             * Confirm
+             * @default false
+             */
+            confirm: boolean;
+            /**
+             * Max Fetch
+             * @description Most financials requests (40 credits each) per run
+             * @default 5
+             */
+            max_fetch: number;
+        };
+        /** PeerBenchmarkRunOut */
+        PeerBenchmarkRunOut: {
+            benchmark?: components["schemas"]["PeerBenchmarkOut"] | null;
+            /** Estimated Credits */
+            estimated_credits: number;
+            /**
+             * Fetched
+             * @default []
+             */
+            fetched: number[];
+            /**
+             * Financials Requests
+             * @description Peers whose financials are not stored
+             */
+            financials_requests: number;
+            /**
+             * Metadata Requests
+             * @description Profile/directory requests still needed (1 credit each)
+             */
+            metadata_requests: number;
         };
         /** PlaygroundDelta */
         PlaygroundDelta: {
@@ -1876,6 +2040,78 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["OsintEvents"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_peer_benchmark_api_companies__ticker__peer_benchmark_get: {
+        parameters: {
+            query?: {
+                /** @description cached: local data only, no provider calls. live: fetch what is missing (if the server allows). */
+                mode?: "cached" | "live";
+            };
+            header?: never;
+            path: {
+                ticker: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PeerBenchmarkOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    run_peer_benchmark_api_companies__ticker__peer_benchmark_post: {
+        parameters: {
+            query?: {
+                /** @description cached: local data only, no provider calls. live: fetch what is missing (if the server allows). */
+                mode?: "cached" | "live";
+            };
+            header?: never;
+            path: {
+                ticker: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PeerBenchmarkRunIn"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PeerBenchmarkRunOut"];
                 };
             };
             /** @description Validation Error */
