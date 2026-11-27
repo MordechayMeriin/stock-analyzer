@@ -139,7 +139,9 @@ def check_scorecard(
             )
         )
     if not drivers and profile:  # the model named no drivers: list the profile's, without evidence
-        drivers = [KeyDriver(driver=n, status="unknown", explanation="", finding_ids=[]) for n in profile.key_drivers]
+        drivers = [
+            KeyDriver(driver=n, status="unknown", explanation="", finding_ids=[]) for n in profile.key_drivers
+        ]
 
     return Scorecard(
         overall_label=card.overall_label,
