@@ -34,7 +34,7 @@ class AnnualStatements(TypedDict):
     available_at: dict[str, str | None]
 
 
-def _issuer_financials(ctx: Ctx, company_id: int, as_of: date | None) -> CompanyFinancials:
+def issuer_financials(ctx: Ctx, company_id: int, as_of: date | None) -> CompanyFinancials:
     data = ctx.fr.get_financials(company_id)
     values = normalize_financials(data)
     return CompanyFinancials(financials_template(data), filter_as_of(values, as_of) if as_of else values)
@@ -42,7 +42,7 @@ def _issuer_financials(ctx: Ctx, company_id: int, as_of: date | None) -> Company
 
 def company_financials(ctx: Ctx, ticker: str, *, as_of: date | None = None) -> CompanyFinancials:
     """A company's normalized values (filtered to ``as_of``) and its provider template."""
-    return _issuer_financials(ctx, resolve_company(ctx, ticker).fr_company_id, as_of)
+    return issuer_financials(ctx, resolve_company(ctx, ticker).fr_company_id, as_of)
 
 
 def fin_values(ctx: Ctx, ticker: str, *, as_of: date | None = None) -> list[FinValue]:
@@ -60,7 +60,7 @@ def financials(
 def annual_statements(
     ctx: Ctx, company_id: int, *, as_of: date | None = None, max_years: int | None = None
 ) -> AnnualStatements:
-    values = _issuer_financials(ctx, company_id, as_of).values
+    values = issuer_financials(ctx, company_id, as_of).values
     currency = check_currency(values)
     limit = max_years or ctx.settings.fin_max_years
     years = sorted({v.fiscal_year for v in values}, reverse=True)[:limit]
