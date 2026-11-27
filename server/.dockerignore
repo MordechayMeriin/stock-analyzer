@@ -6,6 +6,7 @@
 data/*
 !data/companies.yaml
 !data/osint_blocklist.yaml
+!data/tase_names_he.csv
 tests
 docs
 scripts
