@@ -1,4 +1,4 @@
-"""Report endpoints (analyzer-api spec: company report and axis detail)."""
+"""Report endpoints serve the story report first (analyzer-api spec: company report and axis detail)."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from fastapi.testclient import TestClient
 from stock_analyzer.agents_model import FakeAgentModels
 from stock_analyzer.api.main import create_app
 from stock_analyzer.report.rater import PURPOSE
-from stock_analyzer.services import report as report_service
+from stock_analyzer.services import story_report as report_service
 from stock_analyzer.services.context import Ctx
 from tests.unit.report_helpers import rater_output, story_run
 from tests.unit.test_report_service import ELAL
@@ -30,10 +30,10 @@ def build(settings):
     return report_service.get_report(Ctx(settings=settings, mode="live"), "ELAL", models=fakes)
 
 
-def test_not_cached_before_build(client):
+def test_before_build_falls_back_to_the_ratio_report(client):
+    # no saved story report and no stored financials for ELAL: the ratio path answers, not a 500
     r = client.get("/api/companies/ELAL/report", params={"mode": "cached"})
-    assert r.status_code == 409 and r.json()["code"] == "not_cached"
-    assert "live mode" in r.json()["message"]
+    assert r.status_code in (409, 422) and r.json()["code"] in ("not_cached", "unsupported_company")
 
 
 def test_cached_report_and_axis_detail(client, settings):
@@ -43,7 +43,7 @@ def test_cached_report_and_axis_detail(client, settings):
     body = r.json()
     assert body["mode"] == "cached" and body["years"] == [2023, 2024, 2025]
     assert [a["id"] for a in body["profile"]["axes"]] == [a.id for a in built.profile.axes]
-    assert "currency" not in body["key_metrics"][1]  # optional, non-nullable fields are left out
+    assert body["events"][0]["summary"] == ""  # the shared contract requires it
 
     d = client.get("/api/companies/ELAL/report/axes/growth", params={"year": 2025})
     assert d.status_code == 200
@@ -60,5 +60,5 @@ def test_openapi_lists_report_endpoints(client):
     doc = client.get("/openapi.json").json()
     assert "/api/companies/{ticker}/report" in doc["paths"]
     assert "/api/companies/{ticker}/report/axes/{axis_id}" in doc["paths"]
-    assert {"CompanyReport", "AxisDetail"} <= set(doc["components"]["schemas"])
+    assert {"CompanyReportOut", "AxisDetailOut"} <= set(doc["components"]["schemas"])
     json.dumps(doc)

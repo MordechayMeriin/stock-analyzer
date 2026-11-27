@@ -1,4 +1,4 @@
-"""The report service: cached reads, live builds, one repair, and saving per story run."""
+"""The story report service: cached reads, live builds, one repair, saving per story run, story first."""
 
 from __future__ import annotations
 
@@ -8,7 +8,8 @@ from stock_analyzer.agents_model import FakeAgentModels
 from stock_analyzer.companies import TrackedCompany
 from stock_analyzer.errors import AxisNotFound, NotCached, ReportVerificationFailed
 from stock_analyzer.report.rater import PURPOSE
-from stock_analyzer.services import report as report_service
+from stock_analyzer.services import report as company_report_service
+from stock_analyzer.services import story_report as report_service
 from stock_analyzer.services.context import Ctx
 from tests.unit.report_helpers import rater_output, story_run
 
@@ -100,3 +101,35 @@ def test_axis_detail(seeded):
         report_service.get_axis_detail(cached(seeded), "ELAL", "valuation", 2025)
     with pytest.raises(AxisNotFound):
         report_service.get_axis_detail(cached(seeded), "ELAL", "growth", 2019)
+
+
+def test_company_report_serves_the_story_report_first(seeded):
+    fakes = FakeAgentModels(settings=seeded, script={PURPOSE: [rater_output()]})
+    report_service.get_report(live(seeded), "ELAL", models=fakes)
+    out = company_report_service.company_report(cached(seeded), "ELAL")
+    assert [a.id for a in out.profile.axes] == [
+        "stability",
+        "safety",
+        "revenue_quality",
+        "growth",
+        "profitability",
+    ]
+    assert out.events[0].tone == "negative" and out.events[0].summary == ""
+    growth = next(a for a in out.profile.axes if a.id == "growth")
+    assert growth.scores[2].trend.delta == -6
+    detail = company_report_service.axis_detail(cached(seeded), "ELAL", "profitability", None)
+    assert detail.fiscal_year == 2025 and detail.factors[0].display == "15.84%"
+    with pytest.raises(AxisNotFound):
+        company_report_service.axis_detail(cached(seeded), "ELAL", "valuation", 2025)
+
+
+def test_company_report_falls_back_to_ratios_without_a_story_report(seeded, monkeypatch):
+    calls = []
+    monkeypatch.setattr(
+        company_report_service,
+        "analyze",
+        lambda ctx, t: calls.append(t) or (_ for _ in ()).throw(NotCached("ratios")),
+    )
+    with pytest.raises(NotCached, match="ratios"):
+        company_report_service.company_report(cached(seeded), "ELAL")
+    assert calls == ["ELAL"]  # no saved story report in cached mode: the ratio path ran

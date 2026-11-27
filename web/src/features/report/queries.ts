@@ -8,17 +8,14 @@ import fullFixture from './fixtures/mltm.full.json'
 import sparseFixture from './fixtures/mltm.sparse.json'
 import type { AxisDetail, CompanyReport } from './types'
 
-/** Reports served until the server endpoint exists, keyed by ticker. */
+/** Offline fallbacks, keyed by ticker: served when the server is unreachable (and in tests). */
 const FIXTURES: Record<string, CompanyReport> = {
   MLTM: fullFixture as CompanyReport,
   // Dev ticker for the edge-case fixture (missing axis data, stale report, no events).
   SPARSE: sparseFixture as CompanyReport,
 }
 
-/** Whether a report is known to exist without asking the server (a dev fixture). */
-export function hasReport(ticker: string): boolean {
-  return ticker.toUpperCase() in FIXTURES
-}
+const isOffline = (e: unknown) => e instanceof ApiError && e.code === 'network_error'
 
 /** The fixture tickers with their company, for search when the server is unreachable. */
 export const FIXTURE_COMPANIES = Object.entries(FIXTURES).map(([ticker, r]) => ({
@@ -45,22 +42,26 @@ function wait(ms: number, signal?: AbortSignal): Promise<void> {
 }
 
 /**
- * The one place the report is loaded. MLTM and SPARSE are dev fixtures; every other ticker comes
- * from `GET /api/companies/{ticker}/report?mode=` (409 `not_cached` until it is built in live mode).
+ * The one place the report is loaded: `GET /api/companies/{ticker}/report?mode=`. SPARSE is a
+ * dev-only fixture; MLTM falls back to its fixture when the server is unreachable (demo offline).
  */
 export async function fetchReport(ticker: string, mode: Mode, signal?: AbortSignal): Promise<CompanyReport> {
-  const fixture = FIXTURES[ticker.toUpperCase()]
-  if (fixture) {
-    await wait(FIXTURE_DELAY_MS, signal)
-    return fixture
+  const key = ticker.toUpperCase()
+  if (key === 'SPARSE') return fixtureReport(key, signal)
+  try {
+    // No cast: tsc fails here if the server's generated type stops matching what the screen reads.
+    return await api.report(key, mode, signal)
+  } catch (e) {
+    if (isOffline(e) && key in FIXTURES) return fixtureReport(key, signal)
+    throw e
   }
-  // the server's models mirror types.ts; optional fields it cannot fill are left out, never null
-  return (await api.report(ticker, mode, signal)) as unknown as CompanyReport
 }
 
-/** Whether an error means "no report built yet" (so the page can offer to build it). */
-export function isNotCached(error: unknown): boolean {
-  return error instanceof ApiError && error.code === 'not_cached'
+async function fixtureReport(key: string, signal?: AbortSignal): Promise<CompanyReport> {
+  await wait(FIXTURE_DELAY_MS, signal)
+  const report = FIXTURES[key]
+  if (!report) throw new ApiError('not_found', `לא מצאנו את הטיקר ${key}`, 404)
+  return report
 }
 
 export const reportQueryKey = (ticker: string, mode: Mode) => ['report', ticker.toUpperCase(), mode] as const
@@ -72,32 +73,32 @@ export function useReport(ticker: string) {
     queryKey: reportQueryKey(ticker, mode),
     queryFn: ({ signal }) => fetchReport(ticker, mode, signal),
     staleTime: 5 * 60_000,
-    retry: (count, error) =>
-      !(error instanceof ApiError && (error.status === 404 || error.code === 'not_cached')) && count < 2,
+    retry: (count, error) => !(error instanceof ApiError && error.status === 404) && count < 2,
   })
 }
 
 /** Axis breakdowns served from fixtures, keyed `axisId:year`. */
 const AXIS_DETAILS = axisDetails as Record<string, AxisDetail>
 
-/**
- * The one place an axis breakdown is loaded (`GET .../report/axes/{axisId}?year=`): fixtures for
- * MLTM, the server for every other non-fixture ticker.
- */
+/** The one place an axis breakdown is loaded (`GET .../report/axes/{axisId}?year=`), same fallback rules. */
 export async function fetchAxisDetail(
   ticker: string,
   axisId: string,
   year: number,
   signal?: AbortSignal,
 ): Promise<AxisDetail> {
-  const upper = ticker.toUpperCase()
-  if (upper in FIXTURES) {
-    await wait(FIXTURE_DELAY_MS, signal)
-    const detail = upper === 'MLTM' ? AXIS_DETAILS[`${axisId}:${year}`] : undefined
-    if (!detail) throw new ApiError('not_found', 'הפירוט אינו זמין לשנה זו', 404)
-    return detail
+  const key = ticker.toUpperCase()
+  if (key !== 'SPARSE') {
+    try {
+      return await api.axisDetail(key, axisId, year, signal)
+    } catch (e) {
+      if (!isOffline(e)) throw e
+    }
   }
-  return (await api.reportAxis(ticker, axisId, year, signal)) as unknown as AxisDetail
+  await wait(FIXTURE_DELAY_MS, signal)
+  const detail = key === 'MLTM' ? AXIS_DETAILS[`${axisId}:${year}`] : undefined
+  if (!detail) throw new ApiError('not_found', 'הפירוט אינו זמין לשנה זו', 404)
+  return detail
 }
 
 /** One axis's breakdown for one year. Loads only when `enabled` (the row is open), then is cached. */

@@ -186,8 +186,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** The company report (cached: the saved one; live: build it from the latest story when missing) */
-        get: operations["get_report_api_companies__ticker__report_get"];
+        /**
+         * Company report: 1-10 scores per axis for the newest three years, key numbers and events
+         * @description Computed from stored data only (no provider or LLM call). Scores map ratios linearly between fixed bad/good anchors; `unsupported_company` (422) when fewer than three axes have a value.
+         */
+        get: operations["get_company_report_api_companies__ticker__report_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -203,8 +206,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** One axis's breakdown for a fiscal year, from the saved report */
-        get: operations["get_axis_detail_api_companies__ticker__report_axes__axis_id__get"];
+        /**
+         * Why one report axis scored as it did in a year
+         * @description `axis_not_found` / `year_not_found` (404) for an axis or year the report does not have.
+         */
+        get: operations["get_report_axis_api_companies__ticker__report_axes__axis_id__get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -302,6 +308,26 @@ export interface paths {
         put?: never;
         /** Ask the main LLM about a report section (streamed) */
         post: operations["ask_api_playground_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/tickers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Ticker autocomplete (free, cached-only)
+         * @description Searches the stored directory of TASE-listed companies plus the tracked companies. Free: it reads stored data only and never calls the provider, even with `mode=live`, so the client may call it on every keystroke. Without a stored directory only tracked companies are found (`directory.source` is `tracked_only`). The directory is filled by `stock-analyzer companies directory --refresh` (CLI, spends credits).
+         */
+        get: operations["search_tickers_api_tickers_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -421,28 +447,12 @@ export interface components {
              */
             trend_reason: string;
         };
-        /** Axis */
-        Axis: {
-            /** Detail Url */
-            detail_url?: string | null;
-            /** Id */
-            id: string;
-            /** Label */
-            label: string;
-            /** Scores */
-            scores: components["schemas"]["Score"][];
-            /**
-             * Status
-             * @enum {string}
-             */
-            status: "ok" | "insufficient_data";
-        };
-        /** AxisDetail */
-        AxisDetail: {
+        /** AxisDetailOut */
+        AxisDetailOut: {
             /** Axis Id */
             axis_id: string;
             /** Factors */
-            factors: components["schemas"]["Factor"][];
+            factors: components["schemas"]["AxisFactor"][];
             /** Fiscal Year */
             fiscal_year: number;
             /** Headline */
@@ -450,6 +460,32 @@ export interface components {
             sector_comparison?: components["schemas"]["SectorComparison"] | null;
             /** Text */
             text: string;
+        };
+        /** AxisFactor */
+        AxisFactor: {
+            /** Display */
+            display: string;
+            /** Label */
+            label: string;
+            /**
+             * Tone
+             * @enum {string}
+             */
+            tone: "positive" | "negative" | "neutral";
+        };
+        /** AxisScore */
+        AxisScore: {
+            driver?: components["schemas"]["ScoreDriver"] | null;
+            /** Fiscal Year */
+            fiscal_year: number;
+            /** Sector Median */
+            sector_median?: number | null;
+            trend?: components["schemas"]["ScoreTrend"] | null;
+            /**
+             * Value
+             * @description 1-10, higher is better; null when no ratio has a value
+             */
+            value: number | null;
         };
         /** BenchCompanyOut */
         BenchCompanyOut: {
@@ -587,22 +623,6 @@ export interface components {
              */
             source: "curated" | "sub_industry";
         };
-        /** Company */
-        Company: {
-            /** Currency */
-            currency: string;
-            /** Exchange */
-            exchange?: string | null;
-            /** Logo Url */
-            logo_url?: string | null;
-            /** Name En */
-            name_en?: string | null;
-            /** Name He */
-            name_he: string;
-            sector: components["schemas"]["Sector"];
-            /** Ticker */
-            ticker: string;
-        };
         /** CompanyOut */
         CompanyOut: {
             /** Fr Company Id */
@@ -622,9 +642,9 @@ export interface components {
             /** Ticker */
             ticker: string;
         };
-        /** CompanyReport */
-        CompanyReport: {
-            company: components["schemas"]["Company"];
+        /** CompanyReportOut */
+        CompanyReportOut: {
+            company: components["schemas"]["ReportCompany"];
             /** Events */
             events: components["schemas"]["ReportEvent"][];
             /** Generated At */
@@ -636,14 +656,20 @@ export interface components {
              * @enum {string}
              */
             mode: "cached" | "live";
-            profile: components["schemas"]["Profile"];
+            profile: components["schemas"]["ReportProfile"];
             report: components["schemas"]["ReportInfo"];
-            /** Schema Version */
+            /**
+             * Schema Version
+             * @default 1.0
+             */
             schema_version: string;
-            summary?: components["schemas"]["Summary"] | null;
+            summary: components["schemas"]["ReportSummary"];
             /** Warnings */
-            warnings?: components["schemas"]["ReportWarning"][] | null;
-            /** Years */
+            warnings: components["schemas"]["ReportWarning"][];
+            /**
+             * Years
+             * @description Up to three fiscal years, oldest first
+             */
             years: number[];
         };
         /** CompanySearchHit */
@@ -709,16 +735,6 @@ export interface components {
             /** Subsections */
             subsections: number;
         };
-        /** Driver */
-        Driver: {
-            /** Label */
-            label: string;
-            /**
-             * Tone
-             * @enum {string}
-             */
-            tone: "positive" | "negative" | "neutral";
-        };
         /** ErrorOut */
         ErrorOut: {
             /** Code */
@@ -778,18 +794,6 @@ export interface components {
             value: string | null;
             /** Years */
             years: number[];
-        };
-        /** Factor */
-        Factor: {
-            /** Display */
-            display: string;
-            /** Label */
-            label: string;
-            /**
-             * Tone
-             * @enum {string}
-             */
-            tone: "positive" | "negative" | "neutral";
         };
         /** FilingOut */
         FilingOut: {
@@ -1077,7 +1081,10 @@ export interface components {
         MetricPoint: {
             /** Fiscal Year */
             fiscal_year: number;
-            /** Value */
+            /**
+             * Value
+             * @description Decimal string
+             */
             value: string | null;
         };
         /** NodeOut */
@@ -1353,10 +1360,21 @@ export interface components {
              */
             text: string;
         };
-        /** Profile */
-        Profile: {
-            /** Axes */
-            axes: components["schemas"]["Axis"][];
+        /** ProfileAxis */
+        ProfileAxis: {
+            /** Detail Url */
+            detail_url: string;
+            /** Id */
+            id: string;
+            /** Label */
+            label: string;
+            /** Scores */
+            scores: components["schemas"]["AxisScore"][];
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "ok" | "insufficient_data";
         };
         /** ProfileItem */
         ProfileItem: {
@@ -1518,6 +1536,22 @@ export interface components {
             /** What It Does */
             what_it_does: components["schemas"]["RenderedParagraph"][];
         };
+        /** ReportCompany */
+        ReportCompany: {
+            /** Currency */
+            currency: string;
+            /** Exchange */
+            exchange: string;
+            /** Logo Url */
+            logo_url?: string | null;
+            /** Name En */
+            name_en?: string | null;
+            /** Name He */
+            name_he: string;
+            sector: components["schemas"]["ReportSector"];
+            /** Ticker */
+            ticker: string;
+        };
         /** ReportEvent */
         ReportEvent: {
             /** Date */
@@ -1531,17 +1565,21 @@ export interface components {
             id: string;
             /**
              * Importance
+             * @description 1-3; the screen shows 2 and up by default
              * @enum {integer}
              */
             importance: 1 | 2 | 3;
             /** Source Url */
             source_url?: string | null;
             /** Summary */
-            summary?: string | null;
+            summary: string;
             /** Title */
             title: string;
-            /** Tone */
-            tone?: ("positive" | "negative" | "neutral") | null;
+            /**
+             * Tone
+             * @enum {string}
+             */
+            tone: "positive" | "negative" | "neutral";
             /**
              * Type
              * @enum {string}
@@ -1562,6 +1600,26 @@ export interface components {
              * @constant
              */
             type: "annual";
+        };
+        /** ReportProfile */
+        ReportProfile: {
+            /** Axes */
+            axes: components["schemas"]["ProfileAxis"][];
+        };
+        /** ReportSector */
+        ReportSector: {
+            /**
+             * Id
+             * @description The statement template: industrial, bank or insurer
+             */
+            id: string;
+            /** Name */
+            name: string;
+        };
+        /** ReportSummary */
+        ReportSummary: {
+            /** Text */
+            text: string;
         };
         /** ReportWarning */
         ReportWarning: {
@@ -1615,16 +1673,30 @@ export interface components {
              */
             window_start: string;
         };
-        /** Score */
-        Score: {
-            driver?: components["schemas"]["Driver"] | null;
-            /** Fiscal Year */
-            fiscal_year: number;
-            /** Sector Median */
-            sector_median?: number | null;
-            trend?: components["schemas"]["Trend"] | null;
-            /** Value */
-            value: number | null;
+        /** ScoreDriver */
+        ScoreDriver: {
+            /** Label */
+            label: string;
+            /**
+             * Tone
+             * @enum {string}
+             */
+            tone: "positive" | "negative" | "neutral";
+        };
+        /** ScoreTrend */
+        ScoreTrend: {
+            /** Delta */
+            delta: number;
+            /**
+             * Direction
+             * @enum {string}
+             */
+            direction: "up" | "down" | "flat";
+            /**
+             * Tone
+             * @enum {string}
+             */
+            tone: "positive" | "negative" | "neutral";
         };
         /** Scorecard */
         Scorecard: {
@@ -1670,13 +1742,6 @@ export interface components {
              * @description Hebrew summary of the company's stability, one paragraph.
              */
             summary_he: string;
-        };
-        /** Sector */
-        Sector: {
-            /** Id */
-            id: string;
-            /** Name */
-            name: string;
         };
         /** SectorComparison */
         SectorComparison: {
@@ -1921,10 +1986,41 @@ export interface components {
             /** Warnings */
             warnings: string[];
         };
-        /** Summary */
-        Summary: {
-            /** Text */
-            text: string;
+        /** TickerDirectoryInfo */
+        TickerDirectoryInfo: {
+            /** Fetched At */
+            fetched_at?: string | null;
+            /** Size */
+            size: number;
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "directory" | "tracked_only";
+        };
+        /** TickerHit */
+        TickerHit: {
+            /** Fr Company Id */
+            fr_company_id?: number | null;
+            /** Isin */
+            isin?: string | null;
+            /** Name En */
+            name_en?: string | null;
+            /** Name He */
+            name_he: string;
+            /** Ticker */
+            ticker: string;
+            /**
+             * Tracked
+             * @default false
+             */
+            tracked: boolean;
+        };
+        /** TickerSearchOut */
+        TickerSearchOut: {
+            directory: components["schemas"]["TickerDirectoryInfo"];
+            /** Results */
+            results: components["schemas"]["TickerHit"][];
         };
         /** TocEntryOut */
         TocEntryOut: {
@@ -1934,21 +2030,6 @@ export interface components {
             number: string | null;
             /** Title */
             title: string;
-        };
-        /** Trend */
-        Trend: {
-            /** Delta */
-            delta?: number | null;
-            /**
-             * Direction
-             * @enum {string}
-             */
-            direction: "up" | "down" | "flat";
-            /**
-             * Tone
-             * @enum {string}
-             */
-            tone: "positive" | "negative" | "neutral";
         };
         /** UnchangedSection */
         UnchangedSection: {
@@ -2550,7 +2631,7 @@ export interface operations {
             };
         };
     };
-    get_report_api_companies__ticker__report_get: {
+    get_company_report_api_companies__ticker__report_get: {
         parameters: {
             query?: {
                 /** @description cached: local data only, no provider calls. live: fetch what is missing (if the server allows). */
@@ -2570,7 +2651,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["CompanyReport"];
+                    "application/json": components["schemas"]["CompanyReportOut"];
                 };
             };
             /** @description Validation Error */
@@ -2584,10 +2665,11 @@ export interface operations {
             };
         };
     };
-    get_axis_detail_api_companies__ticker__report_axes__axis_id__get: {
+    get_report_axis_api_companies__ticker__report_axes__axis_id__get: {
         parameters: {
-            query: {
-                year: number;
+            query?: {
+                /** @description Fiscal year; the newest when omitted */
+                year?: number | null;
                 /** @description cached: local data only, no provider calls. live: fetch what is missing (if the server allows). */
                 mode?: "cached" | "live";
             };
@@ -2606,7 +2688,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AxisDetail"];
+                    "application/json": components["schemas"]["AxisDetailOut"];
                 };
             };
             /** @description Validation Error */
@@ -2816,6 +2898,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PlaygroundEvents"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    search_tickers_api_tickers_get: {
+        parameters: {
+            query: {
+                /** @description Ticker or name text */
+                q: string;
+                limit?: number;
+                /** @description cached: local data only, no provider calls. live: fetch what is missing (if the server allows). */
+                mode?: "cached" | "live";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TickerSearchOut"];
                 };
             };
             /** @description Validation Error */

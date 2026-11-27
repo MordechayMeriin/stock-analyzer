@@ -17,7 +17,7 @@ The system SHALL build a company's report from its latest saved story run. It SH
 
 #### Scenario: No story run
 - **WHEN** a report is requested for a ticker with no saved story run
-- **THEN** the request fails as not cached, and the message says to generate the story first
+- **THEN** no story report is built, and the report API falls back to the ratio-scored report
 
 ### Requirement: Five story-based axes
 The profile SHALL have exactly these axes, in this order: `stability`, `safety`, `revenue_quality`, `growth`, `profitability`. Their Hebrew labels SHALL be יציבות, ביטחון, איכות הכנסות, צמיחה and רווחיות. `safety` SHALL mean the opposite of risk. A higher score SHALL always be better.

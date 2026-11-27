@@ -8,25 +8,21 @@ import { KeyMetrics } from './components/KeyMetrics'
 import { ReportPage } from './ReportPage'
 import type { KeyMetric } from './types'
 
-const setMode = vi.fn()
-vi.mock('@/app/mode', () => ({ useMode: () => ({ mode: 'cached', setMode, liveAllowed: true }) }))
+vi.mock('@/app/mode', () => ({ useMode: () => ({ mode: 'cached' }) }))
 
-// Non-fixture tickers load from the API: NOPE is unknown, ELAL has no report built yet.
-vi.mock('@/api/client', async (importOriginal) => {
-  const mod = await importOriginal<typeof import('@/api/client')>()
-  return {
-    ...mod,
-    api: {
-      ...mod.api,
-      report: vi.fn(async (ticker: string) => {
-        if (ticker === 'ELAL') throw new mod.ApiError('not_cached', 'no report built yet', 409)
-        throw new mod.ApiError('company_not_found', 'unknown ticker', 404)
-      }),
-    },
-  }
+/** The server answers 404 for NOPE; anything else is "offline", so the fixtures are served. */
+function stubServer() {
+  vi.stubGlobal('fetch', async (input: RequestInfo | URL) =>
+    String(input).includes('/NOPE/')
+      ? new Response(JSON.stringify({ code: 'not_found', message: 'unknown ticker' }), { status: 404 })
+      : Promise.reject(new TypeError('offline')),
+  )
+}
+
+afterEach(() => {
+  cleanup()
+  vi.unstubAllGlobals()
 })
-
-afterEach(cleanup)
 
 function renderAt(path: string) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
@@ -85,27 +81,22 @@ describe('ReportPage with MLTM', () => {
 })
 
 describe('ReportPage edge states', () => {
-  it('SPARSE: no radar, no-data row, no events, stale line', async () => {
+  it('SPARSE: no radar, no-data row, an empty events note, stale line', async () => {
     renderAt('/c/SPARSE')
     await screen.findByRole('heading', { name: 'מלם תים' })
     expect(screen.queryByRole('img')).toBeNull()
     expect(screen.getByText('אין מספיק נתונים')).toBeTruthy()
-    expect(screen.queryByRole('heading', { name: 'אירועים' })).toBeNull()
+    expect(screen.getByRole('heading', { name: /אירועים/ })).toBeTruthy()
+    expect(screen.getByTestId('events-empty').textContent).toContain('עדיין לא נאספו אירועים')
     expect(screen.getByText(/נכון ל-/)).toBeTruthy()
     expect(within(screen.getByText('חוב נטו').closest('li')!).queryByTestId('metric-change')).toBeNull()
   })
 
   it('unknown ticker: not found message with a link back', async () => {
+    stubServer()
     renderAt('/c/NOPE')
     expect(await screen.findByText('לא מצאנו את הטיקר')).toBeTruthy()
     expect(screen.getByText('נתח מניה חדשה')).toBeTruthy()
-  })
-
-  it('report not built yet: says so and offers to build it in live mode', async () => {
-    renderAt('/c/ELAL')
-    expect(await screen.findByText('עוד לא נבנה דוח לחברה הזו')).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: 'בנו את הדוח' }))
-    expect(setMode).toHaveBeenCalledWith('live')
   })
 })
 
@@ -121,5 +112,21 @@ describe('KeyMetrics', () => {
     }
     render(<KeyMetrics metrics={[m]} />)
     expect(screen.getByText('—')).toBeTruthy()
+  })
+})
+
+describe('multi-year view', () => {
+  it('?y=all selects the "3 שנים" tab and plays the years from the oldest', async () => {
+    renderAt('/c/MLTM?y=all')
+    expect((await screen.findByRole('tab', { name: '3 שנים' })).getAttribute('aria-selected')).toBe('true')
+    expect(screen.getByTestId('rotating-radar')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'הצגת 2023' }).getAttribute('aria-pressed')).toBe('true')
+    expect(screen.getByRole('img').getAttribute('aria-label')).toContain('צמיחה 5 מתוך 10')
+  })
+
+  it('clicking a year tab leaves the multi-year view', async () => {
+    renderAt('/c/MLTM?y=all')
+    fireEvent.click(await screen.findByRole('tab', { name: '2024' }))
+    expect(screen.queryByTestId('rotating-radar')).toBeNull()
   })
 })

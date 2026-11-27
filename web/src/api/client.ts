@@ -45,8 +45,10 @@ export type OsintArea = Schemas['AreaAssessment']['area']
 export type OsintTrend = Schemas['AreaAssessment']['trend']
 export type OsintImportance = Schemas['AreaAssessment']['importance']
 export type OsintDriver = Schemas['KeyDriver']
-export type CompanyReportOut = Schemas['CompanyReport']
-export type AxisDetailOut = Schemas['AxisDetail']
+export type CompanyReportOut = Schemas['CompanyReportOut']
+export type TickerSearch = Schemas['TickerSearchOut']
+export type TickerHit = Schemas['TickerHit']
+export type AxisDetailOut = Schemas['AxisDetailOut']
 
 /** An API failure carrying the server's machine-readable code. */
 export class ApiError extends Error {
@@ -113,6 +115,9 @@ const enc = encodeURIComponent
 export const api = {
   health: (signal?: AbortSignal) => get<Health>('/health', undefined, signal),
   companies: (mode: Mode, signal?: AbortSignal) => get<Company[]>('/api/companies', { mode }, signal),
+  /** Autocomplete over every TASE company in the server's stored directory. Free: no provider call. */
+  tickers: (q: string, mode: Mode, limit?: number, signal?: AbortSignal) =>
+    get<TickerSearch>('/api/tickers', { q, mode, limit }, signal),
   searchCompanies: (q: string, mode: Mode, signal?: AbortSignal) =>
     get<CompanySearchHit[]>('/api/companies/search', { q, mode }, signal),
   /** Start tracking a company. Live mode only (the server refuses it in cached mode). */
@@ -125,6 +130,11 @@ export const api = {
     get<Filings>(`/api/companies/${enc(ticker)}/filings`, { mode }, signal),
   financials: (ticker: string, mode: Mode, asOf?: string, signal?: AbortSignal) =>
     get<Financials>(`/api/companies/${enc(ticker)}/financials`, { mode, as_of: asOf }, signal),
+  /** The company report (all years, scored axes, events, key metrics). Never spends credits. */
+  report: (ticker: string, mode: Mode, signal?: AbortSignal) =>
+    get<CompanyReportOut>(`/api/companies/${enc(ticker)}/report`, { mode }, signal),
+  axisDetail: (ticker: string, axisId: string, year: number, signal?: AbortSignal) =>
+    get<AxisDetailOut>(`/api/companies/${enc(ticker)}/report/axes/${enc(axisId)}`, { year }, signal),
   ratios: (ticker: string, mode: Mode, asOf?: string, signal?: AbortSignal) =>
     get<Ratios>(`/api/companies/${enc(ticker)}/ratios`, { mode, as_of: asOf }, signal),
   /** Ratios beside curated or same-ISIC peers per market. Stored data only, in either mode. */
@@ -142,12 +152,6 @@ export const api = {
   usage: (mode: Mode, signal?: AbortSignal) => get<Usage>('/api/usage', { mode }, signal),
   story: (ticker: string, mode: Mode, signal?: AbortSignal) =>
     get<StoryRun>(`/api/companies/${enc(ticker)}/story`, { mode }, signal),
-  /** The five-axis company report. Cached: the saved one (409 not_cached if none); live: built when missing. */
-  report: (ticker: string, mode: Mode, signal?: AbortSignal) =>
-    get<CompanyReportOut>(`/api/companies/${enc(ticker)}/report`, { mode }, signal),
-  /** One axis's breakdown for a year, from the saved report. */
-  reportAxis: (ticker: string, axisId: string, year: number, signal?: AbortSignal) =>
-    get<AxisDetailOut>(`/api/companies/${enc(ticker)}/report/axes/${enc(axisId)}`, { year }, signal),
   /** Latest stored OSINT scorecard. Never searches, in either mode; 409 not_cached when never researched. */
   osint: (ticker: string, months: number, mode: Mode, signal?: AbortSignal) =>
     get<OsintResult>(`/api/companies/${enc(ticker)}/osint`, { mode, months }, signal),

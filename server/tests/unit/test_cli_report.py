@@ -30,10 +30,10 @@ def env(tmp_path, monkeypatch):
     return settings
 
 
-def test_cached_without_report_fails_with_hint(env):
+def test_cached_without_any_report_fails(env):
+    # no story report and no stored financials: the ratio fallback has nothing to score
     result = CliRunner().invoke(app, ["report", "ELAL"])
     assert result.exit_code != 0
-    assert "not_cached" in result.output and "--live" in result.output
 
 
 def test_live_builds_then_cached_prints_the_same_report(env):
@@ -44,5 +44,5 @@ def test_live_builds_then_cached_prints_the_same_report(env):
     result = CliRunner().invoke(app, ["report", "ELAL"])
     assert result.exit_code == 0, result.output
     printed = json.loads(result.output)
-    service = report_service.get_report(Ctx(settings=env), "ELAL").model_dump(mode="json")
+    service = report_service.company_report(Ctx(settings=env), "ELAL").model_dump(mode="json")
     assert printed == service

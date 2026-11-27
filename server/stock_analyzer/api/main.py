@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from stock_analyzer import __version__
 from stock_analyzer.api import errors
-from stock_analyzer.api.routers import companies, osint, playground, report, reports, story, usage
+from stock_analyzer.api.routers import companies, osint, playground, reports, story, tickers, usage
 from stock_analyzer.api.schemas import HealthOut, StorageHealth
 from stock_analyzer.config import Settings, get_settings
 from stock_analyzer.store import get_store
@@ -50,7 +50,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             storage=storage,
         )
 
-    for module in (companies, reports, usage, playground, osint, story, report):
+    for module in (companies, reports, usage, playground, osint, story, tickers):
         app.include_router(module.router)
     return app
 

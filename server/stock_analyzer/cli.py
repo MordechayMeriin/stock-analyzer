@@ -177,6 +177,29 @@ def companies_remove(ticker: str) -> None:
     typer.echo(f"stopped tracking {ticker.strip().upper()}; its cached data is kept")
 
 
+@companies_app.command("directory")
+def companies_directory(
+    refresh: Annotated[
+        bool,
+        typer.Option("--refresh", help="Re-fetch the directory (live; costs ~1 credit per 100 companies)"),
+    ] = False,
+) -> None:
+    """Show the stored ticker directory size, or --refresh it (SPENDS CREDITS: ~6 for TASE)."""
+    from stock_analyzer.services import tickers
+
+    try:
+        if refresh:
+            count, credits = tickers.refresh_directory(_ctx("live"))
+            typer.echo(f"directory refreshed: {count} companies, {credits} credits used")
+            return
+        with closing(_ctx()) as ctx:
+            d = tickers.directory_info(ctx)
+    except (AnalyzerError, ValueError) as exc:
+        _fail(exc)
+        return
+    typer.echo(f"directory: {d.size} companies, fetched_at {d.fetched_at or 'never'} ({d.source})")
+
+
 db_app = typer.Typer(no_args_is_help=True, help="State store database (Postgres backend)")
 app.add_typer(db_app, name="db")
 
@@ -728,12 +751,12 @@ def report_cmd(
         ),
     ] = False,
 ) -> None:
-    """Print the company report (five-axis scores from the latest story) as JSON."""
+    """Print the company report as JSON: story-based scores when the latest story has them, else ratio scores."""
     from stock_analyzer.services import report as report_service
 
     ctx = _ctx("live" if live else "cached")
     try:
-        rep = report_service.get_report(ctx, ticker)
+        rep = report_service.company_report(ctx, ticker)
     except Exception as exc:  # noqa: BLE001  (reported with its code, like every command)
         _fail(exc)
         return

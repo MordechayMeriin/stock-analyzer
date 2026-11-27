@@ -104,6 +104,7 @@ export function radarLayout(axes: RadarAxis[]): RadarLayout {
   }
 }
 
+
 /** Spec: with fewer than 3 axes that have a value, the screen shows the list only, no radar. */
 export function hasEnoughForRadar(axes: RadarAxis[]): boolean {
   return axes.filter((a) => a.value !== null).length >= MIN_AXES

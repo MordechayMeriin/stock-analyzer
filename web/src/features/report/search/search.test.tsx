@@ -4,7 +4,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter, Route, Routes, useParams } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { api, type Company } from '@/api/client'
+import { api, type Company, type TickerSearch } from '@/api/client'
 
 import { matchCompanies, mergeEntries, type SearchEntry } from './match'
 import { SearchPage } from './SearchPage'
@@ -12,7 +12,7 @@ import { SearchPage } from './SearchPage'
 vi.mock('@/app/mode', () => ({ useMode: () => ({ mode: 'cached' }) }))
 vi.mock('@/api/client', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/api/client')>()
-  return { ...actual, api: { ...actual.api, companies: vi.fn() } }
+  return { ...actual, api: { ...actual.api, companies: vi.fn(), tickers: vi.fn() } }
 })
 
 const entry = (ticker: string, name_he: string, name_en: string | null, hasReport = false): SearchEntry => ({
@@ -78,6 +78,8 @@ describe('SearchPage', () => {
     vi.mocked(api.companies).mockResolvedValue([
       { ticker: 'LUMI', name_he: 'בנק לאומי', name_en: 'Bank Leumi' } as Company,
     ])
+    // Default: the ticker directory is unreachable, so search falls back to local matching.
+    vi.mocked(api.tickers).mockRejectedValue(new Error('down'))
   })
 
   it('suggests tracked and fixture companies and opens the chosen one with Enter', async () => {
@@ -85,7 +87,7 @@ describe('SearchPage', () => {
     const input = screen.getByRole('combobox')
     fireEvent.change(input, { target: { value: 'בנק' } })
     expect(await screen.findByText('בנק לאומי')).toBeTruthy()
-    expect(screen.getByText('אין דוח עדיין')).toBeTruthy()
+    expect(screen.queryByText('אין דוח עדיין')).toBeNull() // tracked companies have a report
 
     fireEvent.change(input, { target: { value: 'מלם' } })
     const options = screen.getAllByRole('option')
@@ -118,5 +120,26 @@ describe('SearchPage', () => {
     fireEvent.change(screen.getByRole('combobox'), { target: { value: 'ml' } })
     fireEvent.click(await screen.findByText('MLTM'))
     expect(await screen.findByText('report MLTM')).toBeTruthy()
+  })
+
+  it('lists every company from the ticker directory; only tracked ones open', async () => {
+    vi.mocked(api.tickers).mockResolvedValue({
+      results: [
+        { ticker: 'TEVA', name_he: 'טבע', name_en: 'Teva', fr_company_id: 1, isin: null, tracked: false },
+        { ticker: 'TSEM', name_he: 'טאואר', name_en: 'Tower', fr_company_id: 2, isin: null, tracked: true },
+      ],
+      directory: { size: 2, fetched_at: null, source: 'directory' },
+    } as TickerSearch)
+    renderSearch()
+    const input = screen.getByRole('combobox')
+    fireEvent.change(input, { target: { value: 'te' } })
+    const teva = (await screen.findByText('טבע')).closest('li')!
+    expect(teva.getAttribute('aria-disabled')).toBe('true')
+    expect(teva.textContent).toContain('אין דוח עדיין')
+    fireEvent.click(teva)
+    expect(screen.queryByText(/^report /)).toBeNull()
+
+    fireEvent.click(screen.getByText('טאואר'))
+    expect(await screen.findByText('report TSEM')).toBeTruthy()
   })
 })

@@ -51,12 +51,6 @@ class PageNotFound(AnalyzerError):
     code = "page_not_found"
 
 
-class AxisNotFound(AnalyzerError):
-    """No such report axis, or the axis has no score for the requested year (company-report spec)."""
-
-    code = "axis_not_found"
-
-
 class ReportVerificationFailed(AnalyzerError):
     """The rater's scores failed verification, also after their one repair (company-report spec)."""
 
@@ -177,6 +171,20 @@ class ResearchInProgress(AnalyzerError):
     """An OSINT run for the same ticker and window is already running in this server process."""
 
     code = "research_in_progress"
+
+
+class UnsupportedCompany(AnalyzerError):
+    """Too little scored data to draw a company report (fewer than three axes with a value)."""
+
+    code = "unsupported_company"
+
+
+class AxisNotFound(AnalyzerError):
+    code = "axis_not_found"
+
+
+class YearNotFound(AnalyzerError):
+    code = "year_not_found"
 
 
 class StorySearchLimitExceeded(AnalyzerError):
