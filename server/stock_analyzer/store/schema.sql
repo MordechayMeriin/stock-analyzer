@@ -4,14 +4,19 @@
 
 create schema if not exists stock_analyzer;
 
--- Provider ("fr") and LLM ("llm") response caches. Permanent; refresh overwrites.
+-- Provider ("fr") and LLM ("llm") response caches, and built company reports ("report",
+-- keyed by story run). Permanent; refresh overwrites.
 create table if not exists stock_analyzer.kv_cache (
-    namespace  text        not null check (namespace in ('fr', 'llm')),
+    namespace  text        not null check (namespace in ('fr', 'llm', 'report')),
     key        text        not null,
     value      jsonb       not null,
     updated_at timestamptz not null default now(),
     primary key (namespace, key)
 );
+-- Databases created before the "report" namespace: widen the check (idempotent).
+alter table stock_analyzer.kv_cache drop constraint if exists kv_cache_namespace_check;
+alter table stock_analyzer.kv_cache add constraint kv_cache_namespace_check
+    check (namespace in ('fr', 'llm', 'report'));
 
 -- Fetched report Markdown (exact text) and its metadata, one row per ticker and fiscal year.
 create table if not exists stock_analyzer.reports (

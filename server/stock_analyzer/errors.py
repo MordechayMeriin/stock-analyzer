@@ -51,6 +51,16 @@ class PageNotFound(AnalyzerError):
     code = "page_not_found"
 
 
+class ReportVerificationFailed(AnalyzerError):
+    """The rater's scores failed verification, also after their one repair (company-report spec)."""
+
+    code = "report_verification_failed"
+
+    def __init__(self, message: str, errors: list | None = None):
+        super().__init__(message)
+        self.errors = errors or []
+
+
 class NotCached(AnalyzerError):
     """Cached-only mode needed data that is not cached. No network call was made."""
 

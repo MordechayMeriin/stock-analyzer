@@ -1,6 +1,8 @@
 """Company report service (company-report-spec): the radar scores, key numbers and events for one company.
 
-Everything is computed from data already stored; nothing here calls the data provider or an LLM, and an
+Story first (add-story-report-scores): when the company's latest story run has a story-based report
+(``services.story_report``), that report is served; live mode builds it from the story (one LLM call).
+Otherwise the ratio scoring below is used. The ratio path never calls the data provider or an LLM, and an
 OSINT result is only read if one was stored (never researched).
 
 Scoring method (anchors live in ``fin/scores.py``): each axis is a few ratios. A ratio value is mapped
@@ -26,7 +28,7 @@ from stock_analyzer.fin.scores import Component, axes_for, axis_score, component
 from stock_analyzer.ingest.select import filing_fiscal_year, select_report
 from stock_analyzer.osint.models import ResearchResult
 from stock_analyzer.services import filings as filings_service
-from stock_analyzer.services import osint
+from stock_analyzer.services import osint, story_report
 from stock_analyzer.services.companies import resolve_company
 from stock_analyzer.services.context import Ctx
 from stock_analyzer.services.models import (
@@ -356,6 +358,9 @@ def build_warnings(axes: list[AxisCalc], years: list[int], fy: int, today: date)
 
 
 def company_report(ctx: Ctx, ticker: str, *, today: date | None = None) -> CompanyReportOut:
+    story = story_report.story_company_report(ctx, ticker)
+    if story is not None:
+        return story
     today = today or date.today()
     a = analyze(ctx, ticker)
     company = resolve_company(ctx, ticker)
@@ -436,6 +441,9 @@ def axis_text(comps: list[CompYear]) -> str:
 
 
 def axis_detail(ctx: Ctx, ticker: str, axis_id: str, year: int | None = None) -> AxisDetailOut:
+    story = story_report.story_axis_detail(ctx, ticker, axis_id, year)
+    if story is not None:
+        return story
     a = analyze(ctx, ticker)
     years = report_years(a)
     axes = calc_axes(a, years)

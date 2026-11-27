@@ -264,3 +264,36 @@ The API SHALL return the business-section comparison for a ticker and fiscal yea
 #### Scenario: Ratio parity
 - **WHEN** the core ratios of MLTM are requested from the CLI and from the API in cached mode
 - **THEN** both return the same values, confidence and failed checks
+
+### Requirement: Company report endpoint
+The API SHALL return a company's report at `GET /api/companies/{ticker}/report` in the company report contract (schema version 1.x), serving the story-based report first. When a story report is saved for the latest story run, it SHALL be returned; in live mode, one SHALL be built and saved when a story run exists. Otherwise the ratio-scored report SHALL be returned. The response's `mode` SHALL say how it was served.
+
+#### Scenario: Cached story report exists
+- **WHEN** `GET /api/companies/ELAL/report?mode=cached` is called and the story report for the latest run is saved
+- **THEN** the response is that report with `mode: "cached"`, and no LLM call is made
+
+#### Scenario: No story report in cached mode
+- **WHEN** the same request is made before any story report was built for the latest run
+- **THEN** the API returns the ratio-scored report, or its error when the company has too little data to score
+
+#### Scenario: Live build
+- **WHEN** `GET /api/companies/ELAL/report?mode=live` is called, a story run exists and no story report is saved for it
+- **THEN** the API builds and saves the story report and returns it with `mode: "live"`
+
+### Requirement: Axis detail endpoint
+The API SHALL return one axis's detail for a fiscal year at `GET /api/companies/{ticker}/report/axes/{axis_id}?year=`, taken from the same saved report. An unknown axis id, or a year without a score, SHALL return the not-found error.
+
+#### Scenario: Detail for an axis
+- **WHEN** `GET /api/companies/ELAL/report/axes/growth?year=2025` is called
+- **THEN** the response has `axis_id`, `fiscal_year`, `headline`, `factors` and `text`
+
+#### Scenario: Unknown axis
+- **WHEN** `axis_id` is `valuation`
+- **THEN** the API returns the not-found error
+
+### Requirement: Report from the CLI
+The CLI SHALL offer `stock-analyzer report <TICKER> [--live]`, which calls the same server function as the report endpoint and prints the report JSON.
+
+#### Scenario: Same data as the API
+- **WHEN** `stock-analyzer report ELAL` runs after the report was built
+- **THEN** it prints the same report the cached endpoint returns

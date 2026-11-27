@@ -313,3 +313,10 @@ Each number quoted from a web source SHALL be marked as a press number. On hover
 #### Scenario: Hover a web number
 - **WHEN** the user hovers or focuses a tender amount quoted from a news article
 - **THEN** the provenance shows the value, its currency, the article title and date, the quoted text in its excerpt, and that the number is not audited
+
+### Requirement: Report page loads from the API
+The report page SHALL load a tracked company's report and its axis details from the report API in the current mode, so it shows the story-based scores whenever the API serves them.
+
+#### Scenario: El Al report
+- **WHEN** the user opens the report page for ELAL and its story report is saved
+- **THEN** the radar shows the five story axes for the latest year, and opening an axis row loads its detail from the API
