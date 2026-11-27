@@ -9,8 +9,10 @@ Tool errors go back to the agent as text, so it can correct itself.
 from __future__ import annotations
 
 import hashlib
+import json
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from datetime import date
 from pathlib import Path
 from typing import Any, Literal
 
@@ -20,9 +22,12 @@ from pydantic import BaseModel, Field
 
 from stock_analyzer.config import Settings
 from stock_analyzer.diff.align import AlignedSection, Comparison
+from stock_analyzer.errors import StorySearchLimitExceeded
 from stock_analyzer.fin.ratios import RATIO_BY_CODE
 from stock_analyzer.ingest.parse_md import Paragraph
 from stock_analyzer.ingest.structure import Node
+from stock_analyzer.osint.models import AREAS
+from stock_analyzer.osint.search import SearchFailed
 from stock_analyzer.story.facts import Fact, FactError, FactRegistry
 from stock_analyzer.story.models import Story
 from stock_analyzer.story.reading import (
@@ -34,6 +39,7 @@ from stock_analyzer.story.reading import (
     read_section,
 )
 from stock_analyzer.story.render import format_fact
+from stock_analyzer.story.web import SourceLedger, StorySearch, WebSource, find_publish_date, within_as_of
 
 ModelFactory = Callable[[str, str], Model]
 Emit = Callable[[str, str, dict[str, Any] | None], None]
@@ -93,6 +99,11 @@ class StoryContext:
     years: list[int]  # oldest first
     emit: Emit = lambda step, message, data=None: None
     budgets: dict[str, ReadBudget] = field(default_factory=dict)
+    # web evidence (add-story-web-evidence): the run's sources, and its live search when it has one
+    ledger: SourceLedger = field(default_factory=SourceLedger)
+    search: StorySearch | None = None
+    as_of: date | None = None
+    latest_report_published: date | None = None  # the post-report window starts after this day
 
     def budget(self, purpose: str) -> ReadBudget:
         if purpose not in self.budgets:
@@ -222,6 +233,143 @@ def writer_tools(ctx: StoryContext, purpose: str) -> list[Any]:
     return [*reader_tools(ctx, purpose), get_facts, derive]
 
 
+def _source_view(src: WebSource) -> dict[str, Any]:
+    view: dict[str, Any] = {
+        "source_id": src.source_id,
+        "title": src.title,
+        "url": src.url,
+        "published_at": src.published_at,
+    }
+    if src.stored:
+        view |= {
+            "area": src.area,
+            "claim": src.claim,
+            "signal": src.signal,
+            "derived_from_filing": src.derived_from_filing,
+        }
+    view["excerpts"] = src.excerpts
+    return view
+
+
+def web_search_description(limit: int) -> str:
+    """The tool description states the limit, so a changed limit changes every storyteller
+    turn's cache key (design D4): that is how a run that failed on the limit can be retried."""
+    return (
+        f"Search the web. You have {limit} searches for this whole story, including any repair; "
+        "asking for more fails the story. Use them for moves management leaves unexplained and for "
+        "events after the latest report. Returns, per result, a source_id, title, URL, publish date "
+        "(null when unknown) and the provider's excerpt, plus the searches left. Cite a result by its "
+        "source_id; quote a number from its excerpt with quote_web_number.\n\n"
+        "Args:\n    query: What to search for, in Hebrew or English. Include the company's name."
+    )
+
+
+def web_tools(ctx: StoryContext, purpose: str) -> list[Any]:
+    """The storyteller's web tools: stored OSINT findings, live search (if the run has it) and
+    quoting a number from a source's excerpt (add-story-web-evidence design D4-D5)."""
+
+    @function_tool
+    def get_web_findings(area: str) -> str:
+        """Read the stored OSINT findings for one research area, filtered to the story's as_of.
+
+        Args:
+            area: news, market, credit, operations, legal, regulation, labor_government or
+                competition_macro.
+        """
+        stored = ctx.ledger.stored()
+        found = [s for s in stored if s.area == area]
+        ctx.emit(
+            "tool", f"{purpose}: get_web_findings {area}", {"tool": "get_web_findings", "agent": purpose}
+        )
+        if found:
+            return json.dumps(
+                {"area": area, "findings": [_source_view(s) for s in found]}, ensure_ascii=False
+            )
+        counts = {a: sum(1 for s in stored if s.area == a) for a in AREAS}
+        return json.dumps({"area": area, "findings": [], "findings_per_area": counts}, ensure_ascii=False)
+
+    @function_tool
+    def quote_web_number(
+        source_id: str, text: str, unit: Literal["money", "count", "percent", "number"]
+    ) -> str:
+        """Register a number that appears in a web source's excerpt and get its fact token.
+
+        Args:
+            source_id: The source id from get_web_findings or web_search, e.g. SRC:12345678.
+            text: The number exactly as written in the excerpt, with its scale word and currency if any.
+            unit: money, count, percent or number.
+        """
+        src = ctx.ledger.get(source_id)
+        if src is None:
+            return f"ERROR: unknown source id {source_id!r}; use one from get_web_findings or web_search"
+        try:
+            fact = ctx.registry.quote_web_number(src, text, unit)
+        except FactError as exc:
+            return f"ERROR: {exc}"
+        ctx.emit(
+            "tool",
+            f"{purpose}: quote_web_number → {fact.fact_id}",
+            {"tool": "quote_web_number", "agent": purpose},
+        )
+        return fact_line(fact)
+
+    tools: list[Any] = [get_web_findings, quote_web_number]
+    search = ctx.search
+    if search is None:
+        return tools
+
+    @function_tool(
+        name_override="web_search",
+        description_override=web_search_description(search.max_searches),
+        failure_error_function=None,  # the default turns exceptions into text: the limit must fail the run
+    )
+    async def web_search(query: str) -> str:
+        query = query.strip()
+        if not query:
+            return json.dumps({"error": "empty query", "searches_left": search.left})
+        if search.used >= search.max_searches:
+            raise StorySearchLimitExceeded(search.max_searches, search.queries)
+        search.used += 1
+        search.queries.append(query)
+        ctx.emit(
+            "tool",
+            f"{purpose}: web_search ({search.left} left) {query}",
+            {"tool": "web_search", "agent": purpose, "query": query, "searches_left": search.left},
+        )
+        try:
+            hits, blocked = await search.hits(query)
+        except SearchFailed as exc:
+            return json.dumps({"error": str(exc), "searches_left": search.left}, ensure_ascii=False)
+        results, after_as_of = [], 0
+        for hit in hits:
+            published = find_publish_date(hit.title, hit.snippet, search.today)
+            if not within_as_of(published, search.as_of, search.today):
+                after_as_of += 1
+                continue
+            src = ctx.ledger.add_live(hit, published)
+            results.append(
+                {
+                    "source_id": src.source_id,
+                    "title": hit.title,
+                    "url": hit.url,
+                    "published_at": published.isoformat() if published else None,
+                    "excerpt": hit.snippet,
+                }
+            )
+        return json.dumps(
+            {
+                "query": query,
+                "results": results,
+                "left_out_after_as_of_or_undated": after_as_of,
+                "blocked_results": blocked,
+                "searches_left": search.left,
+            },
+            ensure_ascii=False,
+        )
+
+    return [*tools, web_search]
+
+
 # ---------------------------------------------------------------- prompts and agents
 
 
@@ -277,7 +425,7 @@ def storyteller_agent(ctx: StoryContext, make_model: ModelFactory) -> Agent:
         name="storyteller",
         instructions=instructions(ctx.settings, "story_storyteller"),
         model=make_model(ctx.settings.story_writer_role, purpose),
-        tools=writer_tools(ctx, purpose),
+        tools=[*writer_tools(ctx, purpose), *web_tools(ctx, purpose)],
         output_type=Story,
     )
 
@@ -398,6 +546,7 @@ def storyteller_input(
     notes: list[ChangeNote],
     claims: dict[int, list[ManagementClaim]],
     unchanged: list[AlignedSection],
+    web_note: str | None = None,
 ) -> str:
     years = ", ".join(str(y) for y in ctx.years)
     parts = [f"Covered fiscal years: {years}"]
@@ -415,4 +564,26 @@ def storyteller_input(
         "## Business sections unchanged across the years\n\n" + "\n".join(f"- {s.title}" for s in unchanged)
     )
     parts.append("## Core financial facts\n\n" + facts_table(ctx))
+    parts.append("## Web evidence\n\n" + web_index(ctx, web_note))
     return "\n\n".join(parts)
+
+
+def web_index(ctx: StoryContext, note: str | None = None) -> str:
+    """What web evidence the storyteller can use: counts only; findings come from get_web_findings."""
+    stored = ctx.ledger.stored()
+    lines = [note] if note else []
+    if stored:
+        counts = ", ".join(f"{a}: {n}" for a in AREAS if (n := sum(1 for s in stored if s.area == a)))
+        lines.append(f"Stored OSINT findings (read them with get_web_findings): {counts}.")
+    else:
+        lines.append("No stored OSINT findings are available for this story.")
+    if ctx.search is not None:
+        lines.append(
+            f"You can run up to {ctx.search.max_searches} web searches (web_search), shared with any repair."
+        )
+    if ctx.latest_report_published is not None:
+        lines.append(
+            f"The latest covered report was published on {ctx.latest_report_published.isoformat()}; "
+            f"the story is written as of {ctx.as_of.isoformat() if ctx.as_of else 'today'}."
+        )
+    return "\n".join(lines)

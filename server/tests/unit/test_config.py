@@ -18,6 +18,21 @@ def test_defaults_load_with_no_env():
     assert s.cache_dir == s.data_dir / "cache"
     assert s.agent_max_turns == 8
     assert (s.story_reader_role, s.story_writer_role) == ("cheap", "main")
+    assert s.story_writer_max_turns == 40
+    assert (s.story_max_searches, s.story_search_results, s.story_osint_max_age_days) == (20, 5, 30)
+
+
+def test_story_web_settings_override_and_change_the_config_hash():
+    from stock_analyzer.story.pipeline import _config_hash_from
+
+    base = Settings.from_env({})
+    env = {"STORY_MAX_SEARCHES": "7", "STORY_SEARCH_RESULTS": "3", "STORY_OSINT_MAX_AGE_DAYS": "10"}
+    s = Settings.from_env(env)
+    assert (s.story_max_searches, s.story_search_results, s.story_osint_max_age_days) == (7, 3, 10)
+    for name, value in env.items():
+        assert _config_hash_from(Settings.from_env({name: value})) != _config_hash_from(base), name
+    with pytest.raises(ValueError, match="STORY_MAX_SEARCHES"):
+        Settings.from_env({"STORY_MAX_SEARCHES": "lots"})
 
 
 def test_env_overrides():

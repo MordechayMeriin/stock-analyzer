@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { AlertTriangle, BookOpen, Sparkles, Square } from 'lucide-react'
+import { AlertTriangle, BookOpen, Globe, Newspaper, Sparkles, Square } from 'lucide-react'
 import { useId, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 
@@ -11,6 +11,7 @@ import {
   type StoryProgress,
   type StoryRun,
   type StorySegment,
+  type StoryWebSource,
 } from '@/api/client'
 import { postSse, type SseStream } from '@/api/sse'
 import { useMode } from '@/app/mode'
@@ -22,6 +23,25 @@ import { currencySymbol, formatDate, formatUsd, groupDecimal, pageLabel } from '
 import { cn } from '@/lib/utils'
 
 type Facts = Map<string, StoryFact>
+type Sources = Record<string, StoryWebSource>
+
+const UNKNOWN_DATE = 'תאריך לא ידוע'
+
+/** The excerpt a web number was quoted from, with the quote highlighted (whitespace-insensitive). */
+function QuotedExcerpt({ quote, excerpts }: { quote: string; excerpts: string[] }) {
+  const norm = (t: string) => t.split(/\s+/).filter(Boolean).join(' ')
+  const q = norm(quote)
+  const excerpt = excerpts.map(norm).find((e) => e.includes(q))
+  if (!excerpt) return <bdi>״{quote}״</bdi>
+  const at = excerpt.indexOf(q)
+  return (
+    <bdi className="block" data-testid="web-excerpt">
+      {excerpt.slice(0, at)}
+      <mark className="bg-amber-200 dark:bg-amber-800">{q}</mark>
+      {excerpt.slice(at + q.length)}
+    </bdi>
+  )
+}
 
 const LABELS: Record<string, { text: string; className: string }> = {
   consistent: { text: 'עקבי', className: 'border-emerald-600/40 bg-emerald-50 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200' },
@@ -71,10 +91,13 @@ function exactValue(f: StoryFact): string {
 }
 
 /** A number in the story: the server's display string, with its provenance on hover or focus. */
-function FactValue({ segment, facts }: { segment: StorySegment; facts: Facts }) {
+function FactValue({ segment, facts, sources }: { segment: StorySegment; facts: Facts; sources: Sources }) {
   const tipId = useId()
   const fact = segment.fact_id ? facts.get(segment.fact_id) : undefined
   const low = fact?.confidence === 'low'
+  const web = fact?.kind === 'WEB'
+  const source = web && fact?.source_id ? sources[fact.source_id] : undefined
+  const dataChecks = (fact?.failed_checks ?? []).filter((c) => c !== 'web_source')
   return (
     <span className="group relative inline-block">
       <button
@@ -88,6 +111,12 @@ function FactValue({ segment, facts }: { segment: StorySegment; facts: Facts }) 
         )}
       >
         <bdi dir="ltr">{segment.display}</bdi>
+        {web && (
+          <span data-testid="press-number" className="text-muted-foreground ms-0.5 inline-flex items-center text-xs">
+            <Newspaper className="size-3" aria-hidden />
+            <span className="sr-only">מספר מהעיתונות</span>
+          </span>
+        )}
         {low && (
           <span data-testid="low-confidence" className="ms-0.5 text-amber-700" aria-label="ביטחון נמוך">
             ⚠
@@ -109,7 +138,7 @@ function FactValue({ segment, facts }: { segment: StorySegment; facts: Facts }) 
             <span className="block">
               ערך מדויק: <bdi dir="ltr" title={fact.value ?? undefined}>{exactValue(fact)}</bdi>
             </span>
-            {fact.operation && fact.kind !== 'TXT' && (
+            {fact.operation && fact.kind !== 'TXT' && fact.kind !== 'WEB' && (
               <span className="block">חישוב: {OPERATIONS[fact.operation] ?? fact.operation}</span>
             )}
             {fact.inputs.length > 0 && (
@@ -117,9 +146,24 @@ function FactValue({ segment, facts }: { segment: StorySegment; facts: Facts }) 
                 מקורות: <bdi dir="ltr" className="font-mono">{fact.inputs.join(', ')}</bdi>
               </span>
             )}
-            {fact.quote && (
+            {fact.quote && !web && (
               <span className="block">
                 ציטוט: ״<bdi>{fact.quote}</bdi>״ <bdi dir="ltr" className="font-mono">({fact.paragraph_id})</bdi>
+              </span>
+            )}
+            {web && (
+              <span className="block space-y-1" data-testid="web-provenance">
+                <span className="block font-medium">מספר מהעיתונות (מקור רשת)</span>
+                {source && (
+                  <span className="block">
+                    מקור: <bdi>{source.title || source.url}</bdi> · <bdi dir="ltr">{source.published_at ?? UNKNOWN_DATE}</bdi>
+                  </span>
+                )}
+                {fact.quote && (
+                  <span className="block">
+                    ציטוט מתוך הקטע: <QuotedExcerpt quote={fact.quote} excerpts={source?.excerpts ?? []} />
+                  </span>
+                )}
               </span>
             )}
             {fact.source_filing_id != null && (
@@ -128,9 +172,12 @@ function FactValue({ segment, facts }: { segment: StorySegment; facts: Facts }) 
               </span>
             )}
             <span className={cn('block', low && 'text-amber-800 dark:text-amber-300')}>
-              {low
-                ? `ביטחון נמוך: נכשלו בדיקות עקביות בנתוני הספק (${fact.failed_checks.join(', ')})`
-                : 'ביטחון גבוה'}
+              {!low && 'ביטחון גבוה'}
+              {low && fact.failed_checks.includes('web_source') && 'ביטחון נמוך: מקור עיתונאי, לא מבוקר'}
+              {low && dataChecks.length > 0 && (
+                <span className="block">ביטחון נמוך: נכשלו בדיקות עקביות בנתוני הספק ({dataChecks.join(', ')})</span>
+              )}
+              {low && fact.failed_checks.length === 0 && 'ביטחון נמוך'}
             </span>
           </span>
         ) : (
@@ -141,14 +188,18 @@ function FactValue({ segment, facts }: { segment: StorySegment; facts: Facts }) 
   )
 }
 
-function Segments({ segments, facts }: { segments: StorySegment[]; facts: Facts }) {
+function Segments({ segments, facts, sources }: { segments: StorySegment[]; facts: Facts; sources: Sources }) {
   const body = segments.filter((s) => s.type !== 'caveat')
   const caveats = segments.filter((s) => s.type === 'caveat')
   return (
     <>
       <p className="leading-8">
         {body.map((s, i) =>
-          s.type === 'fact' ? <FactValue key={i} segment={s} facts={facts} /> : <span key={i}>{s.text}</span>,
+          s.type === 'fact' ? (
+            <FactValue key={i} segment={s} facts={facts} sources={sources} />
+          ) : (
+            <span key={i}>{s.text}</span>
+          ),
         )}
       </p>
       {caveats.map((c, i) => (
@@ -185,8 +236,38 @@ function Citations({ ids, citations, ticker }: { ids: string[]; citations: Recor
   )
 }
 
+/** Web sources: marked with an icon and a text label (not colour alone), opening in a new tab. */
+function WebCitations({ ids, sources }: { ids: string[]; sources: Sources }) {
+  const known = ids.map((id) => sources[id]).filter(Boolean)
+  if (!known.length) return null
+  return (
+    <ul className="flex flex-wrap gap-2 text-xs" aria-label="מקורות רשת">
+      {known.map((s) => (
+        <li key={s.source_id} className="flex items-center gap-1.5 rounded-full border border-dashed px-2.5 py-1">
+          <Globe className="size-3" aria-hidden />
+          <span className="font-medium">מקור רשת:</span>
+          <a
+            href={s.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            data-testid="web-citation"
+            className="max-w-56 truncate underline"
+            title={s.title || s.url}
+          >
+            {s.title || s.url}
+          </a>
+          <bdi dir="ltr" className="text-muted-foreground" data-testid="web-citation-date">
+            {s.published_at ?? UNKNOWN_DATE}
+          </bdi>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
 function StoryView({ run, ticker }: { run: StoryRun; ticker: string }) {
   const facts: Facts = new Map(run.facts.map((f) => [f.fact_id, f]))
+  const sources: Sources = run.web_sources ?? {}
   const sections = [
     { id: 'what-it-does', title: 'מה החברה עושה', paragraphs: run.rendered.what_it_does },
     { id: 'what-changed', title: 'מה השתנה', paragraphs: run.rendered.what_changed },
@@ -200,8 +281,9 @@ function StoryView({ run, ticker }: { run: StoryRun; ticker: string }) {
           </h2>
           {section.paragraphs.map((p, i) => (
             <div key={i} className="space-y-2">
-              <Segments segments={p.segments} facts={facts} />
+              <Segments segments={p.segments} facts={facts} sources={sources} />
               <Citations ids={p.paragraph_ids} citations={run.citations} ticker={ticker} />
+              <WebCitations ids={p.source_ids ?? []} sources={sources} />
             </div>
           ))}
         </section>
@@ -218,8 +300,9 @@ function StoryView({ run, ticker }: { run: StoryRun; ticker: string }) {
                 <Badge variant="outline" className={label.className} data-testid="finding-label">
                   {label.text}
                 </Badge>
-                <Segments segments={f.segments} facts={facts} />
+                <Segments segments={f.segments} facts={facts} sources={sources} />
                 <Citations ids={f.paragraph_ids} citations={run.citations} ticker={ticker} />
+                <WebCitations ids={f.source_ids ?? []} sources={sources} />
               </CardContent>
             </Card>
           )
@@ -242,6 +325,7 @@ function GeneratePanel({ ticker, hasStory }: { ticker: string; hasStory: boolean
   const queryClient = useQueryClient()
   const [status, setStatus] = useState<GenStatus>('idle')
   const [steps, setSteps] = useState<string[]>([])
+  const [searchesLeft, setSearchesLeft] = useState<number | null>(null)
   const [error, setError] = useState<ApiError | null>(null)
   const stream = useRef<SseStream | null>(null)
   const live = mode === 'live'
@@ -249,13 +333,18 @@ function GeneratePanel({ ticker, hasStory }: { ticker: string; hasStory: boolean
   function start() {
     setStatus('running')
     setSteps([])
+    setSearchesLeft(null)
     setError(null)
     stream.current = postSse<StoryRun>(
       `/api/companies/${encodeURIComponent(ticker)}/story`,
       { mode: 'live' },
       {
         onEvent: (event, p) => {
-          if (event === 'progress') setSteps((s) => [...s, (p as StoryProgress).message])
+          if (event !== 'progress') return
+          const progress = p as StoryProgress
+          setSteps((s) => [...s, progress.message])
+          const left = (progress.data as { searches_left?: unknown } | null | undefined)?.searches_left
+          if (typeof left === 'number') setSearchesLeft(left)
         },
         onDone: (run) => {
           queryClient.setQueryData(['story', ticker], run)
@@ -293,6 +382,11 @@ function GeneratePanel({ ticker, hasStory }: { ticker: string; hasStory: boolean
             {liveAllowed
               ? 'יצירת סיפור דורשת מצב חי. העבירו את המצב ל"חי" בראש העמוד.'
               : 'השרת מוגדר למצב מטמון בלבד, ולכן אפשר רק להציג סיפור שמור.'}
+          </p>
+        )}
+        {searchesLeft !== null && (
+          <p className="text-muted-foreground text-xs" data-testid="searches-left">
+            חיפושי רשת שנותרו לסיפור: <bdi dir="ltr">{searchesLeft}</bdi>
           </p>
         )}
         {steps.length > 0 && (

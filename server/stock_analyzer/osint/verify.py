@@ -2,7 +2,7 @@
 
 - :func:`verify_findings` keeps a finding only if its URL is not blocked, was returned by a search in this
   run, and its publish date (when known) is inside the window. Findings without a usable date are kept at
-  low confidence.
+  low confidence. Each kept finding carries the excerpt its search returned, so a story can quote it.
 - :func:`check_scorecard` makes every area, risk, strength and key driver cite kept findings, marks areas
   without findings as ``insufficient_data`` with trend ``unclear``, keeps at most three risks and
   strengths, and lists every key driver of the company profile (``unknown`` when nothing supports it).
@@ -82,7 +82,8 @@ def verify_findings(state: RunState) -> tuple[list[KeptFinding], dict[str, int]]
             if published is None:
                 data["confidence"] = "low"
                 data["published_at"] = None
-            kept.append(KeptFinding(**data, id=f"F{len(kept) + 1}", area=area))
+            excerpt = state.seen_urls[url].snippet.strip() or None
+            kept.append(KeptFinding(**data, id=f"F{len(kept) + 1}", area=area, excerpt=excerpt))
     return kept, {reason: dropped.get(reason, 0) for reason in DROP_REASONS}
 
 

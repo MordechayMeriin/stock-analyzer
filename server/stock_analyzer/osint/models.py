@@ -200,6 +200,9 @@ class KeptFinding(Finding):
     verdict: KeptVerdict = "unverified"
     also_sources: list[SourceRef] = Field(default_factory=list)  # other sources of the same event
     also_areas: list[Area] = Field(default_factory=list)  # other areas that reported it
+    # the provider excerpt the search returned for this URL, so a story can quote numbers from it
+    # (add-story-web-evidence); None when the search gave none or the result predates excerpts
+    excerpt: str | None = None
 
 
 class ResearchResult(BaseModel):

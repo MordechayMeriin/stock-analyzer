@@ -1117,7 +1117,8 @@
               "CHG",
               "RATIO",
               "TXT",
-              "DER"
+              "DER",
+              "WEB"
             ],
             "title": "Kind",
             "type": "string"
@@ -1180,6 +1181,17 @@
               }
             ],
             "title": "Source Filing Id"
+          },
+          "source_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Id"
           },
           "unit": {
             "enum": [
@@ -1509,6 +1521,14 @@
             "title": "Paragraph Ids",
             "type": "array"
           },
+          "source_ids": {
+            "description": "Web source ids (SRC:...) cited as additional evidence, if any.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Source Ids",
+            "type": "array"
+          },
           "text_he": {
             "description": "Hebrew prose with fact tokens: how the story fits (or not) the numbers.",
             "title": "Text He",
@@ -1710,6 +1730,17 @@
             "description": "True when the source only restates figures from the company's official reports.",
             "title": "Derived From Filing",
             "type": "boolean"
+          },
+          "excerpt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Excerpt"
           },
           "id": {
             "title": "Id",
@@ -2267,6 +2298,39 @@
           }
         },
         "title": "OsintRunIn",
+        "type": "object"
+      },
+      "OsintUse": {
+        "description": "The OSINT result a story used (add-story-web-evidence).",
+        "properties": {
+          "findings": {
+            "default": 0,
+            "title": "Findings",
+            "type": "integer"
+          },
+          "left_out": {
+            "default": 0,
+            "title": "Left Out",
+            "type": "integer"
+          },
+          "run_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Run Date"
+          },
+          "started": {
+            "default": false,
+            "title": "Started",
+            "type": "boolean"
+          }
+        },
+        "title": "OsintUse",
         "type": "object"
       },
       "PageParagraphsOut": {
@@ -3108,6 +3172,14 @@
             },
             "title": "Segments",
             "type": "array"
+          },
+          "source_ids": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Source Ids",
+            "type": "array"
           }
         },
         "required": [
@@ -3133,6 +3205,14 @@
               "$ref": "#/components/schemas/Segment"
             },
             "title": "Segments",
+            "type": "array"
+          },
+          "source_ids": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Source Ids",
             "type": "array"
           }
         },
@@ -3857,6 +3937,14 @@
             "title": "Paragraph Ids",
             "type": "array"
           },
+          "source_ids": {
+            "description": "Web source ids (SRC:...) this paragraph draws on, if any.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Source Ids",
+            "type": "array"
+          },
           "text_he": {
             "description": "Hebrew prose. Quantities only as fact tokens such as {{FIN:revenue:2025}}.",
             "title": "Text He",
@@ -3986,6 +4074,14 @@
             "title": "Models",
             "type": "object"
           },
+          "osint": {
+            "$ref": "#/components/schemas/OsintUse",
+            "default": {
+              "findings": 0,
+              "left_out": 0,
+              "started": false
+            }
+          },
           "profile": {
             "anyOf": [
               {
@@ -4010,6 +4106,14 @@
             "title": "Run Id",
             "type": "string"
           },
+          "searches": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Searches",
+            "type": "array"
+          },
           "story": {
             "$ref": "#/components/schemas/Story"
           },
@@ -4033,6 +4137,14 @@
             },
             "title": "Warnings",
             "type": "array"
+          },
+          "web_sources": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/WebSource"
+            },
+            "default": {},
+            "title": "Web Sources",
+            "type": "object"
           },
           "years": {
             "items": {
@@ -4080,9 +4192,19 @@
             "title": "Model Turns",
             "type": "integer"
           },
+          "osint_cost_usd": {
+            "default": 0.0,
+            "title": "Osint Cost Usd",
+            "type": "number"
+          },
           "output_tokens": {
             "title": "Output Tokens",
             "type": "integer"
+          },
+          "search_cost_usd": {
+            "default": 0.0,
+            "title": "Search Cost Usd",
+            "type": "number"
           }
         },
         "required": [
@@ -4464,6 +4586,123 @@
           "message"
         ],
         "title": "VerificationError",
+        "type": "object"
+      },
+      "WebSource": {
+        "description": "One web page the story may cite.",
+        "properties": {
+          "area": {
+            "anyOf": [
+              {
+                "enum": [
+                  "news",
+                  "market",
+                  "credit",
+                  "operations",
+                  "legal",
+                  "regulation",
+                  "labor_government",
+                  "competition_macro"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Area"
+          },
+          "claim": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Claim"
+          },
+          "derived_from_filing": {
+            "default": false,
+            "title": "Derived From Filing",
+            "type": "boolean"
+          },
+          "excerpts": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Excerpts",
+            "type": "array"
+          },
+          "finding_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finding Id"
+          },
+          "live": {
+            "default": false,
+            "title": "Live",
+            "type": "boolean"
+          },
+          "published_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published At"
+          },
+          "signal": {
+            "anyOf": [
+              {
+                "enum": [
+                  "positive",
+                  "negative",
+                  "neutral"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Signal"
+          },
+          "source_id": {
+            "title": "Source Id",
+            "type": "string"
+          },
+          "stored": {
+            "default": false,
+            "title": "Stored",
+            "type": "boolean"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_id",
+          "url",
+          "title"
+        ],
+        "title": "WebSource",
         "type": "object"
       },
       "stock_analyzer__osint__models__CompanyProfile": {

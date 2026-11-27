@@ -14,6 +14,9 @@ class StoryParagraph(BaseModel):
         description="Hebrew prose. Quantities only as fact tokens such as {{FIN:revenue:2025}}."
     )
     paragraph_ids: list[str] = Field(description="Report paragraph ids this paragraph draws on.")
+    source_ids: list[str] = Field(
+        default_factory=list, description="Web source ids (SRC:...) this paragraph draws on, if any."
+    )
     caveat_fact_ids: list[str] = Field(
         default_factory=list, description="Low-confidence facts this paragraph cites; code writes the caveat."
     )
@@ -26,6 +29,9 @@ class Finding(BaseModel):
     )
     fact_ids: list[str] = Field(description="Facts the finding rests on (tokens in the text count too).")
     paragraph_ids: list[str] = Field(description="Report paragraphs the finding rests on.")
+    source_ids: list[str] = Field(
+        default_factory=list, description="Web source ids (SRC:...) cited as additional evidence, if any."
+    )
     caveat_fact_ids: list[str] = Field(default_factory=list)
 
 

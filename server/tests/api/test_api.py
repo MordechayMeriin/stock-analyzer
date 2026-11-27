@@ -461,6 +461,82 @@ def test_story_failed_verification_is_an_error_event(story_settings):
         assert c.get("/api/companies/MLTM/story").status_code == 409  # nothing saved
 
 
+def web_cited(prep):
+    """A storyteller turn that cites the first result of its search as extra evidence."""
+    import json
+
+    from tests.unit.test_story_pipeline import good_story
+
+    def final(turn):
+        sid = json.loads(turn.tool_outputs()[-1])["results"][0]["source_id"]
+        story = good_story(prep)
+        story["story_vs_numbers"][0]["fact_ids"] = ["CHG:revenue:2024-2025"]
+        story["story_vs_numbers"][0]["text_he"] = "הנתונים תומכים: {{CHG:revenue:2024-2025}}."
+        story["story_vs_numbers"][0]["source_ids"] = [sid]
+        return story
+
+    return final
+
+
+def test_story_saved_with_web_sources(story_settings):
+    from stock_analyzer.agents_model import FakeAgentModels, tool_call
+    from stock_analyzer.story.pipeline import prepare_story
+    from tests.unit.test_story_pipeline import AS_OF
+
+    with closing(Ctx(story_settings)) as c:
+        prep = prepare_story(c, "MLTM", as_of=AS_OF)
+    app = create_app(story_settings)
+    app.state.agent_models = FakeAgentModels(
+        settings=story_settings,
+        script={"story.storyteller": [tool_call("web_search", query="מלם"), web_cited(prep)]},
+    )
+    with TestClient(app) as c:
+        r = c.post("/api/companies/MLTM/story", json={"mode": "live", "as_of": "2026-11-26"})
+        events = sse_events(r.text)
+        assert events[-1][0] == "done", events[-1]
+        osint_steps = [d["message"] for n, d in events if n == "progress" and d["step"] == "osint"]
+        assert any("research started" in m for m in osint_steps)
+        body = c.get("/api/companies/MLTM/story").json()
+    [sid] = body["story"]["story_vs_numbers"][0]["source_ids"]
+    source = body["web_sources"][sid]
+    assert source["url"].startswith("https://") and source["title"] and source["published_at"]
+    assert source["excerpts"] and body["rendered"]["story_vs_numbers"][0]["source_ids"] == [sid]
+    assert body["searches"] == ["מלם"] and body["osint"]["started"] is True
+
+
+def test_story_run_refused_while_research_runs(story_settings):
+    from stock_analyzer.services import osint as osint_service
+
+    app = create_app(story_settings)
+    app.state.agent_models = scripted_models(story_settings, [good])
+    osint_service.acquire_run("MLTM", story_settings.osint_window_months)
+    try:
+        with TestClient(app) as c:
+            r = c.post("/api/companies/MLTM/story", json={"mode": "live", "as_of": "2026-11-26"})
+    finally:
+        osint_service.release_run("MLTM", story_settings.osint_window_months)
+    assert r.status_code == 409 and r.json()["code"] == "research_in_progress"
+
+
+def test_story_search_limit_is_an_error_event(story_settings):
+    from stock_analyzer.agents_model import FakeAgentModels, tool_call
+
+    one = story_settings.model_copy(update={"story_max_searches": 1})
+    app = create_app(one)
+    app.state.agent_models = FakeAgentModels(
+        settings=one,
+        script={
+            "story.storyteller": [tool_call("web_search", query="a"), tool_call("web_search", query="b")]
+        },
+    )
+    with TestClient(app) as c:
+        r = c.post("/api/companies/MLTM/story", json={"mode": "live", "as_of": "2026-11-26"})
+        events = sse_events(r.text)
+        assert events[-1][0] == "error" and events[-1][1]["code"] == "story_search_limit"
+        assert "'a'" in events[-1][1]["message"]
+        assert c.get("/api/companies/MLTM/story").status_code == 409  # nothing saved
+
+
 # ---------------------------------------------------------------- tracking companies at runtime
 
 ABC = {"fr_company_id": 1234, "ticker": "abc", "name_he": "חברה לדוגמה", "name_en": "Example Ltd."}
