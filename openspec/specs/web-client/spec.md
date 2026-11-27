@@ -313,3 +313,14 @@ Each number quoted from a web source SHALL be marked as a press number. On hover
 #### Scenario: Hover a web number
 - **WHEN** the user hovers or focuses a tender amount quoted from a news article
 - **THEN** the provenance shows the value, its currency, the article title and date, the quoted text in its excerpt, and that the number is not audited
+
+### Requirement: Report page loads from the API
+The report page SHALL load a tracked company's report and its axis details from the report API in the current mode. It SHALL keep serving the MLTM and SPARSE fixtures as dev data. When the API reports that a report is not cached, the page SHALL say so and offer to build it in live mode where live mode is allowed.
+
+#### Scenario: El Al report
+- **WHEN** the user opens the report page for ELAL and its report is saved
+- **THEN** the radar shows the five axes for the latest year, and opening an axis row loads its detail from the API
+
+#### Scenario: Not cached
+- **WHEN** the API answers not cached for the ticker
+- **THEN** the page shows that no report has been built yet, with a build action in live mode
