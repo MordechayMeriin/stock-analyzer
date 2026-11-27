@@ -1,12 +1,23 @@
 import Ajv2020 from 'ajv/dist/2020.js'
 import addFormats from 'ajv-formats'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import full from './fixtures/mltm.full.json'
 import sparse from './fixtures/mltm.sparse.json'
 import schema from './company-report.schema.json'
 import { fetchReport } from './queries'
 import type { CompanyReport } from './types'
+
+/** The server answers 404 for NOPE; anything else is "offline", so the fixtures are served. */
+function stubServer() {
+  vi.stubGlobal('fetch', async (input: RequestInfo | URL) =>
+    String(input).includes('/NOPE/')
+      ? new Response(JSON.stringify({ code: 'not_found', message: 'unknown ticker' }), { status: 404 })
+      : Promise.reject(new TypeError('offline')),
+  )
+}
+
+afterEach(() => vi.unstubAllGlobals())
 
 const ajv = new Ajv2020({ allErrors: true, strict: false })
 addFormats(ajv)
@@ -62,7 +73,8 @@ describe('fetchReport', () => {
     expect(r.company.ticker).toBe('MLTM')
   })
 
-  it('rejects an unknown ticker with a 404 not_found', async () => {
+  it('passes on the server 404 for an unknown ticker', async () => {
+    stubServer()
     await expect(fetchReport('NOPE', 'cached')).rejects.toMatchObject({ code: 'not_found', status: 404 })
   })
 })

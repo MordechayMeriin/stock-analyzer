@@ -14,7 +14,7 @@ function Change({ change }: { change: NonNullable<KeyMetric['change']> }) {
       style={{ color: toneColor(change.tone) }}
     >
       {ARROWS[change.direction]}
-      {change.pct !== undefined && ` ${formatSignedPct(change.pct)}`}
+      {change.pct != null && ` ${formatSignedPct(change.pct)}`}
     </span>
   )
 }
@@ -32,7 +32,7 @@ export function KeyMetrics({ metrics }: { metrics: KeyMetric[] }) {
           <li key={m.id} className="flex min-w-0 flex-col gap-1">
             <span className="text-xs text-[#71717a]">{m.label}</span>
             <span dir="ltr" className="text-start text-[22px] font-bold tabular-nums [unicode-bidi:isolate]">
-              {formatMetricValue(lastMetricValue(m), m.format, m.currency)}
+              {formatMetricValue(lastMetricValue(m), m.format, m.currency ?? undefined)}
             </span>
             {m.change && <Change change={m.change} />}
           </li>

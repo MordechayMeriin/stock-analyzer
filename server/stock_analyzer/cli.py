@@ -177,6 +177,29 @@ def companies_remove(ticker: str) -> None:
     typer.echo(f"stopped tracking {ticker.strip().upper()}; its cached data is kept")
 
 
+@companies_app.command("directory")
+def companies_directory(
+    refresh: Annotated[
+        bool,
+        typer.Option("--refresh", help="Re-fetch the directory (live; costs ~1 credit per 100 companies)"),
+    ] = False,
+) -> None:
+    """Show the stored ticker directory size, or --refresh it (SPENDS CREDITS: ~6 for TASE)."""
+    from stock_analyzer.services import tickers
+
+    try:
+        if refresh:
+            count, credits = tickers.refresh_directory(_ctx("live"))
+            typer.echo(f"directory refreshed: {count} companies, {credits} credits used")
+            return
+        with closing(_ctx()) as ctx:
+            d = tickers.directory_info(ctx)
+    except (AnalyzerError, ValueError) as exc:
+        _fail(exc)
+        return
+    typer.echo(f"directory: {d.size} companies, fetched_at {d.fetched_at or 'never'} ({d.source})")
+
+
 db_app = typer.Typer(no_args_is_help=True, help="State store database (Postgres backend)")
 app.add_typer(db_app, name="db")
 

@@ -40,14 +40,25 @@ function iconFor(e: ReportEvent): LucideIcon {
 /** Design A2: "אירועים · 3 שנים", muted 18px stroke icons, title, summary, then the date. */
 export function EventsTimeline({ events, years }: { events: ReportEvent[]; years: number }) {
   const [showAll, setShowAll] = useState(false)
-  if (events.length === 0) return null
+  const heading = (
+    <h2 id="events-heading" className="mb-4 text-[15px] font-semibold">
+      אירועים{years > 1 ? ` · ${years} שנים` : ''}
+    </h2>
+  )
+  if (events.length === 0)
+    return (
+      <section aria-labelledby="events-heading">
+        {heading}
+        <p data-testid="events-empty" className="text-[13px] text-[#71717a]">
+          עדיין לא נאספו אירועים לחברה זו.
+        </p>
+      </section>
+    )
   const shown = visibleEvents(events, showAll)
   const canExpand = !showAll && visibleEvents(events, true).length > shown.length
   return (
     <section aria-labelledby="events-heading">
-      <h2 id="events-heading" className="mb-4 text-[15px] font-semibold">
-        אירועים{years > 1 ? ` · ${years} שנים` : ''}
-      </h2>
+      {heading}
       <ul>
         {shown.map((e) => {
           const Icon = iconFor(e)

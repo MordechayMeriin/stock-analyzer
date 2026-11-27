@@ -1,0 +1,35 @@
+{
+ "count": 6,
+ "next": null,
+ "previous": "https://api.example/companies/?page=1",
+ "results": [
+  {
+   "id": 7004,
+   "name": "Delta Galil Industries Ltd.",
+   "ticker": "DELG",
+   "country_code": "IL",
+   "primary_isin": "IL0010817050",
+   "isins": [
+    "IL0010817050"
+   ],
+   "listing_status": "LISTED",
+   "sub_industry": {
+    "code": "45103010",
+    "name": "IT Services"
+   }
+  },
+  {
+   "id": 7005,
+   "name": "Unlisted Holdings Ltd.",
+   "ticker": null,
+   "country_code": "IL",
+   "primary_isin": null,
+   "isins": [],
+   "listing_status": "LISTED",
+   "sub_industry": {
+    "code": "45103010",
+    "name": "IT Services"
+   }
+  }
+ ]
+}

@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { Building2, FileText, MessageSquare, Table2 } from 'lucide-react'
+import { Building2, FileText, MessageSquare, Radar, Table2 } from 'lucide-react'
 import { NavLink, Outlet, useMatches } from 'react-router-dom'
 
 import { api } from '@/api/client'
@@ -60,6 +60,7 @@ export function Layout() {
           )}
           <nav aria-label="ניווט ראשי" className="flex flex-wrap items-center gap-1">
             <NavItem to={ticker ? `/${ticker}` : '/'} icon={Building2} label="חברה ודוחות" />
+            <NavItem to="/c" icon={Radar} label="דוח חברה" />
             <NavItem to={`/${ticker}/${year}/report`} icon={FileText} label="קריאת דוח" disabled={!ticker || !year} />
             <NavItem to={`/${ticker}/financials`} icon={Table2} label="נתונים כספיים" disabled={!ticker} />
             <NavItem to={`/${ticker}/${year}/playground`} icon={MessageSquare} label="מעבדת LLM" disabled={!ticker || !year} />

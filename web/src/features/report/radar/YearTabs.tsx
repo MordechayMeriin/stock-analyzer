@@ -2,10 +2,15 @@ import { useRef, type KeyboardEvent } from 'react'
 
 import { cn } from '@/lib/utils'
 
+/** A year, or 'all' for the 3-year view. */
+export type YearChoice = number | 'all'
+
 export interface YearTabsProps {
   years: number[]
-  value: number
-  onChange: (year: number) => void
+  value: YearChoice
+  onChange: (choice: YearChoice) => void
+  /** Adds a last tab for the all-years view with this label (e.g. "3 שנים"). */
+  allLabel?: string
 }
 
 /**
@@ -13,27 +18,29 @@ export interface YearTabsProps {
  * dark underline. Shown LTR even in the RTL page. The visible tab is small, so an invisible
  * ::after extends each hit area past 44×44. Arrow keys move between years. Hidden for one year.
  */
-export function YearTabs({ years, value, onChange }: YearTabsProps) {
+export function YearTabs({ years, value, onChange, allLabel }: YearTabsProps) {
   const refs = useRef<(HTMLButtonElement | null)[]>([])
   if (years.length < 2) return null
+  const choices: YearChoice[] = allLabel ? [...years, 'all'] : years
 
   const onKeyDown = (e: KeyboardEvent, i: number) => {
-    const last = years.length - 1
+    const last = choices.length - 1
     const next =
       e.key === 'ArrowRight' ? Math.min(i + 1, last) : e.key === 'ArrowLeft' ? Math.max(i - 1, 0) : e.key === 'Home' ? 0 : e.key === 'End' ? last : null
     if (next === null) return
     e.preventDefault()
-    onChange(years[next])
+    onChange(choices[next])
     refs.current[next]?.focus()
   }
 
   return (
     <div role="tablist" aria-label="שנת דוח" dir="ltr" className="flex gap-3">
-      {years.map((year, i) => {
+      {choices.map((year, i) => {
         const selected = year === value
         return (
           <button
             key={year}
+            dir={year === 'all' ? 'rtl' : undefined}
             ref={(el) => {
               refs.current[i] = el
             }}
@@ -52,7 +59,7 @@ export function YearTabs({ years, value, onChange }: YearTabsProps) {
                 : 'border-transparent font-medium text-[#71717a] hover:text-[#09090b]',
             )}
           >
-            {year}
+            {year === 'all' ? allLabel : year}
           </button>
         )
       })}

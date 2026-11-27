@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 
-import { ApiError, type Mode } from '@/api/client'
+import { api, ApiError, type Mode } from '@/api/client'
 import { useMode } from '@/app/mode'
 
 import axisDetails from './fixtures/mltm.axis-details.json'
@@ -8,17 +8,14 @@ import fullFixture from './fixtures/mltm.full.json'
 import sparseFixture from './fixtures/mltm.sparse.json'
 import type { AxisDetail, CompanyReport } from './types'
 
-/** Reports served until the server endpoint exists, keyed by ticker. */
+/** Offline fallbacks, keyed by ticker: served when the server is unreachable (and in tests). */
 const FIXTURES: Record<string, CompanyReport> = {
   MLTM: fullFixture as CompanyReport,
   // Dev ticker for the edge-case fixture (missing axis data, stale report, no events).
   SPARSE: sparseFixture as CompanyReport,
 }
 
-/** Whether a report can be loaded for this ticker (today: a fixture exists). */
-export function hasReport(ticker: string): boolean {
-  return ticker.toUpperCase() in FIXTURES
-}
+const isOffline = (e: unknown) => e instanceof ApiError && e.code === 'network_error'
 
 /** The fixture tickers with their company, for search when the server is unreachable. */
 export const FIXTURE_COMPANIES = Object.entries(FIXTURES).map(([ticker, r]) => ({
@@ -45,15 +42,25 @@ function wait(ms: number, signal?: AbortSignal): Promise<void> {
 }
 
 /**
- * The one place the report is loaded. For now it serves a fixture after a short delay; when the
- * server ships `GET /api/companies/{ticker}/report?mode=` (with SSE while processing), replace the
- * body with an `api.report(...)` call and leave every caller as it is.
+ * The one place the report is loaded: `GET /api/companies/{ticker}/report?mode=`. SPARSE is a
+ * dev-only fixture; MLTM falls back to its fixture when the server is unreachable (demo offline).
  */
 export async function fetchReport(ticker: string, mode: Mode, signal?: AbortSignal): Promise<CompanyReport> {
-  void mode // the real endpoint takes it; fixtures are the same in both modes
+  const key = ticker.toUpperCase()
+  if (key === 'SPARSE') return fixtureReport(key, signal)
+  try {
+    // No cast: tsc fails here if the server's generated type stops matching what the screen reads.
+    return await api.report(key, mode, signal)
+  } catch (e) {
+    if (isOffline(e) && key in FIXTURES) return fixtureReport(key, signal)
+    throw e
+  }
+}
+
+async function fixtureReport(key: string, signal?: AbortSignal): Promise<CompanyReport> {
   await wait(FIXTURE_DELAY_MS, signal)
-  const report = FIXTURES[ticker.toUpperCase()]
-  if (!report) throw new ApiError('not_found', `לא מצאנו את הטיקר ${ticker}`, 404)
+  const report = FIXTURES[key]
+  if (!report) throw new ApiError('not_found', `לא מצאנו את הטיקר ${key}`, 404)
   return report
 }
 
@@ -73,18 +80,23 @@ export function useReport(ticker: string) {
 /** Axis breakdowns served from fixtures, keyed `axisId:year`. */
 const AXIS_DETAILS = axisDetails as Record<string, AxisDetail>
 
-/**
- * The one place an axis breakdown is loaded (`GET .../report/axes/{axisId}?year=`). Serves
- * fixtures for now; swap the body for the real call and leave every caller as it is.
- */
+/** The one place an axis breakdown is loaded (`GET .../report/axes/{axisId}?year=`), same fallback rules. */
 export async function fetchAxisDetail(
   ticker: string,
   axisId: string,
   year: number,
   signal?: AbortSignal,
 ): Promise<AxisDetail> {
+  const key = ticker.toUpperCase()
+  if (key !== 'SPARSE') {
+    try {
+      return await api.axisDetail(key, axisId, year, signal)
+    } catch (e) {
+      if (!isOffline(e)) throw e
+    }
+  }
   await wait(FIXTURE_DELAY_MS, signal)
-  const detail = ticker.toUpperCase() === 'MLTM' ? AXIS_DETAILS[`${axisId}:${year}`] : undefined
+  const detail = key === 'MLTM' ? AXIS_DETAILS[`${axisId}:${year}`] : undefined
   if (!detail) throw new ApiError('not_found', 'הפירוט אינו זמין לשנה זו', 404)
   return detail
 }

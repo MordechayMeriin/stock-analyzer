@@ -230,6 +230,17 @@ uv run stock-analyzer companies remove ABC          # cached reports and financi
 `add` and `remove` run in live mode (refused when `ALLOW_LIVE=false`), and nothing is fetched on
 add. Get the provider id from `GET /api/companies/search?q=<name>` or the client's search.
 
+#### Ticker directory
+
+`GET /api/tickers?q=` (autocomplete) searches a stored directory of every TASE-listed company plus the
+tracked ones. It is free and cached-only: it never calls the provider, even with `mode=live`. The directory
+is fetched once by an explicit command; it costs about 1 credit per 100 companies (~6 credits for TASE):
+
+```bash
+uv run stock-analyzer companies directory              # stored size and fetched_at (free)
+uv run stock-analyzer companies directory --refresh    # live: re-fetch the listing (spends credits)
+```
+
 ## API
 
 ```bash
@@ -272,6 +283,26 @@ After changing an endpoint or a response model:
 uv run python scripts/export_openapi.py          # regenerate
 uv run python scripts/export_openapi.py --check  # CI: fails when the file is stale
 ```
+
+### Company report contract
+
+`GET /api/companies/{ticker}/report` and `GET /api/companies/{ticker}/report/axes/{axis_id}?year=`
+feed the web client's company screen (`/c/:ticker`). They read stored data only: no provider or
+LLM calls, in either mode.
+
+- **Spec:** `docs/company-report-spec.md`. **Schema:** `web/src/features/report/company-report.schema.json`,
+  the only copy. `tests/unit/test_services_report.py` validates the endpoint's output against it,
+  and the web tests validate the client's fixtures against it.
+- **Code:** models `CompanyReportOut` / `AxisDetailOut` in `services/models.py`, assembly in
+  `services/report.py`, scoring anchors in `fin/scores.py` (each axis is the rounded mean of ratio
+  scores mapped linearly from a "bad" anchor = 1 to a "good" anchor = 10).
+- **Rules the client relies on:** snake_case, money as decimal strings, every axis "higher is
+  better", missing values are `null` (never 0), the server decides `trend.tone`, 3-8 axes,
+  `years` oldest first with one score per year on every axis.
+- **Changing it:** edit the model, run `export_openapi.py`, then `npm run gen:api` in `web/`. The
+  web build fails when the generated type no longer fits the screen's types
+  (`web/src/features/report/types.ts`). A breaking change also bumps `schema_version`'s major
+  version and updates the schema file.
 
 ## Tests and lint
 

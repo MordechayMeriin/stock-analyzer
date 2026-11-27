@@ -7,11 +7,13 @@ from fastapi import APIRouter, Body, Query, Response, status
 
 from stock_analyzer.api.deps import CtxDep
 from stock_analyzer.diff.align import Comparison
-from stock_analyzer.services import companies, compare, filings, financials, peer_benchmark, ratios
+from stock_analyzer.services import companies, compare, filings, financials, peer_benchmark, ratios, report
 from stock_analyzer.services.context import Ctx
 from stock_analyzer.services.models import (
     AddCompanyIn,
+    AxisDetailOut,
     CompanyOut,
+    CompanyReportOut,
     CompanySearchHit,
     FilingsOut,
     FinancialsOut,
@@ -96,6 +98,32 @@ def get_ratios(
     as_of: Annotated[date | None, Query(description="Only values available by this date")] = None,
 ) -> RatiosOut:
     return ratios.ratios(ctx, ticker, as_of=as_of)
+
+
+@router.get(
+    "/{ticker}/report",
+    response_model=CompanyReportOut,
+    summary="Company report: 1-10 scores per axis for the newest three years, key numbers and events",
+    description="Computed from stored data only (no provider or LLM call). Scores map ratios linearly between "
+    "fixed bad/good anchors; `unsupported_company` (422) when fewer than three axes have a value.",
+)
+def get_company_report(ctx: CtxDep, ticker: str) -> CompanyReportOut:
+    return report.company_report(ctx, ticker)
+
+
+@router.get(
+    "/{ticker}/report/axes/{axis_id}",
+    response_model=AxisDetailOut,
+    summary="Why one report axis scored as it did in a year",
+    description="`axis_not_found` / `year_not_found` (404) for an axis or year the report does not have.",
+)
+def get_report_axis(
+    ctx: CtxDep,
+    ticker: str,
+    axis_id: str,
+    year: Annotated[int | None, Query(description="Fiscal year; the newest when omitted")] = None,
+) -> AxisDetailOut:
+    return report.axis_detail(ctx, ticker, axis_id, year)
 
 
 @router.get(

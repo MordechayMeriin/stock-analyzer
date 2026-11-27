@@ -11,9 +11,10 @@ import { KeyMetrics } from './components/KeyMetrics'
 import { ScoreList } from './components/ScoreList'
 import { hasEnoughForRadar } from './radar/geometry'
 import { RadarChart } from './radar/RadarChart'
-import { YearTabs } from './radar/YearTabs'
+import { RotatingRadar } from './radar/RotatingRadar'
+import { YearTabs, type YearChoice } from './radar/YearTabs'
 import { useReport } from './queries'
-import { radarAxesForYear, resolveYear } from './view'
+import { defaultYear, radarAxesForYear, resolveYear } from './view'
 
 // Design A2: 390-wide reference, page padding 28/20/32, 36px between sections; centered up to 480.
 const COLUMN = 'mx-auto w-full max-w-[480px] space-y-9 px-5 pt-7 pb-8 text-[#09090b]'
@@ -72,9 +73,11 @@ export function ReportPage() {
   }
 
   const report = query.data
-  const year = resolveYear(report, params.get('y'))
+  // ?y=all is the multi-year view: the radar plays through the years; the list below stays on the latest.
+  const compare = params.get('y') === 'all' && report.years.length > 1
+  const year = compare ? defaultYear(report) : resolveYear(report, params.get('y'))
   const axes = radarAxesForYear(report, year)
-  const setYear = (y: number) => setParams({ y: String(y) }, { replace: true })
+  const setYear = (y: YearChoice) => setParams({ y: String(y) }, { replace: true })
 
   return (
     <div className={COLUMN}>
@@ -85,9 +88,14 @@ export function ReportPage() {
           <h2 id="profile-heading" className="text-[15px] font-semibold">
             פרופיל החברה
           </h2>
-          <YearTabs years={report.years} value={year} onChange={setYear} />
+          <YearTabs
+            years={report.years}
+            value={compare ? 'all' : year}
+            onChange={setYear}
+            allLabel={`${report.years.length} שנים`}
+          />
         </div>
-        {hasEnoughForRadar(axes) && <RadarChart axes={axes} />}
+        {hasEnoughForRadar(axes) && (compare ? <RotatingRadar report={report} /> : <RadarChart axes={axes} />)}
       </section>
       <ScoreList ticker={report.company.ticker} axes={report.profile.axes} year={year} />
       <EventsTimeline events={report.events} years={report.years.length} />

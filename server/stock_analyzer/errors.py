@@ -163,6 +163,20 @@ class ResearchInProgress(AnalyzerError):
     code = "research_in_progress"
 
 
+class UnsupportedCompany(AnalyzerError):
+    """Too little scored data to draw a company report (fewer than three axes with a value)."""
+
+    code = "unsupported_company"
+
+
+class AxisNotFound(AnalyzerError):
+    code = "axis_not_found"
+
+
+class YearNotFound(AnalyzerError):
+    code = "year_not_found"
+
+
 class StorySearchLimitExceeded(AnalyzerError):
     """The storyteller asked for more web searches than the story's limit; the run fails (company-story spec)."""
 

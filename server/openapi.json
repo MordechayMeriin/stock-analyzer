@@ -182,6 +182,137 @@
         "title": "AreaAssessment",
         "type": "object"
       },
+      "AxisDetailOut": {
+        "properties": {
+          "axis_id": {
+            "title": "Axis Id",
+            "type": "string"
+          },
+          "factors": {
+            "items": {
+              "$ref": "#/components/schemas/AxisFactor"
+            },
+            "title": "Factors",
+            "type": "array"
+          },
+          "fiscal_year": {
+            "title": "Fiscal Year",
+            "type": "integer"
+          },
+          "headline": {
+            "title": "Headline",
+            "type": "string"
+          },
+          "sector_comparison": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SectorComparison"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "axis_id",
+          "fiscal_year",
+          "headline",
+          "factors",
+          "text"
+        ],
+        "title": "AxisDetailOut",
+        "type": "object"
+      },
+      "AxisFactor": {
+        "properties": {
+          "display": {
+            "title": "Display",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "tone": {
+            "enum": [
+              "positive",
+              "negative",
+              "neutral"
+            ],
+            "title": "Tone",
+            "type": "string"
+          }
+        },
+        "required": [
+          "label",
+          "display",
+          "tone"
+        ],
+        "title": "AxisFactor",
+        "type": "object"
+      },
+      "AxisScore": {
+        "properties": {
+          "driver": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ScoreDriver"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "fiscal_year": {
+            "title": "Fiscal Year",
+            "type": "integer"
+          },
+          "sector_median": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sector Median"
+          },
+          "trend": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ScoreTrend"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "1-10, higher is better; null when no ratio has a value",
+            "title": "Value"
+          }
+        },
+        "required": [
+          "fiscal_year",
+          "value"
+        ],
+        "title": "AxisScore",
+        "type": "object"
+      },
       "BenchCompanyOut": {
         "properties": {
           "country": {
@@ -636,6 +767,82 @@
           "source"
         ],
         "title": "CompanyOut",
+        "type": "object"
+      },
+      "CompanyReportOut": {
+        "properties": {
+          "company": {
+            "$ref": "#/components/schemas/ReportCompany"
+          },
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/ReportEvent"
+            },
+            "title": "Events",
+            "type": "array"
+          },
+          "generated_at": {
+            "title": "Generated At",
+            "type": "string"
+          },
+          "key_metrics": {
+            "items": {
+              "$ref": "#/components/schemas/KeyMetric"
+            },
+            "title": "Key Metrics",
+            "type": "array"
+          },
+          "mode": {
+            "enum": [
+              "cached",
+              "live"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "profile": {
+            "$ref": "#/components/schemas/ReportProfile"
+          },
+          "report": {
+            "$ref": "#/components/schemas/ReportInfo"
+          },
+          "schema_version": {
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/ReportSummary"
+          },
+          "warnings": {
+            "items": {
+              "$ref": "#/components/schemas/ReportWarning"
+            },
+            "title": "Warnings",
+            "type": "array"
+          },
+          "years": {
+            "description": "Up to three fiscal years, oldest first",
+            "items": {
+              "type": "integer"
+            },
+            "title": "Years",
+            "type": "array"
+          }
+        },
+        "required": [
+          "generated_at",
+          "mode",
+          "company",
+          "report",
+          "summary",
+          "years",
+          "profile",
+          "events",
+          "key_metrics",
+          "warnings"
+        ],
+        "title": "CompanyReportOut",
         "type": "object"
       },
       "CompanySearchHit": {
@@ -1634,6 +1841,64 @@
         "title": "KeyDriver",
         "type": "object"
       },
+      "KeyMetric": {
+        "properties": {
+          "change": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MetricChange"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "currency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Currency"
+          },
+          "format": {
+            "enum": [
+              "currency",
+              "percent",
+              "ratio",
+              "count"
+            ],
+            "title": "Format",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "series": {
+            "items": {
+              "$ref": "#/components/schemas/MetricPoint"
+            },
+            "title": "Series",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "format",
+          "series"
+        ],
+        "title": "KeyMetric",
+        "type": "object"
+      },
       "ManagementClaim": {
         "properties": {
           "claim_he": {
@@ -1710,6 +1975,71 @@
           "n"
         ],
         "title": "MedianOut",
+        "type": "object"
+      },
+      "MetricChange": {
+        "properties": {
+          "direction": {
+            "enum": [
+              "up",
+              "down",
+              "flat"
+            ],
+            "title": "Direction",
+            "type": "string"
+          },
+          "pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pct"
+          },
+          "tone": {
+            "enum": [
+              "positive",
+              "negative",
+              "neutral"
+            ],
+            "title": "Tone",
+            "type": "string"
+          }
+        },
+        "required": [
+          "direction",
+          "tone"
+        ],
+        "title": "MetricChange",
+        "type": "object"
+      },
+      "MetricPoint": {
+        "properties": {
+          "fiscal_year": {
+            "title": "Fiscal Year",
+            "type": "integer"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Decimal string",
+            "title": "Value"
+          }
+        },
+        "required": [
+          "fiscal_year",
+          "value"
+        ],
+        "title": "MetricPoint",
         "type": "object"
       },
       "NodeOut": {
@@ -2471,6 +2801,46 @@
         "title": "Point",
         "type": "object"
       },
+      "ProfileAxis": {
+        "properties": {
+          "detail_url": {
+            "title": "Detail Url",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "scores": {
+            "items": {
+              "$ref": "#/components/schemas/AxisScore"
+            },
+            "title": "Scores",
+            "type": "array"
+          },
+          "status": {
+            "enum": [
+              "ok",
+              "insufficient_data"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "status",
+          "detail_url",
+          "scores"
+        ],
+        "title": "ProfileAxis",
+        "type": "object"
+      },
       "ProfileItem": {
         "properties": {
           "fact_ids": {
@@ -2893,6 +3263,241 @@
         "title": "RenderedStory",
         "type": "object"
       },
+      "ReportCompany": {
+        "properties": {
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
+          "exchange": {
+            "title": "Exchange",
+            "type": "string"
+          },
+          "logo_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Logo Url"
+          },
+          "name_en": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name En"
+          },
+          "name_he": {
+            "title": "Name He",
+            "type": "string"
+          },
+          "sector": {
+            "$ref": "#/components/schemas/ReportSector"
+          },
+          "ticker": {
+            "title": "Ticker",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ticker",
+          "name_he",
+          "exchange",
+          "currency",
+          "sector"
+        ],
+        "title": "ReportCompany",
+        "type": "object"
+      },
+      "ReportEvent": {
+        "properties": {
+          "date": {
+            "title": "Date",
+            "type": "string"
+          },
+          "date_precision": {
+            "enum": [
+              "day",
+              "month"
+            ],
+            "title": "Date Precision",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "importance": {
+            "description": "1-3; the screen shows 2 and up by default",
+            "enum": [
+              1,
+              2,
+              3
+            ],
+            "title": "Importance",
+            "type": "integer"
+          },
+          "source_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Url"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "tone": {
+            "enum": [
+              "positive",
+              "negative",
+              "neutral"
+            ],
+            "title": "Tone",
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "report",
+              "acquisition",
+              "leadership",
+              "guidance",
+              "financing",
+              "legal",
+              "regulatory",
+              "buyback",
+              "insider",
+              "other"
+            ],
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "date",
+          "date_precision",
+          "type",
+          "title",
+          "summary",
+          "importance",
+          "tone"
+        ],
+        "title": "ReportEvent",
+        "type": "object"
+      },
+      "ReportInfo": {
+        "properties": {
+          "fiscal_year": {
+            "title": "Fiscal Year",
+            "type": "integer"
+          },
+          "period_end": {
+            "title": "Period End",
+            "type": "string"
+          },
+          "published_at": {
+            "title": "Published At",
+            "type": "string"
+          },
+          "type": {
+            "const": "annual",
+            "default": "annual",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "fiscal_year",
+          "period_end",
+          "published_at"
+        ],
+        "title": "ReportInfo",
+        "type": "object"
+      },
+      "ReportProfile": {
+        "properties": {
+          "axes": {
+            "items": {
+              "$ref": "#/components/schemas/ProfileAxis"
+            },
+            "title": "Axes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "axes"
+        ],
+        "title": "ReportProfile",
+        "type": "object"
+      },
+      "ReportSector": {
+        "properties": {
+          "id": {
+            "description": "The statement template: industrial, bank or insurer",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "ReportSector",
+        "type": "object"
+      },
+      "ReportSummary": {
+        "properties": {
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "ReportSummary",
+        "type": "object"
+      },
+      "ReportWarning": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message"
+        ],
+        "title": "ReportWarning",
+        "type": "object"
+      },
       "ResearchResult": {
         "properties": {
           "company_name": {
@@ -2995,6 +3600,62 @@
         "title": "ResearchResult",
         "type": "object"
       },
+      "ScoreDriver": {
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "tone": {
+            "enum": [
+              "positive",
+              "negative",
+              "neutral"
+            ],
+            "title": "Tone",
+            "type": "string"
+          }
+        },
+        "required": [
+          "label",
+          "tone"
+        ],
+        "title": "ScoreDriver",
+        "type": "object"
+      },
+      "ScoreTrend": {
+        "properties": {
+          "delta": {
+            "title": "Delta",
+            "type": "integer"
+          },
+          "direction": {
+            "enum": [
+              "up",
+              "down",
+              "flat"
+            ],
+            "title": "Direction",
+            "type": "string"
+          },
+          "tone": {
+            "enum": [
+              "positive",
+              "negative",
+              "neutral"
+            ],
+            "title": "Tone",
+            "type": "string"
+          }
+        },
+        "required": [
+          "direction",
+          "delta",
+          "tone"
+        ],
+        "title": "ScoreTrend",
+        "type": "object"
+      },
       "Scorecard": {
         "properties": {
           "areas": {
@@ -3075,6 +3736,29 @@
           "summary_he"
         ],
         "title": "Scorecard",
+        "type": "object"
+      },
+      "SectorComparison": {
+        "properties": {
+          "median": {
+            "title": "Median",
+            "type": "number"
+          },
+          "position": {
+            "enum": [
+              "above",
+              "below",
+              "equal"
+            ],
+            "title": "Position",
+            "type": "string"
+          }
+        },
+        "required": [
+          "position",
+          "median"
+        ],
+        "title": "SectorComparison",
         "type": "object"
       },
       "Segment": {
@@ -3599,6 +4283,115 @@
           "warnings"
         ],
         "title": "StructureOut",
+        "type": "object"
+      },
+      "TickerDirectoryInfo": {
+        "properties": {
+          "fetched_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fetched At"
+          },
+          "size": {
+            "title": "Size",
+            "type": "integer"
+          },
+          "source": {
+            "enum": [
+              "directory",
+              "tracked_only"
+            ],
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "size",
+          "source"
+        ],
+        "title": "TickerDirectoryInfo",
+        "type": "object"
+      },
+      "TickerHit": {
+        "properties": {
+          "fr_company_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fr Company Id"
+          },
+          "isin": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Isin"
+          },
+          "name_en": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name En"
+          },
+          "name_he": {
+            "title": "Name He",
+            "type": "string"
+          },
+          "ticker": {
+            "title": "Ticker",
+            "type": "string"
+          },
+          "tracked": {
+            "default": false,
+            "title": "Tracked",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "ticker",
+          "name_he"
+        ],
+        "title": "TickerHit",
+        "type": "object"
+      },
+      "TickerSearchOut": {
+        "properties": {
+          "directory": {
+            "$ref": "#/components/schemas/TickerDirectoryInfo"
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/TickerHit"
+            },
+            "title": "Results",
+            "type": "array"
+          }
+        },
+        "required": [
+          "results",
+          "directory"
+        ],
+        "title": "TickerSearchOut",
         "type": "object"
       },
       "TocEntryOut": {
@@ -4859,6 +5652,151 @@
         ]
       }
     },
+    "/api/companies/{ticker}/report": {
+      "get": {
+        "description": "Computed from stored data only (no provider or LLM call). Scores map ratios linearly between fixed bad/good anchors; `unsupported_company` (422) when fewer than three axes have a value.",
+        "operationId": "get_company_report_api_companies__ticker__report_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ticker",
+            "required": true,
+            "schema": {
+              "title": "Ticker",
+              "type": "string"
+            }
+          },
+          {
+            "description": "cached: local data only, no provider calls. live: fetch what is missing (if the server allows).",
+            "in": "query",
+            "name": "mode",
+            "required": false,
+            "schema": {
+              "default": "cached",
+              "description": "cached: local data only, no provider calls. live: fetch what is missing (if the server allows).",
+              "enum": [
+                "cached",
+                "live"
+              ],
+              "title": "Mode",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompanyReportOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Company report: 1-10 scores per axis for the newest three years, key numbers and events",
+        "tags": [
+          "companies"
+        ]
+      }
+    },
+    "/api/companies/{ticker}/report/axes/{axis_id}": {
+      "get": {
+        "description": "`axis_not_found` / `year_not_found` (404) for an axis or year the report does not have.",
+        "operationId": "get_report_axis_api_companies__ticker__report_axes__axis_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ticker",
+            "required": true,
+            "schema": {
+              "title": "Ticker",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "axis_id",
+            "required": true,
+            "schema": {
+              "title": "Axis Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Fiscal year; the newest when omitted",
+            "in": "query",
+            "name": "year",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Fiscal year; the newest when omitted",
+              "title": "Year"
+            }
+          },
+          {
+            "description": "cached: local data only, no provider calls. live: fetch what is missing (if the server allows).",
+            "in": "query",
+            "name": "mode",
+            "required": false,
+            "schema": {
+              "default": "cached",
+              "description": "cached: local data only, no provider calls. live: fetch what is missing (if the server allows).",
+              "enum": [
+                "cached",
+                "live"
+              ],
+              "title": "Mode",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AxisDetailOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Why one report axis scored as it did in a year",
+        "tags": [
+          "companies"
+        ]
+      }
+    },
     "/api/companies/{ticker}/reports/{fiscal_year}/nodes/{node_id}": {
       "get": {
         "description": "An uncached report is fetched in live mode. If the provider has no Markdown for the selected filing (not processed yet, or not convertible), the request fails with 409 `report_not_processed`.",
@@ -5234,6 +6172,81 @@
         "summary": "Ask the main LLM about a report section (streamed)",
         "tags": [
           "playground"
+        ]
+      }
+    },
+    "/api/tickers": {
+      "get": {
+        "description": "Searches the stored directory of TASE-listed companies plus the tracked companies. Free: it reads stored data only and never calls the provider, even with `mode=live`, so the client may call it on every keystroke. Without a stored directory only tracked companies are found (`directory.source` is `tracked_only`). The directory is filled by `stock-analyzer companies directory --refresh` (CLI, spends credits).",
+        "operationId": "search_tickers_api_tickers_get",
+        "parameters": [
+          {
+            "description": "Ticker or name text",
+            "in": "query",
+            "name": "q",
+            "required": true,
+            "schema": {
+              "description": "Ticker or name text",
+              "maxLength": 60,
+              "minLength": 1,
+              "title": "Q",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 8,
+              "maximum": 20,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "cached: local data only, no provider calls. live: fetch what is missing (if the server allows).",
+            "in": "query",
+            "name": "mode",
+            "required": false,
+            "schema": {
+              "default": "cached",
+              "description": "cached: local data only, no provider calls. live: fetch what is missing (if the server allows).",
+              "enum": [
+                "cached",
+                "live"
+              ],
+              "title": "Mode",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TickerSearchOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Ticker autocomplete (free, cached-only)",
+        "tags": [
+          "tickers"
         ]
       }
     },

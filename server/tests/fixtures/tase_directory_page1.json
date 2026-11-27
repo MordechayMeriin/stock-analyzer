@@ -1,0 +1,67 @@
+{
+ "count": 6,
+ "next": "https://api.example/companies/?page=2",
+ "previous": null,
+ "results": [
+  {
+   "id": 6901,
+   "name": "Malam-Team Ltd.",
+   "ticker": "MLTM",
+   "country_code": "IL",
+   "primary_isin": "IL0001560189",
+   "isins": [
+    "IL0001560189"
+   ],
+   "listing_status": "LISTED",
+   "sub_industry": {
+    "code": "45103010",
+    "name": "IT Services"
+   }
+  },
+  {
+   "id": 7001,
+   "name": "מלם מערכות בע\"מ",
+   "ticker": "MLMS",
+   "country_code": "IL",
+   "primary_isin": "IL0000000011",
+   "isins": [
+    "IL0000000011"
+   ],
+   "listing_status": "LISTED",
+   "sub_industry": {
+    "code": "45103010",
+    "name": "IT Services"
+   }
+  },
+  {
+   "id": 7002,
+   "name": "Elbit Systems Ltd.",
+   "ticker": "ESLT",
+   "country_code": "IL",
+   "primary_isin": "IL0010811243",
+   "isins": [
+    "IL0010811243"
+   ],
+   "listing_status": "LISTED",
+   "sub_industry": {
+    "code": "45103010",
+    "name": "IT Services"
+   }
+  },
+  {
+   "id": 7003,
+   "name": "בנק דיסקונט לישראל בע\"מ",
+   "ticker": "DSCT",
+   "country_code": "IL",
+   "primary_isin": "IL0006912120",
+   "isins": [
+    "IL0006912120"
+   ],
+   "listing_status": "LISTED",
+   "sub_industry": {
+    "code": "45103010",
+    "name": "IT Services"
+   }
+  }
+ ]
+}

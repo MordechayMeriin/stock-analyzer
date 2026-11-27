@@ -86,6 +86,12 @@ class CompanyProfile(BaseModel):
     country_code: str | None = None
     sub_industry: SubIndustry | None = None
     listing_status: str | None = None
+    isins: list[str] = []
+    primary_isin: str | None = None
+
+    @property
+    def isin(self) -> str | None:
+        return self.primary_isin or (self.isins[0] if self.isins else None)
 
     @property
     def sub_industry_code(self) -> str | None:
@@ -402,6 +408,31 @@ class FRClient:
             candidates.extend(data.results)
             if not data.next:
                 return candidates
+            page += 1
+
+    @staticmethod
+    def listing_params(country: str, page: int) -> dict[str, Any]:
+        return {
+            "countries": country,
+            "listing_status": "LISTED",
+            "view": "full",
+            "page_size": 100,
+            "page": page,
+        }
+
+    def list_listed_companies(
+        self, country: str | None = None, *, refresh: bool | None = None
+    ) -> list[CompanyProfile]:
+        """Every listed company of a country (1 credit per page of 100). Every page is cached."""
+        country = country or self.settings.fr_country
+        companies: list[CompanyProfile] = []
+        page = 1
+        while True:
+            response = self.request("/companies/", self.listing_params(country, page), refresh=refresh)
+            data = CompanyDirectoryPage.model_validate_json(response.body)
+            companies.extend(data.results)
+            if not data.next:
+                return companies
             page += 1
 
     @staticmethod
