@@ -56,3 +56,22 @@ jobs:
           fi
       - name: openapi.json is up to date
         run: uv run python scripts/export_openapi.py --check
+
+  # The deploy image (render.yaml builds server/Dockerfile): it must build from the lock file and start.
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build server/Dockerfile
+        run: docker build -t stock-analyzer-server server/
+      - name: Container starts and answers /health
+        shell: bash
+        run: |
+          docker run -d --name api -p 8000:8000 stock-analyzer-server
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8000/health; then echo; docker rm -f api >/dev/null; exit 0; fi
+            sleep 2
+          done
+          echo "::error::the container did not answer /health"
+          docker logs api
+          exit 1
