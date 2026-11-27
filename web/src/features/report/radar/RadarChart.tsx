@@ -31,9 +31,6 @@ export function RadarChart({ axes, ariaLabel }: RadarChartProps) {
         {layout.rings.map((ring) => (
           <polygon key={ring.level} points={ring.points} fill="none" stroke={GRID} strokeWidth={1} />
         ))}
-        {layout.spokes.map((s) => (
-          <line key={s.id} x1={195} y1={170} x2={s.end.x} y2={s.end.y} stroke={GRID} strokeWidth={1} />
-        ))}
 
         {layout.polygon && (
           <polygon
@@ -66,14 +63,12 @@ export function RadarChart({ axes, ariaLabel }: RadarChartProps) {
         )}
 
         {layout.labels.map((l) => {
-          const nameY = l.side === 'top' ? l.y - 18 : l.y + 6
-          const valueY = nameY + 18
           return (
             <g key={l.id} data-testid={`label-${l.id}`}>
-              <text x={l.x} y={nameY} textAnchor={l.anchor} fontSize={12} fontWeight={500} fill={MUTED}>
+              <text x={l.x} y={l.nameY} textAnchor="middle" fontSize={12} fontWeight={500} fill={MUTED}>
                 {l.label}
               </text>
-              <text x={l.x} y={valueY} textAnchor={l.anchor} fontSize={16} fontWeight={700} fill={FOREGROUND}>
+              <text x={l.x} y={l.valueY} textAnchor="middle" fontSize={16} fontWeight={700} fill={FOREGROUND}>
                 {l.value === null ? (
                   <tspan fill={MUTED}>—</tspan>
                 ) : (

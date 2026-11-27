@@ -33,7 +33,7 @@ describe('ReportPage with MLTM', () => {
     expect(screen.getByRole('img')).toBeTruthy()
     expect(screen.getAllByRole('button', { expanded: false })).toHaveLength(5)
     expect(screen.getByText('נתח מניה חדשה').closest('a')?.getAttribute('href')).toBe('/c')
-    expect(screen.getByText(/אינו מהווה המלצה/)).toBeTruthy()
+    expect(screen.getByText(/ואינם המלצה/)).toBeTruthy()
   })
 
   it('selects the year from ?y=', async () => {

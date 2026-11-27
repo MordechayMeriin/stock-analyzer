@@ -59,28 +59,24 @@ export function gridRing(n: number, level: number): Point[] {
   return Array.from({ length: n }, (_, i) => vertex(i, n, level))
 }
 
-export type TextAnchor = 'start' | 'middle' | 'end'
+/** Offsets of the two label lines from the label point (design A2: name above, value below). */
+export const LABEL_NAME_DY = -3
+export const LABEL_VALUE_DY = 15
 
 export interface LabelPlacement extends Point {
-  anchor: TextAnchor
-  /** Labels in the top half grow upwards from the anchor point, the rest downwards. */
-  side: 'top' | 'bottom'
+  /** Baselines of the axis name and the value line, both centered on `x`. */
+  nameY: number
+  valueY: number
 }
 
-/**
- * Where an axis's label sits: on the label ring, anchored away from the center. Anchors are in
- * absolute (LTR) terms; the chart sets `direction: ltr` so they do not flip in an RTL page.
- */
+/** Where an axis's label sits: centered on the label ring, name above the value. */
 export function labelPlacement(i: number, n: number): LabelPlacement {
   const p = polar(axisAngle(i, n), LABEL_RADIUS)
-  const dx = p.x - CENTER.x
-  const anchor: TextAnchor = Math.abs(dx) < 1 ? 'middle' : dx > 0 ? 'start' : 'end'
-  return { ...p, anchor, side: p.y < CENTER.y ? 'top' : 'bottom' }
+  return { ...p, nameY: round(p.y + LABEL_NAME_DY), valueY: round(p.y + LABEL_VALUE_DY) }
 }
 
 export interface RadarLayout {
   rings: { level: number; points: string }[]
-  spokes: { id: string; end: Point }[]
   /** Polygon through the axes that have a value, in axis order; empty under 2 values. */
   polygon: string
   vertices: { id: string; point: Point; hollow: boolean }[]
@@ -102,7 +98,6 @@ export function radarLayout(axes: RadarAxis[]): RadarLayout {
   const filled = vertices.filter((v) => !v.hollow).map((v) => v.point)
   return {
     rings: GRID_LEVELS.map((level) => ({ level, points: toPoints(gridRing(n, level)) })),
-    spokes: axes.map((axis, i) => ({ id: axis.id, end: vertex(i, n, MAX_SCORE) })),
     polygon: filled.length >= 2 ? toPoints(filled) : '',
     vertices,
     labels: axes.map((axis, i) => ({ ...axis, ...labelPlacement(i, n) })),

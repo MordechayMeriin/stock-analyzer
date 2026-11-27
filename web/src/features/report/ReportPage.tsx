@@ -15,7 +15,8 @@ import { YearTabs } from './radar/YearTabs'
 import { useReport } from './queries'
 import { radarAxesForYear, resolveYear } from './view'
 
-const COLUMN = 'mx-auto w-full max-w-[480px] space-y-9 px-5 py-6'
+// Design A2: 390-wide reference, page padding 28/20/32, 36px between sections; centered up to 480.
+const COLUMN = 'mx-auto w-full max-w-[480px] space-y-9 px-5 pt-7 pb-8 text-[#09090b]'
 
 function NewCompanyLink() {
   return (
@@ -79,15 +80,17 @@ export function ReportPage() {
     <div className={COLUMN}>
       <NewCompanyLink />
       <CompanyHeader report={report} />
-      <section aria-labelledby="profile-heading" className="space-y-3">
-        <h2 id="profile-heading" className="text-[15px] font-semibold">
-          פרופיל החברה
-        </h2>
-        <YearTabs years={report.years} value={year} onChange={setYear} />
+      <section aria-labelledby="profile-heading">
+        <div className="mb-2 flex items-center justify-between gap-3">
+          <h2 id="profile-heading" className="text-[15px] font-semibold">
+            פרופיל החברה
+          </h2>
+          <YearTabs years={report.years} value={year} onChange={setYear} />
+        </div>
         {hasEnoughForRadar(axes) && <RadarChart axes={axes} />}
       </section>
       <ScoreList ticker={report.company.ticker} axes={report.profile.axes} year={year} />
-      <EventsTimeline events={report.events} />
+      <EventsTimeline events={report.events} years={report.years.length} />
       <KeyMetrics metrics={report.key_metrics} />
       <Disclaimer />
     </div>

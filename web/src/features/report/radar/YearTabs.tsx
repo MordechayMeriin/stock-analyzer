@@ -9,8 +9,9 @@ export interface YearTabsProps {
 }
 
 /**
- * Year switcher (2023 | 2024 | 2025). Shown LTR even in the RTL page, so years read oldest to
- * newest. Tabs pattern: arrow keys move between years, 44×44 minimum hit area. Hidden for one year.
+ * Year switcher (2023 | 2024 | 2025), design A2: plain text tabs, the selected one bold with a
+ * dark underline. Shown LTR even in the RTL page. The visible tab is small, so an invisible
+ * ::after extends each hit area past 44×44. Arrow keys move between years. Hidden for one year.
  */
 export function YearTabs({ years, value, onChange }: YearTabsProps) {
   const refs = useRef<(HTMLButtonElement | null)[]>([])
@@ -27,7 +28,7 @@ export function YearTabs({ years, value, onChange }: YearTabsProps) {
   }
 
   return (
-    <div role="tablist" aria-label="שנת דוח" dir="ltr" className="inline-flex gap-1 rounded-md bg-muted p-1">
+    <div role="tablist" aria-label="שנת דוח" dir="ltr" className="flex gap-3">
       {years.map((year, i) => {
         const selected = year === value
         return (
@@ -43,9 +44,12 @@ export function YearTabs({ years, value, onChange }: YearTabsProps) {
             onClick={() => onChange(year)}
             onKeyDown={(e) => onKeyDown(e, i)}
             className={cn(
-              'min-h-11 min-w-11 rounded-sm px-3 text-sm font-medium tabular-nums transition-colors',
-              'focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
-              selected ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
+              'relative border-b-2 px-1 py-1.5 text-[13px] tabular-nums transition-colors',
+              "after:absolute after:-inset-x-1.5 after:-inset-y-2.5 after:content-['']",
+              'focus-visible:rounded-sm focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
+              selected
+                ? 'border-[#09090b] font-bold text-[#09090b]'
+                : 'border-transparent font-medium text-[#71717a] hover:text-[#09090b]',
             )}
           >
             {year}

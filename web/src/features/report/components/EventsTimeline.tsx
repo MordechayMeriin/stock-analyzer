@@ -17,7 +17,6 @@ import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 
 import { formatEventDate } from '../format'
-import { toneColor } from '../radar/geometry'
 import type { ReportEvent } from '../types'
 import { visibleEvents } from '../view'
 
@@ -38,42 +37,42 @@ function iconFor(e: ReportEvent): LucideIcon {
   return ICONS[e.type]
 }
 
-export function EventsTimeline({ events }: { events: ReportEvent[] }) {
+/** Design A2: "אירועים · 3 שנים", muted 18px stroke icons, title, summary, then the date. */
+export function EventsTimeline({ events, years }: { events: ReportEvent[]; years: number }) {
   const [showAll, setShowAll] = useState(false)
   if (events.length === 0) return null
   const shown = visibleEvents(events, showAll)
   const canExpand = !showAll && visibleEvents(events, true).length > shown.length
   return (
-    <section aria-labelledby="events-heading" className="space-y-3">
-      <h2 id="events-heading" className="text-[15px] font-semibold">
-        אירועים
+    <section aria-labelledby="events-heading">
+      <h2 id="events-heading" className="mb-4 text-[15px] font-semibold">
+        אירועים{years > 1 ? ` · ${years} שנים` : ''}
       </h2>
-      <ul className="space-y-4">
+      <ul>
         {shown.map((e) => {
           const Icon = iconFor(e)
           return (
-            <li key={e.id} className="flex gap-3">
-              <Icon
-                aria-hidden="true"
-                className="mt-0.5 size-5 shrink-0"
-                style={{ color: e.type === 'guidance' && e.tone ? toneColor(e.tone) : undefined }}
-              />
-              <div className="min-w-0 space-y-0.5">
-                <p className="text-sm font-medium">{e.title}</p>
-                <p dir="ltr" className="text-start text-xs text-muted-foreground tabular-nums [unicode-bidi:isolate]">
+            <li key={e.id} className="flex gap-4 pb-[22px] last:pb-0">
+              <Icon aria-hidden="true" strokeWidth={1.75} className="mt-0.5 size-[18px] shrink-0 text-[#71717a]" />
+              <div className="flex min-w-0 flex-col gap-0.5">
+                <p className="text-sm font-semibold">{e.title}</p>
+                {e.summary && <p className="text-[13px] text-[#71717a]">{e.summary}</p>}
+                <p dir="ltr" className="mt-0.5 text-start text-[11px] text-[#71717a] tabular-nums [unicode-bidi:isolate]">
                   {formatEventDate(e.date, e.date_precision)}
+                  {e.source_url && (
+                    <>
+                      {' · '}
+                      <a
+                        href={e.source_url}
+                        target="_blank"
+                        rel="noreferrer noopener"
+                        className="underline underline-offset-2 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                      >
+                        מקור
+                      </a>
+                    </>
+                  )}
                 </p>
-                {e.summary && <p className="text-[13px] text-muted-foreground">{e.summary}</p>}
-                {e.source_url && (
-                  <a
-                    href={e.source_url}
-                    target="_blank"
-                    rel="noreferrer noopener"
-                    className="inline-flex min-h-11 items-center text-[13px] underline underline-offset-2 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-                  >
-                    מקור
-                  </a>
-                )}
               </div>
             </li>
           )

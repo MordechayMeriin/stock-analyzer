@@ -10,35 +10,31 @@ function Change({ change }: { change: NonNullable<KeyMetric['change']> }) {
     <span
       dir="ltr"
       data-testid="metric-change"
-      className="inline-flex items-baseline gap-1 text-[13px] font-medium tabular-nums [unicode-bidi:isolate]"
+      className="text-start text-xs font-semibold tabular-nums [unicode-bidi:isolate]"
       style={{ color: toneColor(change.tone) }}
     >
-      <span className="text-[11px]">{ARROWS[change.direction]}</span>
-      {change.pct !== undefined && formatSignedPct(change.pct)}
+      {ARROWS[change.direction]}
+      {change.pct !== undefined && ` ${formatSignedPct(change.pct)}`}
     </span>
   )
 }
 
+/** Design A2: a two-column grid; label (12, muted), value (22/700), change (12/600, tone color). */
 export function KeyMetrics({ metrics }: { metrics: KeyMetric[] }) {
   if (metrics.length === 0) return null
   return (
-    <section aria-labelledby="metrics-heading" className="space-y-2">
-      <h2 id="metrics-heading" className="text-[15px] font-semibold">
+    <section aria-labelledby="metrics-heading">
+      <h2 id="metrics-heading" className="mb-4 text-[15px] font-semibold">
         מספרים עיקריים
       </h2>
-      <ul>
+      <ul className="grid grid-cols-2 gap-x-4 gap-y-6">
         {metrics.slice(0, MAX_METRICS).map((m) => (
-          <li
-            key={m.id}
-            className="flex min-h-[54px] items-center justify-between gap-3 border-b border-border/60 py-2 last:border-b-0"
-          >
-            <span className="text-sm">{m.label}</span>
-            <span className="flex items-baseline gap-3">
-              {m.change && <Change change={m.change} />}
-              <span dir="ltr" className="text-base font-bold tabular-nums [unicode-bidi:isolate]">
-                {formatMetricValue(lastMetricValue(m), m.format, m.currency)}
-              </span>
+          <li key={m.id} className="flex min-w-0 flex-col gap-1">
+            <span className="text-xs text-[#71717a]">{m.label}</span>
+            <span dir="ltr" className="text-start text-[22px] font-bold tabular-nums [unicode-bidi:isolate]">
+              {formatMetricValue(lastMetricValue(m), m.format, m.currency)}
             </span>
+            {m.change && <Change change={m.change} />}
           </li>
         ))}
       </ul>

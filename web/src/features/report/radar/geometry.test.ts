@@ -56,8 +56,7 @@ describe.each([3, 5, 8])('layout with %i axes', (n) => {
     expect(gridRing(n, 10)[0]).toEqual({ x: CENTER.x, y: CENTER.y - R })
   })
 
-  it('has one spoke, vertex and label per axis', () => {
-    expect(layout.spokes).toHaveLength(n)
+  it('has one vertex and label per axis', () => {
     expect(layout.vertices).toHaveLength(n)
     expect(layout.labels).toHaveLength(n)
     expect(layout.polygon.split(' ')).toHaveLength(n)
@@ -72,11 +71,10 @@ describe.each([3, 5, 8])('layout with %i axes', (n) => {
 })
 
 describe('labels', () => {
-  it('anchors the top label in the middle, right labels at start, left labels at end', () => {
-    expect(labelPlacement(0, 5)).toMatchObject({ x: 195, y: 34, anchor: 'middle', side: 'top' })
-    expect(labelPlacement(1, 5).anchor).toBe('start')
-    expect(labelPlacement(4, 5).anchor).toBe('end')
-    expect(labelPlacement(2, 5).side).toBe('bottom')
+  it('matches the design A2 label positions (name and value baselines)', () => {
+    expect(labelPlacement(0, 5)).toMatchObject({ x: 195, nameY: 31, valueY: 49 })
+    expect(labelPlacement(1, 5)).toMatchObject({ x: 324.34, nameY: 124.97, valueY: 142.97 })
+    expect(labelPlacement(2, 5)).toMatchObject({ x: 274.94, nameY: 277.03, valueY: 295.03 })
   })
 })
 
