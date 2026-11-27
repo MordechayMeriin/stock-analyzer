@@ -6,7 +6,7 @@ Peers come from `services/peers.select_peers` (exact ISIC class, IL first, order
 
 **D1 Peer matching: DECIDED, curated list with exact-class fallback (user choice, 2026-11-26).** A tracked company may carry a curated `peers` list (provider IDs, each tagged with its market). If the list exists, the benchmark uses it, grouped into market cohorts, with no limit per cohort. If there is none, it falls back to the existing exact ISIC sub-industry match from `select_peers`, run per market cohort. There is no widening to the 3-digit group. Each cohort reports its source (`curated` or `sub_industry`). The curated list lives in `server/data/companies.yaml` (the version-controlled registry). Store-added companies use the fallback. This avoids a schema migration. MLTM is seeded with Accenture, Capgemini and Sopra Steria once their provider IDs are resolved (task 1.1). Options considered:
 - A. Exact class only (current behaviour). Simple and auditable, but can return no peers or the wrong ones.
-- B. Exact class, widening to the 3-digit ISIC group for any cohort with fewer than `min_peers` (default 3). Each cohort is tagged with the level used. **Recommended.**
+- B. Exact class, widening to the 3-digit ISIC group for any cohort with fewer than `min_peers` (default 3). Each cohort is tagged with the level used. Rejected: the user chose curated plus exact class only.
 - C. A curated `peers` list per tracked ticker (for example MLTM: Accenture, Capgemini, Sopra Steria), with A or B as the fallback. The most relevant peers, but the list needs manual upkeep.
 
 Inside a cohort, ranking stays by provider ID because it is deterministic. Ranking by size would need financials for every candidate, which costs credits, so it is out of scope.
