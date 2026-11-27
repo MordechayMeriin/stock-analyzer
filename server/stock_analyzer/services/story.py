@@ -9,8 +9,8 @@ from collections.abc import Iterator
 from datetime import date
 
 from stock_analyzer.agents_model import FakeAgentModels, agent_model_factory
-from stock_analyzer.companies import resolve_ticker
 from stock_analyzer.errors import LiveModeDisabled
+from stock_analyzer.services.companies import resolve_company
 from stock_analyzer.services.context import Ctx
 from stock_analyzer.story.agents import ModelFactory
 from stock_analyzer.story.pipeline import (
@@ -25,7 +25,7 @@ from stock_analyzer.story.pipeline import (
 
 def latest(ctx: Ctx, ticker: str) -> StoryRun:
     """The latest saved story run; no LLM or provider call. ``NotCached`` when there is none."""
-    company = resolve_ticker(ctx.settings.companies_file, ticker)
+    company = resolve_company(ctx, ticker)
     return latest_run(ctx.store, company.ticker)
 
 

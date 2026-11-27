@@ -25,13 +25,13 @@ from typing import Any, Literal
 from pydantic import BaseModel
 
 from stock_analyzer.agents_model import UsageTotals, run_agent
-from stock_analyzer.companies import resolve_ticker
 from stock_analyzer.diff.align import AlignedSection, Comparison, Report, compare_business
 from stock_analyzer.errors import NotCached, StoryTooLarge, StoryVerificationFailed
 from stock_analyzer.ingest.structure import STRUCTURE_VERSION
 from stock_analyzer.services import filings as filings_service
 from stock_analyzer.services import ratios as ratios_service
 from stock_analyzer.services import reports
+from stock_analyzer.services.companies import resolve_company
 from stock_analyzer.services.context import Ctx
 from stock_analyzer.store import Store
 from stock_analyzer.story.agents import (
@@ -145,7 +145,7 @@ class PreparedStory:
 
 def prepare_story(ctx: Ctx, ticker: str, *, as_of: date | None = None) -> PreparedStory:
     """Everything up to the first LLM call; raises input errors (reports, budget) early."""
-    company = resolve_ticker(ctx.settings.companies_file, ticker)
+    company = resolve_company(ctx, ticker)
     cutoff = as_of or datetime.now(UTC).date()
     chosen = story_reports(
         filings_service.company_filings(ctx, company.ticker), cutoff, ticker=company.ticker
