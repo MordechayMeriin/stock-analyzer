@@ -411,8 +411,11 @@ def ratios_cmd(
     )
 
 
+TREND_ARROWS = {"improving": "up", "stable": "flat", "deteriorating": "down", "unclear": "?"}
+
+
 def render_osint(result) -> list[str]:
-    """Text view of an OSINT research result: labels, risks, strengths, then numbered sources."""
+    """Text view of an OSINT result: profile, key drivers, areas by importance, risks, strengths, sources."""
     from stock_analyzer.osint.models import AREA_INFO
 
     card = result.scorecard
@@ -420,17 +423,40 @@ def render_osint(result) -> list[str]:
         f"{result.ticker} — {result.company_name}",
         f"window {result.window_start} to {result.run_date} ({result.window_months} months), model {result.model}"
         + (" [stored result]" if result.from_cache else ""),
-        "",
-        f"Overall: {card.overall_label.upper()}",
-        f"  {card.overall_rationale}",
-        "",
-        "Areas:",
     ]
-    for a in card.areas:
+    if result.profile:
+        p = result.profile
+        lines.append(f"industry: {p.industry}" + (f" · regulator: {p.regulator}" if p.regulator else ""))
+        if p.business_lines:
+            lines.append(f"business lines: {', '.join(p.business_lines)}")
+        if p.controlling_shareholder:
+            lines.append(f"controlling shareholder: {p.controlling_shareholder}")
+    lines += [
+        "",
+        f"Overall: {card.overall_label.upper()} (trend {TREND_ARROWS[card.overall_trend]}: {card.overall_trend})",
+        f"  {card.overall_rationale}",
+    ]
+    if card.overall_trend_reason:
+        lines.append(f"  {card.overall_trend_reason}")
+    if card.key_drivers:
+        lines += ["", "Key drivers:"]
+        for d in card.key_drivers:
+            ids = f" [{', '.join(d.finding_ids)}]" if d.finding_ids else ""
+            lines.append(f"  {d.driver}: {d.status}{ids}")
+            if d.explanation:
+                lines.append(f"    {d.explanation}")
+    lines += ["", "Areas:"]
+    rank = {"high": 0, "medium": 1, "low": 2}
+    for a in sorted(card.areas, key=lambda a: rank[a.importance]):
         ids = f" [{', '.join(a.finding_ids)}]" if a.finding_ids else ""
-        lines.append(f"  {a.area} ({AREA_INFO[a.area][0]}): {a.label}{ids}")
+        lines.append(
+            f"  {a.area} ({AREA_INFO[a.area][0]}): {a.label} · importance {a.importance} · "
+            f"trend {TREND_ARROWS[a.trend]}{ids}"
+        )
         if a.assessment:
             lines.append(f"    {a.assessment}")
+        if a.trend_reason:
+            lines.append(f"    trend: {a.trend_reason}")
     for title, points in (("Risks", card.risks), ("Strengths", card.strengths)):
         lines += ["", f"{title}:"]
         lines += [f"  {i}. {p.text} [{', '.join(p.finding_ids)}]" for i, p in enumerate(points, 1)] or [
@@ -438,17 +464,20 @@ def render_osint(result) -> list[str]:
         ]
     lines += ["", "Summary:", f"  {card.summary_he}", "", "Sources:"]
     for f in result.findings:
-        tags = [f.area, f.signal, f.published_at or "undated"] + (
+        tags = [f.area, *f.also_areas, f.signal, f.published_at or "undated", f.verdict] + (
             ["filing-derived"] if f.derived_from_filing else []
         )
         lines.append(f"  {f.id} [{', '.join(tags)}] {f.claim}")
         lines.append(f"      {f.source_url}")
+        for other in f.also_sources:
+            lines.append(f"      also: {other.url}")
     d = result.dropped
     cost = f"${result.cost_usd:.4f}" if result.cost_usd is not None else "unknown"
     lines += [
         "",
         f"searches {result.searches_used}/{result.search_limit} · dropped: blocked {d.get('blocked', 0)}, "
-        f"not from a search {d.get('not_searched', 0)}, outside window {d.get('outside_window', 0)} · cost {cost}",
+        f"not from a search {d.get('not_searched', 0)}, outside window {d.get('outside_window', 0)}, "
+        f"not supported by source {d.get('unsupported', 0)} · duplicates merged {result.merged} · cost {cost}",
     ]
     return lines
 

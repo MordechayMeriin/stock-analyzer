@@ -333,7 +333,7 @@ export interface components {
              * Area
              * @enum {string}
              */
-            area: "news" | "market" | "credit" | "operations" | "labor_government" | "competition_macro";
+            area: "news" | "market" | "credit" | "operations" | "legal" | "regulation" | "labor_government" | "competition_macro";
             /**
              * Assessment
              * @description Hebrew, two or three sentences.
@@ -342,10 +342,26 @@ export interface components {
             /** Finding Ids */
             finding_ids: string[];
             /**
+             * Importance
+             * @description How much this area matters for stability in this industry.
+             * @enum {string}
+             */
+            importance: "high" | "medium" | "low";
+            /**
              * Label
              * @enum {string}
              */
             label: "stable" | "watch" | "fragile" | "insufficient_data";
+            /**
+             * Trend
+             * @enum {string}
+             */
+            trend: "improving" | "stable" | "deteriorating" | "unclear";
+            /**
+             * Trend Reason
+             * @description Hebrew, one sentence on the direction.
+             */
+            trend_reason: string;
         };
         /** ChangeNote */
         ChangeNote: {
@@ -425,11 +441,6 @@ export interface components {
             source: "registry" | "added";
             /** Ticker */
             ticker: string;
-        };
-        /** CompanyProfile */
-        CompanyProfile: {
-            /** Items */
-            items: components["schemas"]["ProfileItem"][];
         };
         /** CompanySearchHit */
         CompanySearchHit: {
@@ -699,11 +710,15 @@ export interface components {
         };
         /** KeptFinding */
         KeptFinding: {
+            /** Also Areas */
+            also_areas?: ("news" | "market" | "credit" | "operations" | "legal" | "regulation" | "labor_government" | "competition_macro")[];
+            /** Also Sources */
+            also_sources?: components["schemas"]["SourceRef"][];
             /**
              * Area
              * @enum {string}
              */
-            area: "news" | "market" | "credit" | "operations" | "labor_government" | "competition_macro";
+            area: "news" | "market" | "credit" | "operations" | "legal" | "regulation" | "labor_government" | "competition_macro";
             /**
              * Claim
              * @description One factual statement, in English or Hebrew.
@@ -739,6 +754,32 @@ export interface components {
              * @description Exact URL of a web_search result that supports the claim.
              */
             source_url: string;
+            /**
+             * Verdict
+             * @default unverified
+             * @enum {string}
+             */
+            verdict: "supported" | "partial" | "unverified";
+        };
+        /** KeyDriver */
+        KeyDriver: {
+            /**
+             * Driver
+             * @description A key driver of stability for this industry.
+             */
+            driver: string;
+            /**
+             * Explanation
+             * @description Hebrew, one or two sentences.
+             */
+            explanation: string;
+            /** Finding Ids */
+            finding_ids: string[];
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "positive" | "negative" | "mixed" | "unknown";
         };
         /** ManagementClaim */
         ManagementClaim: {
@@ -817,7 +858,7 @@ export interface components {
          */
         OsintProgress: {
             /** Area */
-            area?: ("news" | "market" | "credit" | "operations" | "labor_government" | "competition_macro") | null;
+            area?: ("news" | "market" | "credit" | "operations" | "legal" | "regulation" | "labor_government" | "competition_macro") | null;
             /** Query */
             query?: string | null;
             /** Search Limit */
@@ -1118,8 +1159,14 @@ export interface components {
              * @default false
              */
             from_cache: boolean;
+            /**
+             * Merged
+             * @default 0
+             */
+            merged: number;
             /** Model */
             model: string;
+            profile?: components["schemas"]["stock_analyzer__osint__models__CompanyProfile"] | null;
             /**
              * Run Date
              * Format: date
@@ -1145,6 +1192,11 @@ export interface components {
             /** Areas */
             areas: components["schemas"]["AreaAssessment"][];
             /**
+             * Key Drivers
+             * @description One entry per key driver of the industry.
+             */
+            key_drivers: components["schemas"]["KeyDriver"][];
+            /**
              * Overall Label
              * @enum {string}
              */
@@ -1154,6 +1206,16 @@ export interface components {
              * @description Hebrew, two or three sentences.
              */
             overall_rationale: string;
+            /**
+             * Overall Trend
+             * @enum {string}
+             */
+            overall_trend: "improving" | "stable" | "deteriorating" | "unclear";
+            /**
+             * Overall Trend Reason
+             * @description Hebrew, one sentence on the overall direction.
+             */
+            overall_trend_reason: string;
             /**
              * Risks
              * @description Top three risks, most important first.
@@ -1188,6 +1250,13 @@ export interface components {
              * @enum {string}
              */
             type: "text" | "fact" | "caveat";
+        };
+        /** SourceRef */
+        SourceRef: {
+            /** Title */
+            title: string;
+            /** Url */
+            url: string;
         };
         /** StorageHealth */
         StorageHealth: {
@@ -1309,7 +1378,7 @@ export interface components {
             models: {
                 [key: string]: string;
             };
-            profile: components["schemas"]["CompanyProfile"] | null;
+            profile: components["schemas"]["stock_analyzer__story__agents__CompanyProfile"] | null;
             /** Prompt Hashes */
             prompt_hashes: {
                 [key: string]: string;
@@ -1422,6 +1491,47 @@ export interface components {
             rule: number;
             /** Where */
             where: string;
+        };
+        /**
+         * CompanyProfile
+         * @description What the orchestrator learns about the company before briefing the specialists (design D2).
+         */
+        stock_analyzer__osint__models__CompanyProfile: {
+            /**
+             * Business Lines
+             * @description Main business lines or segments.
+             */
+            business_lines: string[];
+            /**
+             * Competitors
+             * @description Main competitors.
+             */
+            competitors: string[];
+            /**
+             * Controlling Shareholder
+             * @description Controlling shareholder, or null if none or unknown.
+             */
+            controlling_shareholder: string | null;
+            /**
+             * Industry
+             * @description The company's industry, in a few words.
+             */
+            industry: string;
+            /**
+             * Key Drivers
+             * @description Three to six short phrases: what decides stability for a company in this industry.
+             */
+            key_drivers: string[];
+            /**
+             * Regulator
+             * @description Main regulator, or null if none or unknown.
+             */
+            regulator: string | null;
+        };
+        /** CompanyProfile */
+        stock_analyzer__story__agents__CompanyProfile: {
+            /** Items */
+            items: components["schemas"]["ProfileItem"][];
         };
     };
     responses: never;

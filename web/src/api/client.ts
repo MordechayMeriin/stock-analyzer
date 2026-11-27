@@ -39,6 +39,9 @@ export type OsintPoint = Schemas['Point']
 export type OsintProgress = Schemas['OsintProgress']
 export type OsintLabel = Schemas['AreaAssessment']['label']
 export type OsintArea = Schemas['AreaAssessment']['area']
+export type OsintTrend = Schemas['AreaAssessment']['trend']
+export type OsintImportance = Schemas['AreaAssessment']['importance']
+export type OsintDriver = Schemas['KeyDriver']
 
 /** An API failure carrying the server's machine-readable code. */
 export class ApiError extends Error {

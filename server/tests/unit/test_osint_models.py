@@ -5,7 +5,17 @@ from __future__ import annotations
 import pytest
 
 from stock_analyzer.osint.blocklist import load_blocklist
-from stock_analyzer.osint.models import AREAS, AreaReport, Finding, Scorecard, normalize_url
+from stock_analyzer.osint.models import (
+    AREAS,
+    AreaReport,
+    CompanyProfile,
+    DuplicateGroups,
+    Finding,
+    ResearchResult,
+    Scorecard,
+    VerdictBatch,
+    normalize_url,
+)
 
 # ---------------------------------------------------------------- block-list
 
@@ -103,18 +113,34 @@ def test_agent_output_models_validate_sample_json():
         {
             "overall_label": "watch",
             "overall_rationale": "x",
-            "areas": [{"area": a, "label": "stable", "assessment": "x", "finding_ids": []} for a in AREAS],
+            "overall_trend": "stable",
+            "overall_trend_reason": "x",
+            "key_drivers": [
+                {"driver": "demand", "status": "positive", "explanation": "x", "finding_ids": ["F1"]}
+            ],
+            "areas": [
+                {
+                    "area": a,
+                    "label": "stable",
+                    "importance": "high",
+                    "assessment": "x",
+                    "trend": "stable",
+                    "trend_reason": "x",
+                    "finding_ids": [],
+                }
+                for a in AREAS
+            ],
             "risks": [{"text": "x", "finding_ids": ["F1"]}],
             "strengths": [],
             "summary_he": "סיכום",
         }
     )
-    assert len(card.areas) == 6
+    assert len(card.areas) == len(AREAS)
 
 
 def test_agent_output_models_have_no_defaults():
     # strict JSON schemas sent by the SDK must mark every field required
-    for model in (Finding, AreaReport, Scorecard):
+    for model in (Finding, AreaReport, Scorecard, CompanyProfile, VerdictBatch, DuplicateGroups):
         schema = model.model_json_schema()
         assert set(schema["required"]) == set(schema["properties"]), model.__name__
 
@@ -122,3 +148,48 @@ def test_agent_output_models_have_no_defaults():
 def test_normalize_url():
     assert normalize_url("HTTPS://Example.COM/Path/#frag") == "https://example.com/Path"
     assert normalize_url("https://example.com/") == normalize_url("https://example.com")
+
+
+def test_result_stored_before_the_change_still_loads():
+    """Shape of the first live ELAL result: no trends, importance, drivers, verdicts, profile or merged."""
+    old = {
+        "ticker": "ELAL",
+        "company_name": "El Al Israel Airlines Ltd.",
+        "run_date": "2026-11-26",
+        "window_months": 36,
+        "window_start": "2023-11-26",
+        "model": "openai/gpt-6.1-sol",
+        "scorecard": {
+            "overall_label": "watch",
+            "overall_rationale": "r",
+            "areas": [{"area": a, "label": "watch", "assessment": "a", "finding_ids": ["F1"]} for a in AREAS],
+            "risks": [{"text": "r", "finding_ids": ["F1"]}],
+            "strengths": [],
+            "summary_he": "s",
+        },
+        "findings": [
+            {
+                "id": "F1",
+                "area": "news",
+                "claim": "c",
+                "signal": "negative",
+                "confidence": "high",
+                "source_url": "https://www.globes.co.il/a",
+                "source_title": "t",
+                "published_at": "2026-11-01",
+                "derived_from_filing": False,
+            }
+        ],
+        "dropped": {"blocked": 0, "not_searched": 0, "outside_window": 0},
+        "searches_used": 40,
+        "search_limit": 40,
+        "cost_usd": 0.96,
+    }
+    r = ResearchResult.model_validate(old)
+    assert r.scorecard.overall_trend == "unclear" and r.scorecard.key_drivers == []
+    assert {a.importance for a in r.scorecard.areas} == {"medium"}
+    assert {a.trend for a in r.scorecard.areas} == {"unclear"}
+    assert r.findings[0].verdict == "unverified" and r.findings[0].also_sources == []
+    assert r.profile is None and r.merged == 0
+    # and it round-trips once loaded
+    assert ResearchResult.model_validate_json(r.model_dump_json()) == r
