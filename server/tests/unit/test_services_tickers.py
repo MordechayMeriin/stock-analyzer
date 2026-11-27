@@ -63,7 +63,7 @@ def test_tracked_first_with_hebrew_name(ctx):
     assert res[0].tracked and res[0].name_he == "מלם תים" and res[0].fr_company_id == 6901
     assert not res[1].tracked and res[1].name_he == 'מלם מערכות בע"מ' and res[1].name_en is None
     english = tickers.search(ctx, "elbit").results[0]
-    assert english.name_en == "Elbit Systems Ltd." and english.name_he == "Elbit Systems Ltd."
+    assert english.name_en == "Elbit Systems Ltd." and english.name_he == "אלביט מערכות"  # TASE's name
 
 
 def test_normalisation(ctx):
@@ -135,3 +135,16 @@ def test_cli_refresh_refused_when_live_disabled(tmp_path, monkeypatch):
     r = CliRunner().invoke(cli_app, ["companies", "directory"])
     assert r.exit_code == 0 and "0 companies" in r.output
     reset_settings_cache()
+
+
+def test_security_number_from_israeli_isin():
+    assert tickers.security_number("IL0006290147") == 629014  # Teva
+    assert tickers.security_number("US8816242098") is None
+    assert tickers.security_number(None) is None
+
+
+def test_hebrew_tase_name_is_searchable(ctx):
+    # Elbit Systems' ISIN carries TASE security number 1081124, listed as "אלביט מערכות".
+    hit = tickers.search(ctx, "אלביט").results[0]
+    assert (hit.ticker, hit.name_he, hit.name_en) == ("ESLT", "אלביט מערכות", "Elbit Systems Ltd.")
+    assert tickers.search(ctx, "מערכות").results[0].ticker == "ESLT"  # a word inside the name
