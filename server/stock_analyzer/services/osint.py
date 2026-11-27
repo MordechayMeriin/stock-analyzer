@@ -40,9 +40,9 @@ def cache_key(ticker: str, months: int, *, fake: bool = False) -> str:
     return f"{prefix}:{ticker.upper()}:{months}m:latest"
 
 
-def cached_result(ctx: Ctx, ticker: str, months: int) -> ResearchResult | None:
-    """The latest stored result for this ticker and window, if any."""
-    key = cache_key(ticker, months, fake=ctx.settings.llm_fake)
+def cached_result(ctx: Ctx, ticker: str, months: int, *, fake: bool | None = None) -> ResearchResult | None:
+    """The latest stored result for this ticker and window, if any. ``fake`` defaults to LLM_FAKE."""
+    key = cache_key(ticker, months, fake=ctx.settings.llm_fake if fake is None else fake)
     raw = ctx.store.cache("llm").get(key)
     if raw is None:
         return None
@@ -51,13 +51,15 @@ def cached_result(ctx: Ctx, ticker: str, months: int) -> ResearchResult | None:
     return result
 
 
-def stored_result(ctx: Ctx, ticker: str, months: int | None = None) -> ResearchResult:
+def stored_result(
+    ctx: Ctx, ticker: str, months: int | None = None, *, fake: bool | None = None
+) -> ResearchResult:
     """The latest stored result for a tracked company, never calling a provider (API GET, design D1)."""
     months = months or ctx.settings.osint_window_months
     if months < 1:
         raise ValueError("months must be at least 1")
     ticker = resolve_company(ctx, ticker).ticker
-    if (stored := cached_result(ctx, ticker, months)) is None:
+    if (stored := cached_result(ctx, ticker, months, fake=fake)) is None:
         raise NotCached(
             f"no stored OSINT result for {ticker} ({months} months); run a live research to create one"
         )

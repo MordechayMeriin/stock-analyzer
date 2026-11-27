@@ -1,6 +1,6 @@
-import { useQuery } from '@tanstack/react-query'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { Search } from 'lucide-react'
-import { useId, useMemo, useState, type KeyboardEvent } from 'react'
+import { useEffect, useId, useMemo, useState, type KeyboardEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import { api } from '@/api/client'
@@ -8,9 +8,19 @@ import { useMode } from '@/app/mode'
 import { cn } from '@/lib/utils'
 
 import { FIXTURE_COMPANIES } from '../queries'
-import { matchCompanies, mergeEntries, MIN_QUERY, type SearchEntry } from './match'
+import { matchCompanies, MAX_RESULTS, mergeEntries, MIN_QUERY, type SearchEntry } from './match'
 
 const FIXTURE_ENTRIES: SearchEntry[] = FIXTURE_COMPANIES.map((c) => ({ ...c, hasReport: true }))
+const DEBOUNCE_MS = 150
+
+function useDebounced<T>(value: T, ms: number): T {
+  const [debounced, setDebounced] = useState(value)
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(value), ms)
+    return () => clearTimeout(t)
+  }, [value, ms])
+  return debounced
+}
 
 /** Search (/c): one field, suggestions under it, Enter or click opens /c/:ticker. */
 export function SearchPage() {
@@ -20,7 +30,17 @@ export function SearchPage() {
   const [query, setQuery] = useState('')
   const [active, setActive] = useState(0)
 
-  // Tracked companies come from the store: free. Search never calls the paid provider.
+  // Every TASE company, searched on the server from its stored directory: free, no provider call.
+  const q = useDebounced(query.trim(), DEBOUNCE_MS)
+  const remote = useQuery({
+    queryKey: ['tickers', q, mode],
+    queryFn: ({ signal }) => api.tickers(q, mode, MAX_RESULTS, signal),
+    enabled: q.length >= MIN_QUERY,
+    placeholderData: keepPreviousData,
+    staleTime: 5 * 60_000,
+    retry: false,
+  })
+  // Fallback when the server is unreachable: tracked companies and fixtures, matched here.
   const tracked = useQuery({
     queryKey: ['companies', mode],
     queryFn: ({ signal }) => api.companies(mode, signal),
@@ -39,11 +59,23 @@ export function SearchPage() {
       ),
     [tracked.data],
   )
-  const results = useMemo(() => matchCompanies(entries, query), [entries, query])
+  const results = useMemo(() => {
+    const local = matchCompanies(entries, query)
+    if (!remote.data || remote.isError) return local
+    const server: SearchEntry[] = remote.data.results.map((h) => ({
+      ticker: h.ticker,
+      name_he: h.name_he,
+      name_en: h.name_en ?? null,
+      hasReport: h.tracked,
+    }))
+    // Server ranking first; the dev fixtures (SPARSE) after it.
+    return mergeEntries(server, matchCompanies(FIXTURE_ENTRIES, query)).slice(0, MAX_RESULTS)
+  }, [entries, query, remote.data, remote.isError])
   const open = query.trim().length >= MIN_QUERY
   const current = Math.min(active, Math.max(results.length - 1, 0))
 
-  const choose = (e: SearchEntry) => navigate(`/c/${encodeURIComponent(e.ticker)}`)
+  // Only tracked companies have stored data; the others are listed but can't be opened yet.
+  const choose = (e: SearchEntry) => e.hasReport && navigate(`/c/${encodeURIComponent(e.ticker)}`)
 
   const onKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'ArrowDown' && results.length) {
@@ -95,16 +127,20 @@ export function SearchPage() {
               id={`${listId}-${i}`}
               role="option"
               aria-selected={i === current}
+              aria-disabled={!r.hasReport || undefined}
               onMouseEnter={() => setActive(i)}
               onClick={() => choose(r)}
               className={cn(
-                'flex min-h-[54px] cursor-pointer items-center justify-between gap-3 px-2',
+                'flex min-h-[54px] items-center justify-between gap-3 px-2',
+                r.hasReport ? 'cursor-pointer' : 'cursor-default text-muted-foreground',
                 i === current && 'bg-muted',
               )}
             >
               <span className="min-w-0">
-                <span className="block truncate font-medium">{r.name_he}</span>
-                {r.name_en && (
+                <span className="block truncate font-medium">
+                  <bdi>{r.name_he}</bdi>
+                </span>
+                {r.name_en && r.name_en !== r.name_he && (
                   <span dir="ltr" className="block truncate text-start text-[13px] text-muted-foreground">
                     {r.name_en}
                   </span>

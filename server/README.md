@@ -225,6 +225,17 @@ uv run stock-analyzer companies remove ABC          # cached reports and financi
 `add` and `remove` run in live mode (refused when `ALLOW_LIVE=false`), and nothing is fetched on
 add. Get the provider id from `GET /api/companies/search?q=<name>` or the client's search.
 
+#### Ticker directory
+
+`GET /api/tickers?q=` (autocomplete) searches a stored directory of every TASE-listed company plus the
+tracked ones. It is free and cached-only: it never calls the provider, even with `mode=live`. The directory
+is fetched once by an explicit command; it costs about 1 credit per 100 companies (~6 credits for TASE):
+
+```bash
+uv run stock-analyzer companies directory              # stored size and fetched_at (free)
+uv run stock-analyzer companies directory --refresh    # live: re-fetch the listing (spends credits)
+```
+
 ## API
 
 ```bash

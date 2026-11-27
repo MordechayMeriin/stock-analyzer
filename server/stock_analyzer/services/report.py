@@ -307,10 +307,14 @@ def events_from(result: ResearchResult, today: date) -> list[ReportEvent]:
 
 
 def stored_events(ctx: Ctx, ticker: str, today: date) -> list[ReportEvent]:
-    try:
-        return events_from(osint.stored_result(ctx, ticker), today)
-    except AnalyzerError:  # no stored OSINT result (or none readable): the report has no events
-        return []
+    # A real stored result first, even on an LLM_FAKE server: reading one costs nothing, and the
+    # fake prefix only keeps fake results from being shown as real, not the other way round.
+    for fake in dict.fromkeys((False, ctx.settings.llm_fake)):
+        try:
+            return events_from(osint.stored_result(ctx, ticker, fake=fake), today)
+        except AnalyzerError:  # none stored (or unreadable) under this key
+            continue
+    return []
 
 
 # -- the report ---------------------------------------------------------------------------------------

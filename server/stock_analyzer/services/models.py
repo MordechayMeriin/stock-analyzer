@@ -55,6 +55,26 @@ class CompanySearchHit(BaseModel):
     tracked_ticker: str | None = None  # set when the hit is in the tracked registry
 
 
+class TickerHit(BaseModel):
+    ticker: str
+    name_he: str
+    name_en: str | None = None
+    fr_company_id: int | None = None
+    isin: str | None = None
+    tracked: bool = False
+
+
+class TickerDirectoryInfo(BaseModel):
+    size: int
+    fetched_at: str | None = None
+    source: Literal["directory", "tracked_only"]
+
+
+class TickerSearchOut(BaseModel):
+    results: list[TickerHit]
+    directory: TickerDirectoryInfo
+
+
 class FilingOut(BaseModel):
     filing_id: int
     title: str

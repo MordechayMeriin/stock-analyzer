@@ -4163,6 +4163,115 @@
         "title": "StructureOut",
         "type": "object"
       },
+      "TickerDirectoryInfo": {
+        "properties": {
+          "fetched_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fetched At"
+          },
+          "size": {
+            "title": "Size",
+            "type": "integer"
+          },
+          "source": {
+            "enum": [
+              "directory",
+              "tracked_only"
+            ],
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "size",
+          "source"
+        ],
+        "title": "TickerDirectoryInfo",
+        "type": "object"
+      },
+      "TickerHit": {
+        "properties": {
+          "fr_company_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fr Company Id"
+          },
+          "isin": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Isin"
+          },
+          "name_en": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name En"
+          },
+          "name_he": {
+            "title": "Name He",
+            "type": "string"
+          },
+          "ticker": {
+            "title": "Ticker",
+            "type": "string"
+          },
+          "tracked": {
+            "default": false,
+            "title": "Tracked",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "ticker",
+          "name_he"
+        ],
+        "title": "TickerHit",
+        "type": "object"
+      },
+      "TickerSearchOut": {
+        "properties": {
+          "directory": {
+            "$ref": "#/components/schemas/TickerDirectoryInfo"
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/TickerHit"
+            },
+            "title": "Results",
+            "type": "array"
+          }
+        },
+        "required": [
+          "results",
+          "directory"
+        ],
+        "title": "TickerSearchOut",
+        "type": "object"
+      },
       "TocEntryOut": {
         "properties": {
           "matched_node": {
@@ -5824,6 +5933,81 @@
         "summary": "Ask the main LLM about a report section (streamed)",
         "tags": [
           "playground"
+        ]
+      }
+    },
+    "/api/tickers": {
+      "get": {
+        "description": "Searches the stored directory of TASE-listed companies plus the tracked companies. Free: it reads stored data only and never calls the provider, even with `mode=live`, so the client may call it on every keystroke. Without a stored directory only tracked companies are found (`directory.source` is `tracked_only`). The directory is filled by `stock-analyzer companies directory --refresh` (CLI, spends credits).",
+        "operationId": "search_tickers_api_tickers_get",
+        "parameters": [
+          {
+            "description": "Ticker or name text",
+            "in": "query",
+            "name": "q",
+            "required": true,
+            "schema": {
+              "description": "Ticker or name text",
+              "maxLength": 60,
+              "minLength": 1,
+              "title": "Q",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 8,
+              "maximum": 20,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "cached: local data only, no provider calls. live: fetch what is missing (if the server allows).",
+            "in": "query",
+            "name": "mode",
+            "required": false,
+            "schema": {
+              "default": "cached",
+              "description": "cached: local data only, no provider calls. live: fetch what is missing (if the server allows).",
+              "enum": [
+                "cached",
+                "live"
+              ],
+              "title": "Mode",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TickerSearchOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Ticker autocomplete (free, cached-only)",
+        "tags": [
+          "tickers"
         ]
       }
     },

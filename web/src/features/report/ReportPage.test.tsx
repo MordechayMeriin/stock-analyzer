@@ -81,12 +81,13 @@ describe('ReportPage with MLTM', () => {
 })
 
 describe('ReportPage edge states', () => {
-  it('SPARSE: no radar, no-data row, no events, stale line', async () => {
+  it('SPARSE: no radar, no-data row, an empty events note, stale line', async () => {
     renderAt('/c/SPARSE')
     await screen.findByRole('heading', { name: 'מלם תים' })
     expect(screen.queryByRole('img')).toBeNull()
     expect(screen.getByText('אין מספיק נתונים')).toBeTruthy()
-    expect(screen.queryByRole('heading', { name: 'אירועים' })).toBeNull()
+    expect(screen.getByRole('heading', { name: /אירועים/ })).toBeTruthy()
+    expect(screen.getByTestId('events-empty').textContent).toContain('עדיין לא נאספו אירועים')
     expect(screen.getByText(/נכון ל-/)).toBeTruthy()
     expect(within(screen.getByText('חוב נטו').closest('li')!).queryByTestId('metric-change')).toBeNull()
   })

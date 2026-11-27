@@ -176,3 +176,17 @@ def test_events_from_stored_osint_result():
     assert events[0].type == "financing" and events[0].importance == 1 and events[0].tone == "negative"
     assert events[1].date_precision == "day" and events[1].importance == 3 and events[1].type == "other"
     assert len(events[1].summary) <= 80 and events[1].summary.endswith("…")
+
+
+def test_stored_events_reads_real_research_on_a_fake_llm_server(settings):
+    from stock_analyzer.services import osint
+
+    fake_settings = settings.model_copy(update={"llm_fake": True})
+    seed_malam(fake_settings)
+    ctx = Ctx(fake_settings)
+    try:
+        result = osint_result([finding(1, "2026-03-25")])
+        ctx.store.cache("llm").set(osint.cache_key("MLTM", 36), result.model_dump(mode="json"))
+        assert [e.id for e in report.stored_events(ctx, "MLTM", TODAY)] == ["ev-f1"]
+    finally:
+        ctx.close()

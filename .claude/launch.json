@@ -26,6 +26,8 @@
         "server",
         "run",
         "--env-file",
+        "../.env",
+        "--env-file",
         ".env.demo",
         "uvicorn",
         "stock_analyzer.api.main:app",

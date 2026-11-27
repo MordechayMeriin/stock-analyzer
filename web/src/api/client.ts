@@ -45,6 +45,8 @@ export type OsintTrend = Schemas['AreaAssessment']['trend']
 export type OsintImportance = Schemas['AreaAssessment']['importance']
 export type OsintDriver = Schemas['KeyDriver']
 export type CompanyReportOut = Schemas['CompanyReportOut']
+export type TickerSearch = Schemas['TickerSearchOut']
+export type TickerHit = Schemas['TickerHit']
 export type AxisDetailOut = Schemas['AxisDetailOut']
 
 /** An API failure carrying the server's machine-readable code. */
@@ -112,6 +114,9 @@ const enc = encodeURIComponent
 export const api = {
   health: (signal?: AbortSignal) => get<Health>('/health', undefined, signal),
   companies: (mode: Mode, signal?: AbortSignal) => get<Company[]>('/api/companies', { mode }, signal),
+  /** Autocomplete over every TASE company in the server's stored directory. Free: no provider call. */
+  tickers: (q: string, mode: Mode, limit?: number, signal?: AbortSignal) =>
+    get<TickerSearch>('/api/tickers', { q, mode, limit }, signal),
   searchCompanies: (q: string, mode: Mode, signal?: AbortSignal) =>
     get<CompanySearchHit[]>('/api/companies/search', { q, mode }, signal),
   /** Start tracking a company. Live mode only (the server refuses it in cached mode). */

@@ -314,6 +314,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/tickers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Ticker autocomplete (free, cached-only)
+         * @description Searches the stored directory of TASE-listed companies plus the tracked companies. Free: it reads stored data only and never calls the provider, even with `mode=live`, so the client may call it on every keystroke. Without a stored directory only tracked companies are found (`directory.source` is `tracked_only`). The directory is filled by `stock-analyzer companies directory --refresh` (CLI, spends credits).
+         */
+        get: operations["search_tickers_api_tickers_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/usage": {
         parameters: {
             query?: never;
@@ -1889,6 +1909,42 @@ export interface components {
             /** Warnings */
             warnings: string[];
         };
+        /** TickerDirectoryInfo */
+        TickerDirectoryInfo: {
+            /** Fetched At */
+            fetched_at?: string | null;
+            /** Size */
+            size: number;
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "directory" | "tracked_only";
+        };
+        /** TickerHit */
+        TickerHit: {
+            /** Fr Company Id */
+            fr_company_id?: number | null;
+            /** Isin */
+            isin?: string | null;
+            /** Name En */
+            name_en?: string | null;
+            /** Name He */
+            name_he: string;
+            /** Ticker */
+            ticker: string;
+            /**
+             * Tracked
+             * @default false
+             */
+            tracked: boolean;
+        };
+        /** TickerSearchOut */
+        TickerSearchOut: {
+            directory: components["schemas"]["TickerDirectoryInfo"];
+            /** Results */
+            results: components["schemas"]["TickerHit"][];
+        };
         /** TocEntryOut */
         TocEntryOut: {
             /** Matched Node */
@@ -2723,6 +2779,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PlaygroundEvents"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    search_tickers_api_tickers_get: {
+        parameters: {
+            query: {
+                /** @description Ticker or name text */
+                q: string;
+                limit?: number;
+                /** @description cached: local data only, no provider calls. live: fetch what is missing (if the server allows). */
+                mode?: "cached" | "live";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TickerSearchOut"];
                 };
             };
             /** @description Validation Error */
